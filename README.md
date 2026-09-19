@@ -17,9 +17,12 @@
 
 その後、Pythonによる市場データ取得、特徴量生成、予測、バックテストを段階的に追加します。
 
-## 仕様
+Android APKに加えて、同じ予報データを表示するWeb版をGitHub Pagesで公開し、iOS / Windows / Androidブラウザからも確認できる構成を目指します。
 
-詳細は [docs/market-weather-spec.md](docs/market-weather-spec.md) を参照してください。
+## ドキュメント
+
+- [開発仕様](docs/market-weather-spec.md)
+- [TODO / 開発・検証タスク](docs/TODO.md)
 
 ## 初期技術構成
 
@@ -29,6 +32,7 @@
 - Python
 - GitHub Actions
 - Gradle Wrapper
+- GitHub Pages
 
 ## 初期対象
 
