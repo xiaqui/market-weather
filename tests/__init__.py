@@ -1,0 +1,1 @@
+"""Market Weather test suite."""

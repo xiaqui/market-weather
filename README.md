@@ -17,6 +17,11 @@
 
 その後、Pythonによる市場データ取得、特徴量生成、予測、バックテストを段階的に追加します。
 
+現在値は `python scripts/fetch_market_data.py` で Yahoo Finance のキー不要な Chart API
+から取得し、正本である `shared/forecast.json` の `current` を更新します。続けて
+`python scripts/sync_forecast.py` を実行すると Android / Web の配布用JSONへ反映されます。
+予測値（上昇確率、予想レンジ、信頼度、天気、リスク）は現時点では固定値です。
+
 Android APKに加えて、同じ予報データを表示するWeb版をGitHub Pagesで公開し、iOS / Windows / Androidブラウザからも確認できる構成を目指します。
 
 ## ドキュメント
