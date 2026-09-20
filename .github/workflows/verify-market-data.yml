@@ -1,0 +1,54 @@
+name: Verify Market Data
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "実データ現在値取得"
+    paths:
+      - ".github/workflows/verify-market-data.yml"
+      - "scripts/fetch_market_data.py"
+      - "scripts/sync_forecast.py"
+      - "shared/forecast.json"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch live market data
+        run: python scripts/fetch_market_data.py
+
+      - name: Sync forecast copies
+        run: python scripts/sync_forecast.py
+
+      - name: Show fetched current values
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(Path("shared/forecast.json").read_text(encoding="utf-8"))
+          print("generated_at:", data["generated_at"])
+          for market in data["markets"]:
+              print(f'{market["id"]}: {market["current"]}')
+          PY
+
+      - name: Check generated copies
+        run: |
+          cmp shared/forecast.json android/app/src/main/assets/forecast.json
+          cmp shared/forecast.json android/app/src/test/resources/forecast.json
+          cmp shared/forecast.json web/forecast.json
+
+      - name: Check diff formatting
+        run: git diff --check
