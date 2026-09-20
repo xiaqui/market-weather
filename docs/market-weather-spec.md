@@ -233,6 +233,15 @@ app/src/main/assets/
 
 市場データ取得 → 特徴量生成 → モデル学習 → 翌営業日予測 → forecast.json生成 → Android APKビルド
 
+### 12.1 現在値の最小取得
+
+`scripts/fetch_market_data.py` は Yahoo Finance Chart API（APIキー不要）から
+日経平均（`^N225`）、NYダウ（`^DJI`）、USD/JPY（`JPY=X`）、金先物（`GC=F`）の
+`regularMarketPrice` を取得する。全4市場の取得に成功した場合だけ、正本の
+`shared/forecast.json` の `current` と `generated_at` を更新する。予測関連フィールドは変更しない。
+
+更新後は `scripts/sync_forecast.py` で Android / Web の配布用JSONへ同期する。
+
 ## 13. Android技術構成
 
 - Kotlin

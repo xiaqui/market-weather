@@ -101,6 +101,8 @@ Termux内でAPKを仮想実行するのではなく、Androidホスト側との�
 ## P1: データ・予測基盤
 
 ### 市場データ取得
+- [x] APIキー不要の Yahoo Finance Chart API から4市場の現在値を取得
+- [x] `shared/forecast.json` の現在値を Android / Web へ同期
 - [ ] データ取得元を1つに固定せずProvider化
 - [ ] 日経平均 / NYダウ / USDJPY / GOLD の日足取得
 - [ ] タイムゾーン差と市場休場日を整理
