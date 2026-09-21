@@ -52,6 +52,10 @@ normal、2.5%未満: caution、それ以上: storm）から決定論的に決め
 方向正解率とサンプル数も市場別に表示します。これは検証可能な初期モデルであり、
 将来の高い予測精度を示すものではありません。
 
+非重複期間で再現性を確認するフェーズ2レポートは
+`python scripts/validate_phase2.py`で`reports/phase2-validation.json`へ生成できます。
+最新252セッションはDiscovery、それ以前の最大4区間はValidationとして明確に分離されます。
+
 Android APKに加えて、同じ予報データを表示するWeb版をGitHub Pagesで公開し、iOS / Windows / Androidブラウザからも確認できる構成を目指します。
 
 ## ドキュメント
