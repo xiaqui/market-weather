@@ -1,10 +1,24 @@
 import unittest
+from datetime import datetime
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 from scripts import fetch_market_data as market_data
 
 
 class BacktestRegressionTest(unittest.TestCase):
+    @staticmethod
+    def market_rows(last_index=29, growth=0.0, missing=()):
+        rows = []
+        close = 100.0
+        for index in range(last_index + 1):
+            if index in missing:
+                continue
+            close *= 1 + growth
+            timestamp = 1_700_000_000 + index * 86_400
+            rows.append(market_data.Candle(timestamp, close, close, close, close, None))
+        return rows
+
     def test_in_progress_daily_candle_is_excluded(self) -> None:
         session_start = 2_000_000
         completed_timestamps = list(range(1, 22))
@@ -63,14 +77,14 @@ class BacktestRegressionTest(unittest.TestCase):
         # A future, extreme row must not affect the state at timestamp 3700.
         histories["gold"].append(market_data.Candle(9999, 9999, 9999, 9999, 9999, None))
 
-        state = market_data.weather_map_at(histories, 3700)
+        state = market_data.weather_map_at(histories, 3700, "nikkei")
         truncated = {
             market: [row for row in values if row.timestamp <= 3700]
             for market, values in histories.items()
         }
 
         self.assertIsNotNone(state)
-        self.assertEqual(state.vector, market_data.build_weather_map_vector(truncated))
+        self.assertEqual(state.vector[:26], market_data.build_weather_map_vector(truncated))
 
     def test_analog_search_never_uses_future_state_or_unavailable_outcome(self) -> None:
         target = [market_data.Candle(index, 100 + index, 100 + index, 100 + index,
@@ -83,6 +97,129 @@ class BacktestRegressionTest(unittest.TestCase):
 
         self.assertIsNotNone(result)
         self.assertTrue(all(timestamp < current.timestamp for timestamp, _ in result.nearest))
+
+    def test_each_historical_session_uses_its_own_normal_or_early_close(self) -> None:
+        ny = ZoneInfo("America/New_York")
+        normal_label = int(datetime(2025, 11, 26, 9, 30, tzinfo=ny).timestamp())
+        early_label = int(datetime(2025, 11, 28, 9, 30, tzinfo=ny).timestamp())
+
+        normal = datetime.fromtimestamp(
+            market_data.session_close_timestamp("^DJI", normal_label), ny
+        )
+        early = datetime.fromtimestamp(
+            market_data.session_close_timestamp("^DJI", early_label), ny
+        )
+
+        self.assertEqual((normal.hour, normal.minute), (16, 0))
+        self.assertEqual((early.hour, early.minute), (13, 0))
+
+    def test_current_session_end_is_not_reused_for_historical_rows(self) -> None:
+        ny = ZoneInfo("America/New_York")
+        labels = [
+            int(datetime(2025, 10, day, 9, 30, tzinfo=ny).timestamp())
+            for day in range(1, 22)
+        ]
+        today_start = int(datetime(2025, 11, 28, 9, 30, tzinfo=ny).timestamp())
+        today_end = int(datetime(2025, 11, 28, 13, 0, tzinfo=ny).timestamp())
+        payload = {"chart": {"result": [{
+            "meta": {
+                "exchangeTimezoneName": "America/New_York",
+                "currentTradingPeriod": {"regular": {
+                    "start": today_start, "end": today_end,
+                }},
+            },
+            "timestamp": labels,
+            "indicators": {"quote": [{
+                "open": [100.0] * 21, "high": [101.0] * 21,
+                "low": [99.0] * 21, "close": [100.0] * 21,
+                "volume": [1000] * 21,
+            }]},
+        }]}}
+
+        parsed = market_data.parse_history(payload, "^DJI", now_timestamp=today_end + 1)
+
+        closes = [datetime.fromtimestamp(row.timestamp, ny).hour for row in parsed]
+        self.assertEqual(closes, [16] * 21)
+
+    def test_target_snapshot_excludes_us_close_after_tokyo_clock(self) -> None:
+        histories = {
+            market: self.market_rows() for market in market_data.MARKET_ORDER
+        }
+        tokyo_clock = histories["nikkei"][-1].timestamp
+        future_us = market_data.Candle(
+            tokyo_clock + 8 * 3600, 500, 500, 500, 500, None
+        )
+        histories["dow"].append(future_us)
+
+        state = market_data.weather_map_at(histories, tokyo_clock, "nikkei")
+        without_future = dict(histories)
+        without_future["dow"] = histories["dow"][:-1]
+
+        self.assertEqual(
+            state.vector,
+            market_data.weather_map_at(without_future, tokyo_clock, "nikkei").vector,
+        )
+
+    def test_holiday_staleness_and_accumulated_external_moves(self) -> None:
+        histories = {
+            market: self.market_rows() for market in market_data.MARKET_ORDER
+        }
+        # Japan is closed for two global daily clocks while the other markets trade.
+        histories["nikkei"] = self.market_rows(last_index=27)
+        state = market_data.weather_map_at(
+            histories, histories["dow"][-1].timestamp, "nikkei"
+        )
+
+        self.assertAlmostEqual(state.vector[26], 48.0)
+        self.assertEqual(state.target_close_timestamp, histories["nikkei"][-1].timestamp)
+        self.assertTrue(all(abs(value) < 1e-12 for value in state.vector[27:]))
+
+        moving = dict(histories)
+        moving["dow"] = self.market_rows(growth=0.01)
+        moved_state = market_data.weather_map_at(
+            moving, moving["dow"][-1].timestamp, "nikkei"
+        )
+        expected = moving["dow"][-1].close / moving["dow"][-3].close - 1
+        self.assertAlmostEqual(moved_state.vector[27], expected)
+        self.assertGreater(moved_state.vector[27], 0)
+
+    def test_asof_join_handles_each_market_holiday_and_single_market_updates(self) -> None:
+        scenarios = {
+            "japan_closed": {"nikkei": (29,)},
+            "us_closed": {"dow": (29,)},
+            "forex_only": {"nikkei": (29,), "dow": (29,), "gold": (29,)},
+            "gold_only": {"nikkei": (29,), "dow": (29,), "usdjpy": (29,)},
+        }
+        for name, missing_by_market in scenarios.items():
+            with self.subTest(name=name):
+                histories = {
+                    market: self.market_rows(missing=missing_by_market.get(market, ()))
+                    for market in market_data.MARKET_ORDER
+                }
+                clock = max(rows[-1].timestamp for rows in histories.values())
+                state = market_data.weather_map_at(histories, clock, "nikkei")
+                self.assertIsNotNone(state)
+                for market, rows in histories.items():
+                    self.assertLessEqual(
+                        market_data._asof_candle(rows, clock).timestamp, clock,
+                        market,
+                    )
+
+    def test_live_and_backtest_use_the_same_snapshot_clock_function(self) -> None:
+        histories = {
+            market: self.market_rows() for market in market_data.MARKET_ORDER
+        }
+        target = histories["nikkei"]
+        expected = market_data.snapshot_clock(
+            histories, "nikkei", target[-1].timestamp
+        )
+        historical = market_data._historical_states(histories, "nikkei")
+
+        self.assertEqual(historical[-1].timestamp, expected)
+        self.assertEqual(
+            market_data.snapshot_clock(histories, "nikkei"),
+            max(rows[-1].timestamp for rows in histories.values()),
+        )
 
 
 if __name__ == "__main__":

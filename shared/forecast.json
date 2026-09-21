@@ -1,69 +1,69 @@
 {
-  "generated_at": "2026-09-21T07:40:37+00:00",
+  "generated_at": "2026-09-21T08:07:02+00:00",
   "markets": [
     {
       "id": "nikkei",
       "name": "日経平均",
       "current": 65018.95,
-      "up_probability": 0.6205,
+      "up_probability": 0.5679,
       "range_low": 64087.4449,
       "range_high": 65963.9944,
       "confidence": 0.6,
-      "weather": "sunny",
+      "weather": "partly_cloudy",
       "risk": "normal",
       "trend_probability": 0.6699,
-      "analog_probability": 0.5711,
+      "analog_probability": 0.466,
       "analog_count": 30,
-      "analog_mean_distance": 0.7436,
-      "analog_mean_next_return": 0.002123
+      "analog_mean_distance": 0.7249,
+      "analog_mean_next_return": -0.001131
     },
     {
       "id": "dow",
       "name": "NYダウ",
       "current": 51682.64,
-      "up_probability": 0.375,
+      "up_probability": 0.3902,
       "range_low": 51223.6238,
       "range_high": 52145.7695,
       "confidence": 1.0,
       "weather": "rainy",
       "risk": "calm",
       "trend_probability": 0.2135,
-      "analog_probability": 0.5365,
+      "analog_probability": 0.5669,
       "analog_count": 30,
-      "analog_mean_distance": 0.7414,
-      "analog_mean_next_return": 0.001774
+      "analog_mean_distance": 0.7376,
+      "analog_mean_next_return": 0.000896
     },
     {
       "id": "usdjpy",
       "name": "USD/JPY",
-      "current": 157.264,
-      "up_probability": 0.5732,
-      "range_low": 155.8225,
-      "range_high": 158.7188,
+      "current": 157.208,
+      "up_probability": 0.5574,
+      "range_low": 155.767,
+      "range_high": 158.6623,
       "confidence": 0.6,
       "weather": "partly_cloudy",
       "risk": "calm",
       "trend_probability": 0.5091,
-      "analog_probability": 0.6374,
+      "analog_probability": 0.6057,
       "analog_count": 30,
-      "analog_mean_distance": 0.7421,
-      "analog_mean_next_return": 0.000969
+      "analog_mean_distance": 0.7738,
+      "analog_mean_next_return": 0.000224
     },
     {
       "id": "gold",
       "name": "GOLD",
-      "current": 4386.7,
-      "up_probability": 0.4963,
-      "range_low": 4312.3981,
-      "range_high": 4462.2821,
+      "current": 4385.3,
+      "up_probability": 0.4948,
+      "range_low": 4311.0219,
+      "range_high": 4460.8579,
       "confidence": 0.6,
       "weather": "cloudy",
       "risk": "normal",
       "trend_probability": 0.44,
-      "analog_probability": 0.5527,
+      "analog_probability": 0.5496,
       "analog_count": 30,
-      "analog_mean_distance": 0.7438,
-      "analog_mean_next_return": 0.000872
+      "analog_mean_distance": 0.7336,
+      "analog_mean_next_return": 0.001563
     }
   ]
 }

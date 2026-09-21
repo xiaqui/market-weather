@@ -89,6 +89,16 @@ class WeatherMapTest(unittest.TestCase):
         self.assertEqual(len(vector), len(market_data.WEATHER_MAP_FEATURE_NAMES))
         # The first relative feature is Nikkei n5 minus Dow n5.
         self.assertAlmostEqual(vector[20], vector[1] - vector[6])
+        self.assertEqual(len(market_data.weather_map_feature_names("nikkei")), 30)
+        self.assertEqual(
+            market_data.weather_map_feature_names("nikkei")[-4:],
+            (
+                "nikkei_hours_since_close",
+                "dow_return_since_nikkei_close",
+                "usdjpy_return_since_nikkei_close",
+                "gold_return_since_nikkei_close",
+            ),
+        )
 
     def test_identical_state_is_nearer_and_search_is_capped_at_k(self) -> None:
         target = candles(count=70)

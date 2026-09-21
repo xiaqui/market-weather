@@ -11,12 +11,12 @@ import tempfile
 import time
 from bisect import bisect_right
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, time as datetime_time, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 from urllib.request import Request, urlopen
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfo
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -45,6 +45,8 @@ ANALOG_WEIGHT = 0.5
 DISTANCE_EPSILON = 0.25
 MAX_ANALOG_WEIGHT = 4.0
 BACKTEST_SESSIONS = 252
+MAX_STALENESS_HOURS = 168.0
+EXTERNAL_RETURN_CLIP = 0.30
 MARKET_ORDER = tuple(SYMBOLS)
 BASE_STATE_NAMES = ("n1", "n5", "n20", "n_ma20", "vol_ratio")
 PAIR_NAMES = tuple(
@@ -55,6 +57,33 @@ PAIR_NAMES = tuple(
 WEATHER_MAP_FEATURE_NAMES = tuple(
     f"{market}_{feature}" for market in MARKET_ORDER for feature in BASE_STATE_NAMES
 ) + PAIR_NAMES
+CONTEXT_FEATURE_COUNT = 4
+
+
+def weather_map_feature_names(target_market: str) -> tuple[str, ...]:
+    return WEATHER_MAP_FEATURE_NAMES + (
+        f"{target_market}_hours_since_close",
+        *(
+            f"{market}_return_since_{target_market}_close"
+            for market in MARKET_ORDER
+            if market != target_market
+        ),
+    )
+
+
+@dataclass(frozen=True)
+class MarketHours:
+    timezone_name: str
+    normal_close: datetime_time
+    date_from_utc: bool = False
+
+
+MARKET_HOURS = {
+    "^N225": MarketHours("Asia/Tokyo", datetime_time(15, 30)),
+    "^DJI": MarketHours("America/New_York", datetime_time(16, 0)),
+    "JPY=X": MarketHours("America/New_York", datetime_time(17, 0), True),
+    "GC=F": MarketHours("America/New_York", datetime_time(17, 0), True),
+}
 
 
 @dataclass(frozen=True)
@@ -94,6 +123,7 @@ class WeatherMapState:
 
     timestamp: int
     vector: tuple[float, ...]
+    target_close_timestamp: int = 0
 
 
 @dataclass(frozen=True)
@@ -110,6 +140,43 @@ def _finite_number(value: Any) -> float | None:
         return None
     number = float(value)
     return number if math.isfinite(number) else None
+
+
+def _fourth_thursday_of_november(year: int) -> date:
+    day = date(year, 11, 1)
+    return day + timedelta(days=(3 - day.weekday()) % 7 + 21)
+
+
+def _is_us_early_close(session_date: date) -> bool:
+    """Known recurring US cash/futures shortened sessions, not today's hours."""
+    thanksgiving = _fourth_thursday_of_november(session_date.year)
+    if session_date == thanksgiving + timedelta(days=1):
+        return True
+    if session_date.month == 7 and session_date.day == 3 and session_date.weekday() < 5:
+        return True
+    return (
+        session_date.month == 12
+        and session_date.day == 24
+        and session_date.weekday() < 5
+    )
+
+
+def session_close_timestamp(symbol: str, raw_timestamp: int) -> int:
+    """Map a Yahoo daily label to that session's conservative calendar close."""
+    hours = MARKET_HOURS.get(symbol)
+    if hours is None:
+        return raw_timestamp
+    zone = ZoneInfo(hours.timezone_name)
+    label_zone = timezone.utc if hours.date_from_utc else zone
+    session_date = datetime.fromtimestamp(raw_timestamp, label_zone).date()
+    close_time = hours.normal_close
+    if symbol == "^N225" and session_date < date(2024, 11, 5):
+        close_time = datetime_time(15, 0)
+    elif symbol == "^DJI" and _is_us_early_close(session_date):
+        close_time = datetime_time(13, 0)
+    elif symbol == "GC=F" and _is_us_early_close(session_date):
+        close_time = datetime_time(13, 30)
+    return int(datetime.combine(session_date, close_time, tzinfo=zone).timestamp())
 
 
 def parse_history(
@@ -161,30 +228,14 @@ def parse_history(
             if not session_start <= candle.timestamp < session_end
         ]
 
-    # Yahoo labels daily rows near the session open. For cross-market as-of
-    # joins, convert that label to the regular close in the exchange timezone;
-    # otherwise a US close could appear available many hours too early. The
-    # timezone/close metadata is absent in small fixtures, where raw UTC times
-    # remain useful and deterministic.
-    try:
-        exchange_zone = ZoneInfo(result["meta"]["exchangeTimezoneName"])
-        close_local = datetime.fromtimestamp(session_end, exchange_zone).timetz()
-    except (KeyError, TypeError, ValueError, OSError, ZoneInfoNotFoundError):
-        exchange_zone = None
-    if exchange_zone is not None and session_end > 0:
+    # Derive availability for every historical row from its own session date.
+    # Never reuse today's currentTradingPeriod close across ten years: that
+    # leaks ordinary US closes when today happens to be a half day.
+    if symbol in MARKET_HOURS:
         candles = [
             Candle(
-                int(
-                    datetime.combine(
-                        datetime.fromtimestamp(candle.timestamp, exchange_zone).date(),
-                        close_local,
-                    ).timestamp()
-                ),
-                candle.open,
-                candle.high,
-                candle.low,
-                candle.close,
-                candle.volume,
+                session_close_timestamp(symbol, candle.timestamp),
+                candle.open, candle.high, candle.low, candle.close, candle.volume,
             )
             for candle in candles
         ]
@@ -308,6 +359,11 @@ def _asof_history(candles: list[Candle], timestamp: int) -> list[Candle]:
     return candles[max(0, end - MINIMUM_HISTORY) : end]
 
 
+def _asof_candle(candles: list[Candle], timestamp: int) -> Candle | None:
+    end = bisect_right([candle.timestamp for candle in candles], timestamp)
+    return candles[end - 1] if end else None
+
+
 def build_weather_map_vector(histories: dict[str, list[Candle]]) -> tuple[float, ...]:
     """Build 20 per-market and six relative, scale-free weather-map features."""
     missing = set(MARKET_ORDER) - histories.keys()
@@ -337,13 +393,47 @@ def build_weather_map_vector(histories: dict[str, list[Candle]]) -> tuple[float,
 
 
 def weather_map_at(
-    histories: dict[str, list[Candle]], timestamp: int
+    histories: dict[str, list[Candle]], timestamp: int, target_market: str
 ) -> WeatherMapState | None:
-    """As-of join by UTC availability time; never align markets by array index."""
+    """Build one target-specific state using only data available at its clock."""
     available = {market: _asof_history(rows, timestamp) for market, rows in histories.items()}
     if any(len(available.get(market, [])) < MINIMUM_HISTORY for market in MARKET_ORDER):
         return None
-    return WeatherMapState(timestamp, build_weather_map_vector(available))
+    target_close = available[target_market][-1]
+    staleness = min(
+        MAX_STALENESS_HOURS,
+        max(0.0, (timestamp - target_close.timestamp) / 3600),
+    )
+    external_moves = []
+    for market in MARKET_ORDER:
+        if market == target_market:
+            continue
+        latest = available[market][-1]
+        at_target_close = _asof_candle(histories[market], target_close.timestamp)
+        if at_target_close is None:
+            return None
+        move = latest.close / at_target_close.close - 1
+        external_moves.append(max(-EXTERNAL_RETURN_CLIP, min(EXTERNAL_RETURN_CLIP, move)))
+    context = (staleness, *external_moves)
+    return WeatherMapState(
+        timestamp,
+        build_weather_map_vector(available) + context,
+        target_close.timestamp,
+    )
+
+
+def snapshot_clock(
+    histories: dict[str, list[Candle]], target_market: str, next_close: int | None = None,
+    global_timestamps: list[int] | None = None,
+) -> int:
+    """Latest global completed close, optionally strictly before a target outcome."""
+    timestamps = global_timestamps or sorted({
+        candle.timestamp for rows in histories.values() for candle in rows
+    })
+    end = len(timestamps) if next_close is None else bisect_right(timestamps, next_close - 1)
+    if end == 0:
+        raise ValueError(f"No completed data available for {target_market}")
+    return timestamps[end - 1]
 
 
 def _standardized_distances(
@@ -411,11 +501,20 @@ def find_analogs(
 
 
 def _historical_states(
-    histories: dict[str, list[Candle]], anchors: list[Candle]
+    histories: dict[str, list[Candle]], target_market: str
 ) -> list[WeatherMapState]:
     states = []
-    for candle in anchors:
-        state = weather_map_at(histories, candle.timestamp)
+    target = histories[target_market]
+    global_timestamps = sorted({
+        candle.timestamp for rows in histories.values() for candle in rows
+    })
+    for next_index in range(1, len(target)):
+        timestamp = snapshot_clock(
+            histories, target_market, target[next_index].timestamp, global_timestamps
+        )
+        if timestamp < target[next_index - 1].timestamp:
+            continue
+        state = weather_map_at(histories, timestamp, target_market)
         if state is not None:
             states.append(state)
     return states
@@ -426,16 +525,16 @@ def build_cross_asset_predictions(
 ) -> tuple[dict[str, dict[str, float | str | int | None]], dict[str, list[WeatherMapState]]]:
     """Combine unchanged Trend forecasts with leak-safe cross-asset analogs."""
     histories = {market: snapshot.candles for market, snapshot in snapshots.items()}
-    query_timestamp = max(rows[-1].timestamp for rows in histories.values())
-    query = weather_map_at(histories, query_timestamp)
-    if query is None:
-        raise ValueError("Insufficient aligned history for cross-asset weather map")
     predictions = {}
     state_sets = {}
     for market in MARKET_ORDER:
         snapshot = snapshots[market]
         prediction = build_prediction(snapshot.candles, snapshot.current)
-        states = _historical_states(histories, snapshot.candles)
+        query_timestamp = snapshot_clock(histories, market)
+        query = weather_map_at(histories, query_timestamp, market)
+        if query is None:
+            raise ValueError(f"Insufficient aligned history for {market} weather map")
+        states = _historical_states(histories, market)
         state_sets[market] = states
         analog = find_analogs(query, states, snapshot.candles)
         trend = float(prediction["trend_probability"])
@@ -478,8 +577,10 @@ def cross_asset_backtest(
 ) -> dict[str, float | int]:
     """Walk forward Trend, Analog, and ensemble without future states/outcomes."""
     target = histories[market]
-    states = _historical_states(histories, target)
-    state_by_time = {state.timestamp: state for state in states}
+    states = _historical_states(histories, market)
+    global_timestamps = sorted({
+        candle.timestamp for rows in histories.values() for candle in rows
+    })
     trend_correct = analog_correct = ensemble_correct = 0
     samples = analog_samples = 0
     # Report the latest trading year while retaining the full preceding
@@ -487,7 +588,10 @@ def cross_asset_backtest(
     start = max(MINIMUM_HISTORY, len(target) - BACKTEST_SESSIONS)
     for next_index in range(start, len(target)):
         history = target[:next_index]
-        current = state_by_time.get(history[-1].timestamp)
+        clock = snapshot_clock(
+            histories, market, target[next_index].timestamp, global_timestamps
+        )
+        current = weather_map_at(histories, clock, market)
         if current is None:
             continue
         trend = float(build_prediction(history)["trend_probability"])
