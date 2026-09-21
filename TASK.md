@@ -5,7 +5,7 @@
 Market Weather の本番Android APKを、現在のComposeネイティブ画面から
 GitHub Pages版を表示する軽量WebViewカプセルへ切り替える。
 
-モデルは `xiaqui/eiken2-webview` とする。
+実装は既存 `eiken2-webview` の実績済みMainActivity相当をTASK内に直接記載し、それを使用する。
 
 Web版を表示の正本とし、Android APKは原則としてそのWeb版を包むだけの薄い殻にする。
 現行Compose版は削除して失わせず、保全して今後たまにWeb版へ追従できる状態を残す。
@@ -38,28 +38,203 @@ WebView化前の現在の main を、今後参照・保守できる形で保全�
 
 ### 2. Android本番版をWebViewカプセルへ変更
 
-`android/` の本番APK実装を、
-`xiaqui/eiken2-webview` をモデルにしたWebViewアプリへ変更する。
+Codex Cloud から `xiaqui/eiken2-webview` を参照できることは前提にしない。
+参照repoをcloneしたり読みに行ったりせず、下記の実績済み `eiken2-webview` の
+`MainActivity.java` 相当を Market Weather 用へほぼそのまま移植する。
 
-開始URL:
+変更点は主に以下だけでよい。
 
-```text
-https://xiaqui.github.io/market-weather/
+- package: `jp.xiaqui.marketweather`
+- START_URL: `https://xiaqui.github.io/market-weather/`
+- 内部URL判定: hostが `xiaqui.github.io` かつ path が `/market-weather/` 配下
+- applicationId: 既存の `jp.xiaqui.marketweather` を維持
+- アプリ名: `Market Weather`
+
+実績済みベースコード:
+
+```java
+package jp.xiaqui.marketweather;
+
+import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Bundle;
+import android.webkit.CookieManager;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+
+public class MainActivity extends Activity {
+    private static final String START_URL = "https://xiaqui.github.io/market-weather/";
+    private WebView webView;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        webView = new WebView(this);
+        setContentView(webView);
+
+        WebSettings settings = webView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setBuiltInZoomControls(true);
+        settings.setDisplayZoomControls(false);
+        settings.setLoadWithOverviewMode(true);
+        settings.setUseWideViewPort(true);
+
+        CookieManager cookieManager = CookieManager.getInstance();
+        cookieManager.setAcceptCookie(true);
+        cookieManager.setAcceptThirdPartyCookies(webView, true);
+
+        webView.setWebChromeClient(new WebChromeClient());
+
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return handleUrl(url);
+            }
+
+            @Override
+            public void onReceivedError(
+                    WebView view,
+                    int errorCode,
+                    String description,
+                    String failingUrl
+            ) {
+                super.onReceivedError(view, errorCode, description, failingUrl);
+                showError(
+                        "WebView load error",
+                        "code=" + errorCode + "\n" + description + "\n\n" + failingUrl
+                );
+            }
+
+            @Override
+            public void onReceivedHttpError(
+                    WebView view,
+                    WebResourceRequest request,
+                    WebResourceResponse errorResponse
+            ) {
+                super.onReceivedHttpError(view, request, errorResponse);
+                if (request != null && request.isForMainFrame()) {
+                    String url = request.getUrl() != null
+                            ? request.getUrl().toString()
+                            : "(unknown URL)";
+                    showError(
+                            "HTTP error",
+                            "status=" + errorResponse.getStatusCode() + "\n\n" + url
+                    );
+                }
+            }
+        });
+
+        if (savedInstanceState == null) {
+            webView.loadUrl(START_URL);
+        } else {
+            webView.restoreState(savedInstanceState);
+        }
+    }
+
+    private boolean handleUrl(String url) {
+        Uri uri = Uri.parse(url);
+        String host = uri.getHost();
+        String path = uri.getPath();
+
+        boolean internal =
+                "xiaqui.github.io".equals(host)
+                && path != null
+                && (path.equals("/market-weather") || path.startsWith("/market-weather/"));
+
+        if (internal) {
+            return false;
+        }
+
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, uri));
+        } catch (Exception ignored) {
+        }
+        return true;
+    }
+
+    private void showError(String title, String detail) {
+        String html = "<!doctype html><html><head><meta charset='utf-8'>"
+                + "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+                + "<style>body{font-family:sans-serif;padding:24px;line-height:1.5;}"
+                + "h2{font-size:20px;}pre{white-space:pre-wrap;word-break:break-word;"
+                + "background:#eee;padding:12px;}</style>"
+                + "</head><body><h2>" + escapeHtml(title) + "</h2><pre>"
+                + escapeHtml(detail) + "</pre>"
+                + "<p>Android System WebView: "
+                + escapeHtml(webView.getSettings().getUserAgentString())
+                + "</p></body></html>";
+        webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
+    }
+
+    private String escapeHtml(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (webView != null && webView.canGoBack()) {
+            webView.goBack();
+        } else {
+            super.onBackPressed();
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        if (webView != null) {
+            webView.saveState(outState);
+        }
+        super.onSaveInstanceState(outState);
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (webView != null) {
+            webView.destroy();
+        }
+        super.onDestroy();
+    }
+}
 ```
 
-アプリ名:
+このコードを基準にし、必要最小限の変更だけ行うこと。
+「より高機能にする」ための独自機能追加は今回しない。
 
-```text
-Market Weather
+Manifestも `eiken2-webview` 相当の単純構成でよい。
+
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application
+        android:allowBackup="true"
+        android:label="Market Weather"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar"
+        android:usesCleartextTraffic="false">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
 ```
-
-package / applicationId は既存の
-
-```text
-jp.xiaqui.marketweather
-```
-
-を維持すること。
 
 既存インストールから更新可能な形を優先する。
 
