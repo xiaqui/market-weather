@@ -1,49 +1,69 @@
 {
-  "generated_at": "2026-09-21T05:41:53+00:00",
+  "generated_at": "2026-09-21T07:40:37+00:00",
   "markets": [
     {
       "id": "nikkei",
       "name": "日経平均",
       "current": 65018.95,
-      "up_probability": 0.6699,
+      "up_probability": 0.6205,
       "range_low": 64087.4449,
       "range_high": 65963.9944,
       "confidence": 0.6,
       "weather": "sunny",
-      "risk": "normal"
+      "risk": "normal",
+      "trend_probability": 0.6699,
+      "analog_probability": 0.5711,
+      "analog_count": 30,
+      "analog_mean_distance": 0.7436,
+      "analog_mean_next_return": 0.002123
     },
     {
       "id": "dow",
       "name": "NYダウ",
       "current": 51682.64,
-      "up_probability": 0.2135,
+      "up_probability": 0.375,
       "range_low": 51223.6238,
       "range_high": 52145.7695,
       "confidence": 1.0,
       "weather": "rainy",
-      "risk": "calm"
+      "risk": "calm",
+      "trend_probability": 0.2135,
+      "analog_probability": 0.5365,
+      "analog_count": 30,
+      "analog_mean_distance": 0.7414,
+      "analog_mean_next_return": 0.001774
     },
     {
       "id": "usdjpy",
       "name": "USD/JPY",
-      "current": 157.053,
-      "up_probability": 0.5091,
-      "range_low": 155.6135,
-      "range_high": 158.5058,
+      "current": 157.264,
+      "up_probability": 0.5732,
+      "range_low": 155.8225,
+      "range_high": 158.7188,
       "confidence": 0.6,
-      "weather": "cloudy",
-      "risk": "calm"
+      "weather": "partly_cloudy",
+      "risk": "calm",
+      "trend_probability": 0.5091,
+      "analog_probability": 0.6374,
+      "analog_count": 30,
+      "analog_mean_distance": 0.7421,
+      "analog_mean_next_return": 0.000969
     },
     {
       "id": "gold",
       "name": "GOLD",
-      "current": 4398.5,
-      "up_probability": 0.44,
-      "range_low": 4323.9983,
-      "range_high": 4474.2854,
+      "current": 4386.7,
+      "up_probability": 0.4963,
+      "range_low": 4312.3981,
+      "range_high": 4462.2821,
       "confidence": 0.6,
-      "weather": "rainy",
-      "risk": "normal"
+      "weather": "cloudy",
+      "risk": "normal",
+      "trend_probability": 0.44,
+      "analog_probability": 0.5527,
+      "analog_count": 30,
+      "analog_mean_distance": 0.7438,
+      "analog_mean_next_return": 0.000872
     }
   ]
 }

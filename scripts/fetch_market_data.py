@@ -9,17 +9,19 @@ import os
 import statistics
 import tempfile
 import time
+from bisect import bisect_right
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 ROOT = Path(__file__).resolve().parents[1]
 FORECAST_PATH = ROOT / "shared" / "forecast.json"
-YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{}?interval=1d&range=1y"
+YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{}?interval=1d&range=10y"
 SYMBOLS = {
     "nikkei": "^N225",
     "dow": "^DJI",
@@ -37,6 +39,22 @@ RANGE_VOLATILITY_MULTIPLIER = 1.28  # roughly an 80% one-day normal interval
 MINIMUM_DAILY_VOLATILITY = 0.002
 MINIMUM_HISTORY = 21
 FULL_CONFIDENCE_HISTORY = 60
+ANALOG_K = 30
+MIN_ANALOGS = 15
+ANALOG_WEIGHT = 0.5
+DISTANCE_EPSILON = 0.25
+MAX_ANALOG_WEIGHT = 4.0
+BACKTEST_SESSIONS = 252
+MARKET_ORDER = tuple(SYMBOLS)
+BASE_STATE_NAMES = ("n1", "n5", "n20", "n_ma20", "vol_ratio")
+PAIR_NAMES = tuple(
+    f"{left}_minus_{right}_n5"
+    for index, left in enumerate(MARKET_ORDER)
+    for right in MARKET_ORDER[index + 1 :]
+)
+WEATHER_MAP_FEATURE_NAMES = tuple(
+    f"{market}_{feature}" for market in MARKET_ORDER for feature in BASE_STATE_NAMES
+) + PAIR_NAMES
 
 
 @dataclass(frozen=True)
@@ -68,6 +86,23 @@ class MarketSnapshot:
 
     candles: list[Candle]
     current: float
+
+
+@dataclass(frozen=True)
+class WeatherMapState:
+    """Cross-market information that was available at one UTC instant."""
+
+    timestamp: int
+    vector: tuple[float, ...]
+
+
+@dataclass(frozen=True)
+class AnalogResult:
+    probability: float
+    count: int
+    mean_distance: float
+    mean_next_return: float
+    nearest: tuple[tuple[int, float], ...]
 
 
 def _finite_number(value: Any) -> float | None:
@@ -125,6 +160,34 @@ def parse_history(
             for candle in candles
             if not session_start <= candle.timestamp < session_end
         ]
+
+    # Yahoo labels daily rows near the session open. For cross-market as-of
+    # joins, convert that label to the regular close in the exchange timezone;
+    # otherwise a US close could appear available many hours too early. The
+    # timezone/close metadata is absent in small fixtures, where raw UTC times
+    # remain useful and deterministic.
+    try:
+        exchange_zone = ZoneInfo(result["meta"]["exchangeTimezoneName"])
+        close_local = datetime.fromtimestamp(session_end, exchange_zone).timetz()
+    except (KeyError, TypeError, ValueError, OSError, ZoneInfoNotFoundError):
+        exchange_zone = None
+    if exchange_zone is not None and session_end > 0:
+        candles = [
+            Candle(
+                int(
+                    datetime.combine(
+                        datetime.fromtimestamp(candle.timestamp, exchange_zone).date(),
+                        close_local,
+                    ).timestamp()
+                ),
+                candle.open,
+                candle.high,
+                candle.low,
+                candle.close,
+                candle.volume,
+            )
+            for candle in candles
+        ]
     if len(candles) < MINIMUM_HISTORY:
         raise ValueError(
             f"Insufficient daily history for {symbol}: {len(candles)} "
@@ -165,7 +228,10 @@ def calculate_features(candles: list[Candle]) -> Features:
     """Calculate features using only observations supplied through the endpoint."""
     if len(candles) < MINIMUM_HISTORY:
         raise ValueError(f"At least {MINIMUM_HISTORY} candles are required")
-    closes = [candle.close for candle in candles]
+    # Every feature has a 20-session horizon. Keeping only the required tail
+    # makes 10-year walk-forward state construction linear rather than
+    # repeatedly copying the full prefix.
+    closes = [candle.close for candle in candles[-MINIMUM_HISTORY:]]
     returns = [closes[index] / closes[index - 1] - 1 for index in range(1, len(closes))]
     current = closes[-1]
     return Features(
@@ -226,6 +292,7 @@ def build_prediction(
     low, high = current * math.exp(-range_factor), current * math.exp(range_factor)
     return {
         "current": current,
+        "trend_probability": round(probability, 4),
         "up_probability": round(probability, 4),
         "range_low": round(low, 4),
         "range_high": round(high, 4),
@@ -233,6 +300,163 @@ def build_prediction(
         "weather": weather_for_probability(probability),
         "risk": risk_for_volatility(features.volatility_20d),
     }
+
+
+def _asof_history(candles: list[Candle], timestamp: int) -> list[Candle]:
+    """Return only rows whose completed-candle timestamp is available by UTC time."""
+    end = bisect_right([candle.timestamp for candle in candles], timestamp)
+    return candles[max(0, end - MINIMUM_HISTORY) : end]
+
+
+def build_weather_map_vector(histories: dict[str, list[Candle]]) -> tuple[float, ...]:
+    """Build 20 per-market and six relative, scale-free weather-map features."""
+    missing = set(MARKET_ORDER) - histories.keys()
+    if missing:
+        raise ValueError(f"Markets missing from weather map: {', '.join(sorted(missing))}")
+    per_market: dict[str, tuple[float, ...]] = {}
+    for market in MARKET_ORDER:
+        features = calculate_features(histories[market])
+        vol5 = max(features.volatility_5d, MINIMUM_DAILY_VOLATILITY)
+        vol20 = max(features.volatility_20d, MINIMUM_DAILY_VOLATILITY)
+        directional = (
+            features.return_1d / vol5,
+            features.return_5d / (vol5 * math.sqrt(5)),
+            features.return_20d / (vol20 * math.sqrt(20)),
+            features.ma_deviation_20d / vol20,
+        )
+        per_market[market] = tuple(
+            max(-SIGNAL_CLIP, min(SIGNAL_CLIP, value)) for value in directional
+        ) + (max(0.0, min(SIGNAL_CLIP, vol5 / vol20)),)
+    vector = tuple(value for market in MARKET_ORDER for value in per_market[market])
+    relative = tuple(
+        per_market[left][1] - per_market[right][1]
+        for index, left in enumerate(MARKET_ORDER)
+        for right in MARKET_ORDER[index + 1 :]
+    )
+    return vector + relative
+
+
+def weather_map_at(
+    histories: dict[str, list[Candle]], timestamp: int
+) -> WeatherMapState | None:
+    """As-of join by UTC availability time; never align markets by array index."""
+    available = {market: _asof_history(rows, timestamp) for market, rows in histories.items()}
+    if any(len(available.get(market, [])) < MINIMUM_HISTORY for market in MARKET_ORDER):
+        return None
+    return WeatherMapState(timestamp, build_weather_map_vector(available))
+
+
+def _standardized_distances(
+    query: tuple[float, ...], candidates: list[tuple[WeatherMapState, float]]
+) -> list[tuple[float, WeatherMapState, float]]:
+    """Standardize with candidate history only, then return RMS Euclidean distance."""
+    count = len(candidates)
+    sums = [0.0] * len(query)
+    squared_sums = [0.0] * len(query)
+    for state, _ in candidates:
+        for index, value in enumerate(state.vector):
+            sums[index] += value
+            squared_sums[index] += value * value
+    means = [value / count for value in sums]
+    deviations = [
+        math.sqrt(max(0.0, squared_sums[index] / count - means[index] ** 2))
+        for index in range(len(query))
+    ]
+    scales = [deviation if deviation > 1e-12 else 1.0 for deviation in deviations]
+    result = []
+    for state, next_return in candidates:
+        squared = sum(
+            ((query[i] - state.vector[i]) / scales[i]) ** 2
+            for i in range(len(query))
+        )
+        result.append((math.sqrt(squared / len(query)), state, next_return))
+    return sorted(result, key=lambda item: item[0])
+
+
+def find_analogs(
+    current: WeatherMapState,
+    historical_states: list[WeatherMapState],
+    target_candles: list[Candle],
+) -> AnalogResult | None:
+    """Find completed historical outcomes available strictly before/currently at query."""
+    target_timestamps = [candle.timestamp for candle in target_candles]
+    candidates: list[tuple[WeatherMapState, float]] = []
+    for state in historical_states:
+        if state.timestamp >= current.timestamp:
+            continue
+        base_index = bisect_right(target_timestamps, state.timestamp) - 1
+        next_index = base_index + 1
+        if base_index < 0 or next_index >= len(target_candles):
+            continue
+        # Knowing this outcome at the query instant is mandatory. This also
+        # prevents adjacent candidates from leaking their next close.
+        if target_candles[next_index].timestamp > current.timestamp:
+            continue
+        next_return = target_candles[next_index].close / target_candles[base_index].close - 1
+        candidates.append((state, next_return))
+    if len(candidates) < MIN_ANALOGS:
+        return None
+    nearest = _standardized_distances(current.vector, candidates)[:ANALOG_K]
+    weights = [min(MAX_ANALOG_WEIGHT, 1 / (distance + DISTANCE_EPSILON)) for distance, _, _ in nearest]
+    weight_sum = sum(weights)
+    probability = sum(weight for weight, (_, _, value) in zip(weights, nearest) if value > 0) / weight_sum
+    mean_return = sum(weight * value for weight, (_, _, value) in zip(weights, nearest)) / weight_sum
+    return AnalogResult(
+        probability=max(0.0, min(1.0, probability)),
+        count=len(nearest),
+        mean_distance=statistics.fmean(item[0] for item in nearest),
+        mean_next_return=mean_return,
+        nearest=tuple((item[1].timestamp, item[0]) for item in nearest[:3]),
+    )
+
+
+def _historical_states(
+    histories: dict[str, list[Candle]], anchors: list[Candle]
+) -> list[WeatherMapState]:
+    states = []
+    for candle in anchors:
+        state = weather_map_at(histories, candle.timestamp)
+        if state is not None:
+            states.append(state)
+    return states
+
+
+def build_cross_asset_predictions(
+    snapshots: dict[str, MarketSnapshot]
+) -> tuple[dict[str, dict[str, float | str | int | None]], dict[str, list[WeatherMapState]]]:
+    """Combine unchanged Trend forecasts with leak-safe cross-asset analogs."""
+    histories = {market: snapshot.candles for market, snapshot in snapshots.items()}
+    query_timestamp = max(rows[-1].timestamp for rows in histories.values())
+    query = weather_map_at(histories, query_timestamp)
+    if query is None:
+        raise ValueError("Insufficient aligned history for cross-asset weather map")
+    predictions = {}
+    state_sets = {}
+    for market in MARKET_ORDER:
+        snapshot = snapshots[market]
+        prediction = build_prediction(snapshot.candles, snapshot.current)
+        states = _historical_states(histories, snapshot.candles)
+        state_sets[market] = states
+        analog = find_analogs(query, states, snapshot.candles)
+        trend = float(prediction["trend_probability"])
+        if analog is None:
+            final = trend
+            prediction.update({
+                "analog_probability": None, "analog_count": 0,
+                "analog_mean_distance": None, "analog_mean_next_return": None,
+            })
+        else:
+            final = (1 - ANALOG_WEIGHT) * trend + ANALOG_WEIGHT * analog.probability
+            prediction.update({
+                "analog_probability": round(analog.probability, 4),
+                "analog_count": analog.count,
+                "analog_mean_distance": round(analog.mean_distance, 4),
+                "analog_mean_next_return": round(analog.mean_next_return, 6),
+            })
+        prediction["up_probability"] = round(max(0.0, min(1.0, final)), 4)
+        prediction["weather"] = weather_for_probability(final)
+        predictions[market] = prediction
+    return predictions, state_sets
 
 
 def backtest(candles: list[Candle]) -> tuple[int, int, float]:
@@ -249,18 +473,59 @@ def backtest(candles: list[Candle]) -> tuple[int, int, float]:
     return correct, samples, correct / samples if samples else 0.0
 
 
-def update_forecast(path: Path = FORECAST_PATH) -> dict[str, dict[str, float | str]]:
+def cross_asset_backtest(
+    histories: dict[str, list[Candle]], market: str
+) -> dict[str, float | int]:
+    """Walk forward Trend, Analog, and ensemble without future states/outcomes."""
+    target = histories[market]
+    states = _historical_states(histories, target)
+    state_by_time = {state.timestamp: state for state in states}
+    trend_correct = analog_correct = ensemble_correct = 0
+    samples = analog_samples = 0
+    # Report the latest trading year while retaining the full preceding
+    # decade as the expanding analog candidate set.
+    start = max(MINIMUM_HISTORY, len(target) - BACKTEST_SESSIONS)
+    for next_index in range(start, len(target)):
+        history = target[:next_index]
+        current = state_by_time.get(history[-1].timestamp)
+        if current is None:
+            continue
+        trend = float(build_prediction(history)["trend_probability"])
+        analog = find_analogs(current, states, target)
+        actual_up = target[next_index].close > target[next_index - 1].close
+        trend_correct += (trend >= 0.5) == actual_up
+        if analog is None:
+            ensemble = trend
+        else:
+            analog_correct += (analog.probability >= 0.5) == actual_up
+            analog_samples += 1
+            ensemble = (1 - ANALOG_WEIGHT) * trend + ANALOG_WEIGHT * analog.probability
+        ensemble_correct += (ensemble >= 0.5) == actual_up
+        samples += 1
+    return {
+        "trend_correct": trend_correct,
+        "trend_samples": samples,
+        "trend_accuracy": trend_correct / samples if samples else 0.0,
+        "analog_correct": analog_correct,
+        "analog_samples": analog_samples,
+        "analog_accuracy": analog_correct / analog_samples if analog_samples else 0.0,
+        "ensemble_correct": ensemble_correct,
+        "ensemble_samples": samples,
+        "ensemble_accuracy": ensemble_correct / samples if samples else 0.0,
+    }
+
+
+def update_forecast(path: Path = FORECAST_PATH) -> dict[str, dict[str, float | str | int | None]]:
     """Fetch all markets successfully before atomically replacing the forecast."""
     snapshots = {market_id: fetch_market(symbol) for market_id, symbol in SYMBOLS.items()}
-    predictions = {
-        market_id: build_prediction(snapshot.candles, snapshot.current)
-        for market_id, snapshot in snapshots.items()
-    }
+    predictions, _ = build_cross_asset_predictions(snapshots)
     _write_forecast(path, predictions)
     return predictions
 
 
-def _write_forecast(path: Path, predictions: dict[str, dict[str, float | str]]) -> None:
+def _write_forecast(
+    path: Path, predictions: dict[str, dict[str, float | str | int | None]]
+) -> None:
     forecast = json.loads(path.read_text(encoding="utf-8"))
     markets = {market["id"]: market for market in forecast["markets"]}
     missing = SYMBOLS.keys() - markets.keys()
@@ -288,17 +553,23 @@ def _write_forecast(path: Path, predictions: dict[str, dict[str, float | str]]) 
 
 def main() -> None:
     snapshots = {market_id: fetch_market(symbol) for market_id, symbol in SYMBOLS.items()}
-    predictions = {
-        market_id: build_prediction(snapshot.candles, snapshot.current)
-        for market_id, snapshot in snapshots.items()
-    }
+    predictions, _ = build_cross_asset_predictions(snapshots)
     # Reuse already fetched data: production runs must not silently mix snapshots.
     _write_forecast(FORECAST_PATH, predictions)
 
+    histories = {market: snapshot.candles for market, snapshot in snapshots.items()}
     for market_id, prediction in predictions.items():
-        correct, samples, accuracy = backtest(snapshots[market_id].candles)
+        report = cross_asset_backtest(histories, market_id)
         print(f"{market_id}: {json.dumps(prediction, ensure_ascii=False)}")
-        print(f"  backtest: {accuracy:.1%} ({correct}/{samples})")
+        print(
+            "  backtest: "
+            f"Trend {report['trend_accuracy']:.1%} "
+            f"({report['trend_correct']}/{report['trend_samples']}), "
+            f"Analog {report['analog_accuracy']:.1%} "
+            f"({report['analog_correct']}/{report['analog_samples']}), "
+            f"Ensemble {report['ensemble_accuracy']:.1%} "
+            f"({report['ensemble_correct']}/{report['ensemble_samples']})"
+        )
     print(f"Updated {FORECAST_PATH.relative_to(ROOT)}")
 
 
