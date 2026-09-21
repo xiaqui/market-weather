@@ -179,6 +179,21 @@ Termux内でAPKを仮想実行するのではなく、Androidホスト側との�
 - [ ] PythonテストをAPKビルド前に走らせる
 - [ ] Dependabot等は初期完成後に検討
 
+## P3: 開発工房 / Codex Cloud運用
+
+### 用途別テンプレ環境
+Codex Cloud 環境は repo 指定が必須のため、用途別テンプレ repo を「作業工房」として用意し、案件をそこで完成させてから個別案件 repo へ引っ越す方式を検討する。
+
+- [ ] `webview-capsule` テンプレ repo + Cloud環境を作る
+- [ ] `android-lab` テンプレ repo + Cloud環境を作る
+- [ ] `static-web` テンプレ repo + Cloud環境を作る
+- [ ] `game-lab` テンプレ repo + Cloud環境を作る
+- [ ] 必要に応じて `api-sandbox` / `js-playground` を追加
+- [ ] 各テンプレ repo に `AGENTS.md` / `TASK.md` 雛形 / Actions / 共通スクリプトを置く
+- [ ] 案件作業はテンプレ repo 内で完成させ、完成物を新規案件 repo へ移植する手順を標準化
+- [ ] 引っ越し後の案件 repo で commit / push / PR / build を再確認する
+- [ ] GitHub PAT は新規 repo にも対応できる権限設計を検討し、不要な管理権限は与えない
+
 ## P3: 将来候補
 
 初期版ではやらない。
