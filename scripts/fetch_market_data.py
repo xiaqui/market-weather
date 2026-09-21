@@ -584,7 +584,8 @@ def backtest(candles: list[Candle]) -> tuple[int, int, float]:
 
 
 def walk_forward_records(
-    histories: dict[str, list[Candle]], market: str
+    histories: dict[str, list[Candle]], market: str,
+    sessions: int = BACKTEST_SESSIONS,
 ) -> list[BacktestRecord]:
     """Return leak-safe per-session forecasts for evaluation and diagnostics."""
     target = histories[market]
@@ -595,7 +596,7 @@ def walk_forward_records(
     records = []
     # Report the latest trading year while retaining the full preceding
     # decade as the expanding analog candidate set.
-    start = max(MINIMUM_HISTORY, len(target) - BACKTEST_SESSIONS)
+    start = max(MINIMUM_HISTORY, len(target) - sessions)
     for next_index in range(start, len(target)):
         history = target[:next_index]
         clock = snapshot_clock(

@@ -370,6 +370,18 @@ walk-forwardの各予測について、時刻、Trend・Analog・Ensemble確率�
 一致・不一致や強さ、距離別の分析は、将来のconfidenceや最終予報ルールを判断するための
 診断に限る。成績に合わせた閾値最適化や、現行予報への条件分岐追加は行っていない。
 
+### 検証フェーズ2: 非重複期間での再現性
+
+最新252対象市場セッション（Window 0）は、既に仮説を発見したDiscovery期間であり、
+未使用holdoutではない。`python scripts/validate_phase2.py` はそこから過去へ252セッションずつ、
+重複しない最大4個のValidation windowを切り出し、市場ごとの予測時点で利用可能だった情報だけを
+使う同一のwalk-forwardを実行する。
+
+生成する`reports/phase2-validation.json`には、window別の正解率、Brier Score、一致・不一致、
+paired comparison、固定strength bin、距離3分割、95% Wilson区間、discordant pairのexact binomial
+p-valueと、Validation window間の再現回数を記録する。単一期間の好成績を「発見」と「再現性」に
+分けて扱い、結果を見て同じPR内で30次元金融天気図、閾値、重み、予測ルールを変更しない。
+
 ## 13. 現在の位置付け
 
 現在の baseline は以下を満たすための最小構成。
