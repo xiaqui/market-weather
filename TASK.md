@@ -2,69 +2,154 @@
 
 ## 目的
 
-Yahoo Finance から取得できる4市場の実データ現在値を、Market Weather の正本データから Web / Android まで実際に反映できる状態にする。
+Market Weather を「現在値表示」から最初の実予報へ進める。
+
+4市場の日足履歴を取得し、依存の少ない透明な baseline 予測を作り、
+`shared/forecast.json` の予測項目を固定ダミー値から実計算値へ置き換える。
 
 対象市場:
-- 日経平均
-- NYダウ
-- USD/JPY
-- GOLD
+- 日経平均 (`^N225`)
+- NYダウ (`^DJI`)
+- USD/JPY (`JPY=X`)
+- GOLD (`GC=F`)
 
 ## 現状
 
-- `scripts/fetch_market_data.py` で Yahoo Finance Chart API から4市場の現在値を取得できる。
-- GitHub Actions の `Verify Market Data` で実接続成功済み。
-- `scripts/sync_forecast.py` で `shared/forecast.json` から Android / Web へ同期できる。
-- ただし現在、Pages / APK に入っている値は固定ダミー値のまま。
-- PR #1「4市場の現在値取得を追加」が open。
+- 現在値取得は Yahoo Finance Chart API で実装済み。
+- GitHub Actions から Yahoo Finance への実接続確認済み。
+- `shared/forecast.json` → Android / Web の同期は実装済み。
+- Pages と APK には4市場の実現在値が反映済み。
+- `up_probability`, `range_low`, `range_high`, `confidence`, `weather`, `risk` はまだ固定値。
 
 ## 今回やること
 
-PR #1 の branch を最新 main に追従させたうえで、以下を実装する。
+### 1. 日足履歴取得
 
-1. Yahoo Finance から4市場の現在値を取得する。
-2. `shared/forecast.json` の `current` と `generated_at` を実データで更新する。
-3. `python scripts/sync_forecast.py` を実行する。
-4. 以下へ同じ値を反映する。
-   - `android/app/src/main/assets/forecast.json`
-   - `android/app/src/test/resources/forecast.json`
-   - `web/forecast.json`
-5. 既存UIは変更しない。
-6. `up_probability`, `range_low`, `range_high`, `confidence`, `weather`, `risk` は今回は変更しない。
-7. 実データ反映後の4市場の current を報告する。
-8. テストと build を実行する。
-9. `git diff --check` を実行する。
-10. 問題なければ PR #1 の branch に commit / push する。
-11. PR #1 を更新する。新しいPRは作らない。
+Pythonで4市場の日足履歴を取得する。
 
-## 注意
+条件:
+- 現在と同じ Yahoo Finance Chart API を利用
+- APIキー不要
+- まず過去1年程度を取得
+- timestamp / open / high / low / close / volume を扱える構造にする
+- 欠損値、休日、市場ごとの時差を雑に埋めず、利用可能な実データだけ使う
+- 取得失敗時に壊れた予報JSONを生成しない
+- 不要な大型依存は追加しない
 
-- main へ直接 push しない。
-- 今回は定期更新の自動化までは行わない。
-- 現在値取得に失敗した場合、固定ダミー値で上書きして成功扱いにしない。
-- 4市場すべて取得成功した場合のみ正本JSONを更新する。
-- 取得元は現状の Yahoo Finance Chart API をそのまま使う。
-- Android / Web の表示仕様・デザインは触らない。
+### 2. 最小特徴量
+
+各市場について最低限、以下を計算する。
+
+- 1日騰落率
+- 5日騰落率
+- 20日騰落率
+- 5日移動平均乖離
+- 20日移動平均乖離
+- 5日ボラティリティ
+- 20日ボラティリティ
+
+計算は未来データを使わないこと。
+
+### 3. baseline 予測
+
+初期版は学習済みMLモデルではなく、説明可能な単純Trend baseline とする。
+
+要件:
+- 上昇方向の強さを複数の過去リターン / 移動平均乖離から作る
+- `up_probability` は 0〜1 に必ず収める
+- 極端に 0 / 1 へ張り付かせない
+- `range_low` / `range_high` は現在値と直近ボラティリティから算出
+- `confidence` は方向シグナルの一致度とデータ十分性から 0〜1 で算出
+- `weather` / `risk` は数値から決定論的に変換
+- マジックナンバーは定数化し、コメントまたはREADME/仕様に意味を書く
+
+これは「最初のbaseline」であり、高精度を装わないこと。
+
+### 4. forecast.json を実計算値へ更新
+
+`shared/forecast.json` について以下を実値 / 実計算値へ更新する。
+
+- `current`
+- `up_probability`
+- `range_low`
+- `range_high`
+- `confidence`
+- `weather`
+- `risk`
+- `generated_at`
+
+その後 `python scripts/sync_forecast.py` を実行し、
+
+- `android/app/src/main/assets/forecast.json`
+- `android/app/src/test/resources/forecast.json`
+- `web/forecast.json`
+
+を正本と一致させる。
+
+### 5. 最小バックテスト / sanity check
+
+最低限、未来データ混入を避けた時系列順の確認を追加する。
+
+- 過去データの各時点で、その時点までのデータだけから翌営業日の方向を出す
+- 方向正解率を市場別に表示
+- サンプル数を表示
+- ランダムシャッフルは禁止
+- 成績が悪くても隠さない
+- 50%未満でも実装失敗扱いにはしない
+
+高度なMLや最適化は今回やらない。
+
+### 6. テスト
+
+最低限以下を確認する。
+
+- 履歴レスポンスの正常 / 欠損ケース
+- 特徴量計算
+- probability / confidence が 0〜1
+- range_low < current < range_high
+- weather / risk の変換
+- 未来データを参照しないbaselineバックテスト
+- forecast生成
+- 正本とAndroid/Web JSONの一致
+- `git diff --check`
+- Android test / assembleDebug
+
+## UI
+
+既存の画面構成・デザインは変更しない。
+
+予測値が実計算値になれば、現行UIへそのまま表示する。
+
+## GitHub運用
+
+- main へ直接pushしない
+- 専用branchを作る
+- commit / push
+- 新しいPull Requestを作る
+- Actionsが成功することを確認する
+- 既存の `Verify Market Data` を壊さない
 
 ## 完了条件
 
-以下がすべて満たされていること。
-
-- 4市場の実現在値が取得できる。
-- `shared/forecast.json` に実値が入っている。
-- Android / Web 用JSONが正本と一致している。
-- 単体テスト成功。
-- Android build 成功。
-- `git diff --check` 成功。
-- PR #1 が最新commitに更新されている。
+- 4市場の日足履歴を取得できる
+- 最小特徴量が計算できる
+- 4市場すべての予測項目が固定ダミー値ではなく実計算値になる
+- baselineバックテスト結果が市場別に出る
+- Android / Web JSON が正本と一致する
+- Pythonテスト成功
+- Android build成功
+- `git diff --check` 成功
+- PR作成済み
 
 ## 最後の報告
 
 以下だけ報告する。
 
-- 4市場の取得値
-- 変更ファイル
-- test/build結果
+- branch名
 - commit SHA
-- PR #1 の更新結果
+- PR番号
+- 4市場の最新予報値
+- 4市場のbaseline方向正解率とサンプル数
+- test/build結果
+- 変更ファイル
 - 残課題
