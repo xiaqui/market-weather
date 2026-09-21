@@ -4,3 +4,6 @@ android/local.properties
 android/**/build/
 *.iml
 .idea/
+
+__pycache__/
+*.py[cod]
