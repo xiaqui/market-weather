@@ -1,7 +1,7 @@
 # 予測アルゴリズム
 
-Market Weather の現在の予測は、AI/LLMや学習済み機械学習モデルではなく、
-説明可能な Trend baseline である。
+Market Weather の現在の予測は、説明可能な Trend baseline と
+Cross-Asset Historical Analog（金融天気図・過去類似局面）のアンサンブルである。
 
 目的は「高精度を装うこと」ではなく、
 未来データ混入を避けながら、なぜその予報になったか説明できる最小構成を作ること。
@@ -19,7 +19,7 @@ Market Weather の現在の予測は、AI/LLMや学習済み機械学習モデ�
 
 ```text
 interval=1d
-range=1y
+range=10y
 ```
 
 ## 2. 現在値と確定日足を分離する
@@ -256,7 +256,121 @@ prediction = build_prediction(history)
 現時点では「高精度モデル」ではなく
 「リークせず正しく検証できる土台」と位置付ける。
 
-## 12. 現在の位置付け
+## 12. 金融天気図（Cross-Asset Historical Analog）
+
+日経平均↑ / NYダウ→ / USDJPY↓ / GOLD↑のように、4市場の配置と動きを
+1枚の「金融天気図」として扱う。各市場を独立に見るのでなく、投資家のリスク選好や
+資産配分が複数市場へ同時に現れる可能性を、過去の似た配置から検証するためである。
+
+### 状態ベクトル
+
+各市場について、価格水準を含まない次の5特徴を作る。
+
+```text
+1日騰落率 / 5日ボラ
+5日騰落率 / (5日ボラ × √5)
+20日騰落率 / (20日ボラ × √20)
+20日移動平均乖離 / 20日ボラ
+5日ボラ / 20日ボラ
+```
+
+方向系4特徴は `-3〜3`、ボラ比は `0〜3` に制限する。4市場分の20次元に加え、
+5日正規化モメンタムについて全6ペア（日経-Dow、日経-USDJPY、日経-Gold、
+Dow-USDJPY、Dow-Gold、USDJPY-Gold）の差を追加し、合計26次元とする。
+この差分が「どの市場が相対的に強いか」を距離へ明示的に反映する。
+
+この既存26次元は変更せず、予測対象市場ごとに次の4次元を別枠で追加する。
+
+```text
+target_hours_since_close
+other_market_1_return_since_target_close
+other_market_2_return_since_target_close
+other_market_3_return_since_target_close
+```
+
+したがってAnalog距離へ渡す最終状態は30次元。経過時間は最大168時間、外部市場の
+累積returnは各 `-30%〜+30%` にclipする。市場が休んでいる間は価格が止まっているだけで、
+外部市場の情報まで止まっているわけではない。その間の他市場変動が再開時にまとめて
+反映される可能性があるため、休場期間そのものと、その間に蓄積した外圧を特徴にする。
+
+### 市場ごとのsession close
+
+Yahooの日足ラベルを市場別カレンダーとタイムゾーンから、その日足が利用可能になるUTC時刻へ
+変換する。現在日の `currentTradingPeriod.regular.end` を過去全日へ流用しない。
+
+- 日経平均: `Asia/Tokyo` 15:00、2024-11-05以降は15:30
+- NYダウ: `America/New_York` 16:00
+- USDJPY: `America/New_York` 17:00
+- GOLD: `America/New_York` 17:00を安全側の通常終了時刻とする
+
+米国のBlack Friday、7月3日、12月24日の営業日は短縮取引として、Dowは13:00、Goldは
+13:30を使う。日足が存在しない祝日を生成することはない。想定外の臨時短縮についても
+通常終了時刻を使うため、値を実際より早く利用可能にする方向ではなく、遅らせる安全側になる。
+形成中足は時刻変換前に除外する。
+
+### snapshot clock、as-of join、休日差
+
+配列indexや同じcalendar dateでは結合しない。live forecastのclockは、4市場で最後に確定した
+close event。過去の各対象市場セッションとwalk-forwardでは、その対象市場の次のcloseより
+前に確定した最後のglobal close eventを同じ `snapshot_clock` 関数で選ぶ。このためlive、
+過去候補、backtestはいずれも「予測を更新できる最新のglobal close」という同じ規則になる。
+
+各clockでは、そこまでに確定した各市場の最新行をas-ofで取得する。日本休場/米国営業、
+米国休場/日本営業、為替だけ、Goldだけが更新された場合も、休場市場は直近確定足を保持する。
+ある市場のcloseより後の他市場終値は、その時点のsnapshotには入らない。次のglobal clockへ
+進んだ時だけ入り、対象市場のstalenessと累積外部returnも同時に増える。
+
+### 類似度と集計
+
+候補は必ず現在のスナップショットより過去で、かつ候補の次の対象市場終値が現在時刻までに
+確定している局面だけとする。候補期間だけの平均と標準偏差で30特徴を標準化し、
+30次元の平方差平均の平方根（RMS Euclidean distance）が小さい順に最大 `k = 30` 件を使う。
+全期間の統計量や現在以降の値では標準化しない。
+
+各候補は `min(4, 1 / (distance + 0.25))` で重み付けし、市場ごとに次の確定足が
+上昇した重みの割合を `analog_probability` とする。同じ重みで翌日平均リターンも計算する。
+候補が `MIN_ANALOGS = 15` 件未満ならAnalog値は出さず、Trendへフォールバックする。
+
+### アンサンブルと出力
+
+Analogが有効な場合だけ次式を使い、天気はこの最終確率から決める。
+
+```text
+up_probability = 0.5 × trend_probability + 0.5 × analog_probability
+```
+
+JSONには `trend_probability`、`analog_probability`、`analog_count`、
+`analog_mean_distance`、`analog_mean_next_return`、最終値の `up_probability` を分けて残す。
+既存の `confidence` は引き続きTrend内部の方向一致度であり、的中確率ではない。
+
+### walk-forward検証
+
+各対象市場の各予測時点で、liveと同じsnapshot clock規則を適用し、そのUTC時刻までに
+確定した4市場データだけから状態を作り、
+結果まで確定済みの過去局面だけを検索する。Trend、Analog、50/50 Ensembleの方向正解率と
+サンプル数を別々にCLIへ表示する。報告期間は直近252セッションとし、それ以前を含む
+最大10年の履歴は候補集合として使う。Analog不足時のEnsembleはTrendと同じ値になる。
+
+### Trend / Analog 予報士比較
+
+Trendは対象市場自身の直近の流れを見る予報、Analogは4市場をまとめた金融天気図から
+過去の類似局面を探す予報である。Ensembleは両者を50:50で平均した初期比較モデルであり、
+今回の診断によって重みや予測ルールは変更しない。
+
+walk-forwardの各予測について、時刻、Trend・Analog・Ensemble確率、実績方向、類似局面数、
+平均距離を保持する。同じ未来リーク防止済みレコードから、次をCLIへ出力する。
+
+- Trend↑/Analog↑、Trend↑/Analog↓、Trend↓/Analog↑、Trend↓/Analog↓の4分類
+- 一致時と不一致時の件数・実績上昇率・各予報の正解率
+- `abs(Trend - 0.5) + abs(Analog - 0.5)`による固定strength bin
+  （weak `< 0.10`、medium `< 0.25`、strong `>= 0.25`）
+- Analog平均距離をサンプル数で機械的に3分割したclosest / middle / farthest
+- Trend、Analog、EnsembleのBrier Score
+
+一致・不一致や強さ、距離別の分析は、将来のconfidenceや最終予報ルールを判断するための
+診断に限る。成績に合わせた閾値最適化や、現行予報への条件分岐追加は行っていない。
+
+## 13. 現在の位置付け
 
 現在の baseline は以下を満たすための最小構成。
 
@@ -266,23 +380,9 @@ prediction = build_prediction(history)
 - バックテスト可能
 - UIへ安定して予報値を供給できる
 
-今後は、
+今後もBrier Score、Calibration、レンジ包含率などを、baselineと比較しながら検証する。
 
-- RSI
-- MACD
-- 60日移動平均乖離
-- 市場間特徴量
-- Logistic Regression
-- Gradient Boosting
-- アンサンブル
-- Brier Score
-- Calibration
-- レンジ包含率
-
-などを追加し、
-baselineと比較しながら改善する。
-
-## 13. 実装ファイル
+## 14. 実装ファイル
 
 現在の主実装:
 

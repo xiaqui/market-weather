@@ -32,9 +32,15 @@ class ForecastGenerationTest(unittest.TestCase):
 
         self.assertNotEqual(result["generated_at"], "old")
         self.assertEqual(set(predictions), set(market_data.SYMBOLS))
-        expected_fields = {"current", "up_probability", "range_low", "range_high", "confidence", "weather", "risk"}
+        expected_fields = {
+            "current", "trend_probability", "analog_probability", "analog_count",
+            "analog_mean_distance", "analog_mean_next_return", "up_probability",
+            "range_low", "range_high", "confidence", "weather", "risk",
+        }
         for item in result["markets"]:
             self.assertTrue(expected_fields <= item.keys())
+            self.assertGreaterEqual(item["up_probability"], 0)
+            self.assertLessEqual(item["up_probability"], 1)
 
     def test_does_not_modify_file_when_any_fetch_fails(self) -> None:
         original = json.dumps({"generated_at": "old", "markets": []})

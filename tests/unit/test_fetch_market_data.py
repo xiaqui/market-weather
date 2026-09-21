@@ -78,5 +78,58 @@ class FeatureAndPredictionTest(unittest.TestCase):
                          ["calm", "normal", "caution", "storm"])
 
 
+class WeatherMapTest(unittest.TestCase):
+    def test_vector_contains_twenty_market_and_six_pair_features(self) -> None:
+        histories = {market: candles(growth=0.001 * (index + 1))
+                     for index, market in enumerate(market_data.MARKET_ORDER)}
+
+        vector = market_data.build_weather_map_vector(histories)
+
+        self.assertEqual(len(vector), 26)
+        self.assertEqual(len(vector), len(market_data.WEATHER_MAP_FEATURE_NAMES))
+        # The first relative feature is Nikkei n5 minus Dow n5.
+        self.assertAlmostEqual(vector[20], vector[1] - vector[6])
+        self.assertEqual(len(market_data.weather_map_feature_names("nikkei")), 30)
+        self.assertEqual(
+            market_data.weather_map_feature_names("nikkei")[-4:],
+            (
+                "nikkei_hours_since_close",
+                "dow_return_since_nikkei_close",
+                "usdjpy_return_since_nikkei_close",
+                "gold_return_since_nikkei_close",
+            ),
+        )
+
+    def test_identical_state_is_nearer_and_search_is_capped_at_k(self) -> None:
+        target = candles(count=70)
+        query = market_data.WeatherMapState(target[-1].timestamp, (0.0,) * 26)
+        states = [
+            market_data.WeatherMapState(target[index].timestamp, (index / 100,) * 26)
+            for index in range(21, 69)
+        ]
+
+        result = market_data.find_analogs(query, states, target)
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result.count, market_data.ANALOG_K)
+        self.assertGreaterEqual(result.probability, 0)
+        self.assertLessEqual(result.probability, 1)
+        distances = market_data._standardized_distances(
+            query.vector, [(states[0], 0.01), (market_data.WeatherMapState(1, (2.0,) * 26), 0.01)]
+        )
+        self.assertLess(distances[0][0], distances[1][0])
+
+    def test_too_few_analogs_falls_back_to_trend(self) -> None:
+        snapshots = {market: market_data.MarketSnapshot(candles(count=30), 101.0)
+                     for market in market_data.MARKET_ORDER}
+
+        predictions, _ = market_data.build_cross_asset_predictions(snapshots)
+
+        for prediction in predictions.values():
+            self.assertEqual(prediction["analog_count"], 0)
+            self.assertIsNone(prediction["analog_probability"])
+            self.assertEqual(prediction["up_probability"], prediction["trend_probability"])
+
+
 if __name__ == "__main__":
     unittest.main()

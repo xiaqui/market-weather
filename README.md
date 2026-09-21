@@ -18,7 +18,7 @@
 その後、Pythonによる市場データ取得、特徴量生成、予測、バックテストを段階的に追加します。
 
 `python scripts/fetch_market_data.py` は Yahoo Finance のキー不要な Chart API から
-4市場の過去1年の日足を取得し、正本である `shared/forecast.json` の現在値と予測値を
+4市場の過去10年の日足を取得し、正本である `shared/forecast.json` の現在値と予測値を
 更新します。続けて
 `python scripts/sync_forecast.py` を実行するとAndroid / Webの配布用JSONへ反映されます。
 Android側にも互換用コピーは生成されますが、WebView版の表示やビルドはその内容に依存しません。
@@ -48,7 +48,8 @@ APKの再ビルドが必要なのは、表示URL、WebView設定、権限、ア�
 normal、2.5%未満: caution、それ以上: storm）から決定論的に決めます。
 
 同じコマンドは、各時点までのデータだけで翌営業日の方向を予測するwalk-forward
-バックテストの方向正解率とサンプル数も市場別に表示します。これは最初のbaselineであり、
+バックテストで、Trend、4市場の金融天気図による過去類似局面、両者の50/50 Ensembleの
+方向正解率とサンプル数も市場別に表示します。これは検証可能な初期モデルであり、
 将来の高い予測精度を示すものではありません。
 
 Android APKに加えて、同じ予報データを表示するWeb版をGitHub Pagesで公開し、iOS / Windows / Androidブラウザからも確認できる構成を目指します。
