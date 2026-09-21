@@ -2,141 +2,200 @@
 
 ## 目的
 
-Market Weather を「現在値表示」から最初の実予報へ進める。
+Market Weather の本番Android APKを、現在のComposeネイティブ画面から
+GitHub Pages版を表示する軽量WebViewカプセルへ切り替える。
 
-4市場の日足履歴を取得し、依存の少ない透明な baseline 予測を作り、
-`shared/forecast.json` の予測項目を固定ダミー値から実計算値へ置き換える。
+モデルは `xiaqui/eiken2-webview` とする。
 
-対象市場:
-- 日経平均 (`^N225`)
-- NYダウ (`^DJI`)
-- USD/JPY (`JPY=X`)
-- GOLD (`GC=F`)
+Web版を表示の正本とし、Android APKは原則としてそのWeb版を包むだけの薄い殻にする。
+現行Compose版は削除して失わせず、保全して今後たまにWeb版へ追従できる状態を残す。
 
 ## 現状
 
-- 現在値取得は Yahoo Finance Chart API で実装済み。
-- GitHub Actions から Yahoo Finance への実接続確認済み。
-- `shared/forecast.json` → Android / Web の同期は実装済み。
-- Pages と APK には4市場の実現在値が反映済み。
-- `up_probability`, `range_low`, `range_high`, `confidence`, `weather`, `risk` はまだ固定値。
+- Web版は GitHub Pages で公開済み:
+  `https://xiaqui.github.io/market-weather/`
+- Web版は4市場の実現在値・実計算baseline予報を表示している。
+- 現在のAndroid APKはJetpack Composeで画面を別実装し、
+  APK内のforecast.jsonを読むネイティブ版。
+- そのためWebとAndroidでUI/データを二重管理している。
+- `xiaqui/eiken2-webview` には、WebViewラッパーとして実績のある構成がある。
 
-## 今回やること
+## 今回の方針
 
-### 1. 日足履歴取得
+### 1. 現行Compose版を保全
 
-Pythonで4市場の日足履歴を取得する。
+WebView化前の現在の main を、今後参照・保守できる形で保全する。
 
-条件:
-- 現在と同じ Yahoo Finance Chart API を利用
-- APIキー不要
-- まず過去1年程度を取得
-- timestamp / open / high / low / close / volume を扱える構造にする
-- 欠損値、休日、市場ごとの時差を雑に埋めず、利用可能な実データだけ使う
-- 取得失敗時に壊れた予報JSONを生成しない
-- 不要な大型依存は追加しない
+推奨:
+- `native-compose` branch を現在の main から作成してpushする
 
-### 2. 最小特徴量
+または同等に明確で安全な方法で保全してよい。
 
-各市場について最低限、以下を計算する。
+目的は、WebView化後もCompose版を失わず、
+必要な節目でWeb版に合わせて保守できるようにすること。
 
-- 1日騰落率
-- 5日騰落率
-- 20日騰落率
-- 5日移動平均乖離
-- 20日移動平均乖離
-- 5日ボラティリティ
-- 20日ボラティリティ
+この保全branchでは通常開発を進めない。
 
-計算は未来データを使わないこと。
+### 2. Android本番版をWebViewカプセルへ変更
 
-### 3. baseline 予測
+`android/` の本番APK実装を、
+`xiaqui/eiken2-webview` をモデルにしたWebViewアプリへ変更する。
 
-初期版は学習済みMLモデルではなく、説明可能な単純Trend baseline とする。
+開始URL:
+
+```text
+https://xiaqui.github.io/market-weather/
+```
+
+アプリ名:
+
+```text
+Market Weather
+```
+
+package / applicationId は既存の
+
+```text
+jp.xiaqui.marketweather
+```
+
+を維持すること。
+
+既存インストールから更新可能な形を優先する。
+
+### 3. WebView基本仕様
+
+最低限、以下を実装する。
+
+- JavaScript 有効
+- DOM Storage 有効
+- HTTPSのみを前提にする
+- cleartext traffic は許可しない
+- INTERNET permission のみ必要最小限で付与
+- WebView内の戻る履歴がある場合は戻る操作で前ページへ戻る
+- Activity再生成時にWebView stateを保存・復元
+- メインフレームのロード失敗時は簡潔なエラー画面を表示
+- Android System WebViewの通常機能を使い、独自ブラウザエンジンは持たない
+- 不要なJavaScript bridgeは作らない
+- ファイルアクセス等、不要な権限・危険なWebView設定は追加しない
+
+### 4. URLハンドリング
+
+Market Weather本体はWebView内で開く。
+
+内部扱い:
+
+```text
+https://xiaqui.github.io/market-weather/
+```
+
+およびその配下。
+
+それ以外のHTTP/HTTPSリンクは外部ブラウザへ渡す。
+
+`intent:` や特殊スキームを安易にWebView内で実行しない。
+必要な場合だけ安全に外部Intentへ渡す。
+
+### 5. Androidバージョン
+
+Android 6 / Z3TC対応は今回の必須条件ではない。
+
+`eiken2-webview` は minSdk 23 だが、
+Market Weatherでは以下の優先順位とする。
+
+1. WebView化を簡潔・安定して完了する
+2. 既存Android環境・Actionsを壊さない
+3. そのうえで追加の手間がほぼ無ければ minSdk 23 に下げてもよい
+
+minSdk 23対応のために追加の分岐・大きな互換コード・不安定化が必要なら、
+無理に対応せず既存 minSdk 26 のままでよい。
+
+Z3TCでWebページが白画面になった過去実績があるため、
+「APKがAndroid 6へインストールできること」自体を今回の完成条件にしない。
+
+### 6. Compose版固有依存の整理
+
+本番WebView APKで不要になるものは削除・簡素化する。
+
+候補:
+- Jetpack Compose関連依存
+- Material3関連依存
+- Gson
+- APK内 forecast.json
+- Android側 forecast JSON unit test
+- Android build前の `sync_forecast.py` 依存
+
+ただしWeb版・Python予測系で必要な
+
+- `shared/forecast.json`
+- `web/forecast.json`
+- `scripts/sync_forecast.py`
+
+は残す。
+
+Android APKのためだけにforecast.jsonをコピーする必要はなくす。
+
+### 7. Web版とAPKの責務を分離
+
+今後の原則をREADMEまたはdocsへ記載する。
+
+- Web版 / GitHub Pages が表示の正本
+- 通常の市場データ・予測・UI更新ではAPK再build不要
+- APK再buildが必要なのは、URL、WebView設定、権限、アプリアイコン等の殻を変更した時
+- Composeネイティブ版は保全版として、節目で必要に応じて追従する
+
+### 8. GitHub Actions
+
+既存の `Build Android APK` をWebView版に合わせて整理する。
 
 要件:
-- 上昇方向の強さを複数の過去リターン / 移動平均乖離から作る
-- `up_probability` は 0〜1 に必ず収める
-- 極端に 0 / 1 へ張り付かせない
-- `range_low` / `range_high` は現在値と直近ボラティリティから算出
-- `confidence` は方向シグナルの一致度とデータ十分性から 0〜1 で算出
-- `weather` / `risk` は数値から決定論的に変換
-- マジックナンバーは定数化し、コメントまたはREADME/仕様に意味を書く
+- push / workflow_dispatch でbuild可能
+- Android unit testが存在するなら実行
+- debug APKを生成
+- Artifact名 `market-weather-debug` は維持
+- 出力ファイル名 `market-weather-debug.apk` も維持
+- Compose版用のforecast同期処理が不要なら外す
+- Cloud内にAndroid SDKが無くても、GitHub Actionsを正式build確認とする
 
-これは「最初のbaseline」であり、高精度を装わないこと。
-
-### 4. forecast.json を実計算値へ更新
-
-`shared/forecast.json` について以下を実値 / 実計算値へ更新する。
-
-- `current`
-- `up_probability`
-- `range_low`
-- `range_high`
-- `confidence`
-- `weather`
-- `risk`
-- `generated_at`
-
-その後 `python scripts/sync_forecast.py` を実行し、
-
-- `android/app/src/main/assets/forecast.json`
-- `android/app/src/test/resources/forecast.json`
-- `web/forecast.json`
-
-を正本と一致させる。
-
-### 5. 最小バックテスト / sanity check
-
-最低限、未来データ混入を避けた時系列順の確認を追加する。
-
-- 過去データの各時点で、その時点までのデータだけから翌営業日の方向を出す
-- 方向正解率を市場別に表示
-- サンプル数を表示
-- ランダムシャッフルは禁止
-- 成績が悪くても隠さない
-- 50%未満でも実装失敗扱いにはしない
-
-高度なMLや最適化は今回やらない。
-
-### 6. テスト
+### 9. テスト / 確認
 
 最低限以下を確認する。
 
-- 履歴レスポンスの正常 / 欠損ケース
-- 特徴量計算
-- probability / confidence が 0〜1
-- range_low < current < range_high
-- weather / risk の変換
-- 未来データを参照しないbaselineバックテスト
-- forecast生成
-- 正本とAndroid/Web JSONの一致
+- Python既存テストを壊していない
 - `git diff --check`
-- Android test / assembleDebug
+- Android build
+- WebViewの開始URLがMarket Weather Pagesになっている
+- applicationIdが `jp.xiaqui.marketweather` のまま
+- INTERNET以外に不要な権限が増えていない
+- 内部URL判定がMarket Weather Pages配下に限定されている
+- 外部HTTP/HTTPS URLが外部ブラウザへ渡る
+- APK内forecast.jsonに依存しなくなっている
 
 ## UI
 
-既存の画面構成・デザインは変更しない。
+Webページ自体のデザイン・予測ロジックは今回変更しない。
 
-予測値が実計算値になれば、現行UIへそのまま表示する。
+APKは公開中のWeb版をそのまま表示すること。
 
 ## GitHub運用
 
-- main へ直接pushしない
-- 専用branchを作る
+- mainへ直接pushしない
+- 現行Compose版を先に保全する
+- WebView化は専用branchで実装
 - commit / push
-- 新しいPull Requestを作る
-- Actionsが成功することを確認する
-- 既存の `Verify Market Data` を壊さない
+- Pull Requestを作成
+- GitHub ActionsでAPK build成功を確認
+- mergeは行わない
 
 ## 完了条件
 
-- 4市場の日足履歴を取得できる
-- 最小特徴量が計算できる
-- 4市場すべての予測項目が固定ダミー値ではなく実計算値になる
-- baselineバックテスト結果が市場別に出る
-- Android / Web JSON が正本と一致する
-- Pythonテスト成功
+- 現行Compose版が参照可能な形で保全されている
+- Android本番実装がWebViewカプセルになっている
+- Market Weather Pagesを表示する
+- 外部リンクは外部ブラウザへ渡る
+- APK内forecast.jsonへの依存がなくなっている
+- applicationIdを維持
+- Python既存テスト成功
 - Android build成功
 - `git diff --check` 成功
 - PR作成済み
@@ -145,11 +204,11 @@ Pythonで4市場の日足履歴を取得する。
 
 以下だけ報告する。
 
-- branch名
+- Compose版の保全方法 / branch名
+- WebView化branch名
 - commit SHA
 - PR番号
-- 4市場の最新予報値
-- 4市場のbaseline方向正解率とサンプル数
+- minSdkを23にしたか26維持か、その理由
 - test/build結果
 - 変更ファイル
 - 残課題
