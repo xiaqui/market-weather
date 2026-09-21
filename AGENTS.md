@@ -20,6 +20,37 @@
 
 TASK.md が存在しない場合は、勝手に別作業を始めず、その旨だけ報告する。
 
+## GitHub remote / push
+
+push 前に `origin` が設定されていることを確認する。
+
+`origin` が存在しない場合は、以下を設定する。
+
+```bash
+git remote add origin https://github.com/xiaqui/market-weather.git
+```
+
+その後、認証済みのGitHub接続を使って専用branchをpushし、Pull Requestを作成する。
+
+`origin` 未設定だけを理由に作業を未完了にしない。
+
+## Android build
+
+Codex Cloud 環境に Android SDK / `ANDROID_HOME` / `ANDROID_SDK_ROOT` が無い場合、
+Cloud内で無理にAndroid SDKを新規構築しない。
+
+その場合は以下を実行する。
+
+- Pythonテスト
+- 必要なlint / syntax check
+- `git diff --check`
+- commit / push / PR作成
+
+Androidの正式なbuild確認は、push後の GitHub Actions `Build Android APK` に任せる。
+
+Cloud内でAndroid buildできなかったことだけを理由に作業を未完了にしない。
+GitHub Actions の結果を最終報告に含めること。
+
 ## 完了後
 
 ユーザーが「まじおk」と言っても、Codex側ではmergeしない。
