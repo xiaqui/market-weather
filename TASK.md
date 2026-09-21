@@ -1,417 +1,380 @@
 # TASK.md
 
+## 種別
+
+新規タスク
+
+PR #4「金融天気図による過去類似局面予報」はmainへmerge済み。
+今回は独立した検証フェーズとして、新しいbranch / 新しいPull Requestで作業する。
+
+# 金融天気図の検証フェーズ2
+
 ## 目的
 
-PR #4「金融天気図による過去類似局面予報を追加」の追加検証として、
-Trend / Analog / Ensemble の成績を「単純な全体正解率」だけでなく、
-**TrendとAnalogが一致した時・割れた時・確信が強い時・類似度が高い時**
-に分解して確認できる診断レポートを追加する。
+Cross-Asset Historical Analog（金融天気図）が直近252セッションだけに偶然合っていたのか、
+別の未使用期間でも同じ傾向を再現するのか検証する。
 
-今回の目的はモデルを調整することではない。
+今回の主目的は、
+「AnalogがTrendより再現性のある情報を持っているか」
+を確認すること。
 
-- 重みを変えない
-- kを変えない
-- 特徴量を変えない
-- 閾値を成績に合わせて最適化しない
-- 現行50:50 Ensembleを変更しない
-
-まず、今ある2人の「予報士」がどんな場面で当たりやすいかを観察可能にする。
-
----
+予測モデルの改造・最適化はしない。
 
 ## 背景
 
-現在の直近252セッションbacktestでは、
+直近252セッションでは以下だった。
 
-- 日経: Trend 48.4% / Analog 57.5% / Ensemble 53.2%
+- 日経平均: Trend 48.4% / Analog 57.5% / Ensemble 53.2%
 - NYダウ: Trend 48.4% / Analog 55.2% / Ensemble 48.0%
 - USDJPY: Trend 50.8% / Analog 50.0% / Ensemble 53.6%
 - GOLD: Trend 50.0% / Analog 57.5% / Ensemble 52.8%
 
-特にNYダウではAnalog単独が55.2%なのに、
-50:50 Ensembleでは48.0%へ悪化している。
+不一致時:
+- 日経平均: Trend 40.7% / Analog 59.3%
+- NYダウ: Trend 42.5% / Analog 57.5%
+- USDJPY: Trend 50.9% / Analog 49.1% / Ensemble 57.4%
+- GOLD: Trend 42.0% / Analog 58.0%
 
-このため、
-「常にTrendとAnalogを平均すればよい」
-とは限らない。
+Brier Score:
+- 日経平均: Trend 0.3139 / Analog 0.2484 / Ensemble 0.2634
+- NYダウ: Trend 0.3139 / Analog 0.2568 / Ensemble 0.2723
+- USDJPY: Trend 0.2935 / Analog 0.2552 / Ensemble 0.2607
+- GOLD: Trend 0.2861 / Analog 0.2509 / Ensemble 0.2551
 
-次に確認したいのは、
+4市場すべてでAnalogのBrier ScoreがTrendより良かった。
 
-- TrendとAnalogが同じ方向を向いた時は強いのか
-- 意見が割れた時はどちらが強いのか
-- 両者が強く一致した時は本当に精度が上がるのか
-- Analogの類似度が高い時は精度が上がるのか
+一方、
+- strengthが強いほど精度上昇、という単調関係はない
+- Analog距離が近いほど精度上昇、という単調関係もない
+- USDJPYは他3市場と挙動が異なる
+- 50:50 Ensembleは市場によってAnalogの良さを消すことがある
 
-という条件別成績。
+ことも分かった。
 
----
+## 重要方針
 
-## 1. walk-forwardの各予測レコードを記録可能にする
+今回は検証だけ。
 
-既存の未来リークなしwalk-forwardをそのまま使い、
-各市場・各予測時点について最低限次を保持できるようにする。
+以下は変更しない。
 
-```text
-date / timestamp
-trend_probability
-analog_probability
-ensemble_probability
-actual_up
-analog_count
-analog_mean_distance
-```
+- 30次元金融天気図
+- k = 30
+- MIN_ANALOGS = 15
+- 距離計算
+- inverse-distance weighting
+- snapshot clock
+- session close処理
+- 休場日処理
+- staleness
+- accumulated external move
+- Trendロジック
+- Trend / Analog 50:50 Ensemble
+- 本番forecastの計算式
+- weather分類
 
-Analogが利用不能なケースは明示する。
+結果が良くても悪くても、このタスク内で本番ルールを変更しない。
 
-本番forecast JSONへ全履歴を入れる必要はない。
-backtest診断用の内部構造・CLI出力・別report JSONなど、
-保守しやすい方法を選んでよい。
+## 1. Discovery期間を固定
 
----
+PR #4で詳しく観察済みの最新252セッションはDiscovery windowとする。
+今後これを未使用holdoutとは扱わない。
 
-## 2. Trend / Analog 一致・不一致の4分類
+Discoveryから既に得た仮説を事前固定する。
 
-各予測を50%境界で次の4群に分ける。
+仮説A:
+日経 / Dow / GOLDでは、TrendとAnalogが不一致の時にAnalog側が強い可能性がある。
 
-```text
-A: Trend ↑ / Analog ↑
-B: Trend ↑ / Analog ↓
-C: Trend ↓ / Analog ↑
-D: Trend ↓ / Analog ↓
-```
+仮説B:
+Analogは確率予測としてTrendよりBrier Scoreが良い可能性がある。
 
-市場ごとに各群について最低限次を出す。
+仮説C:
+USDJPYは他3市場とは挙動が異なり、単純なAnalog優先では説明できない可能性がある。
 
-```text
-sample count
-actual up rate
-Trend accuracy
-Analog accuracy
-Ensemble accuracy
-```
+仮説D:
+Analog distanceと精度は単調関係ではない。
+
+仮説E:
+combined strengthと精度も単調関係ではない。
+
+検証結果を見て仮説の意味を後付け変更しない。
+
+## 2. 非重複Validation windowを作る
+
+現在取得している約10年の日足から、
+Discovery windowと重複しない過去期間を使う。
+
+最低限、直前の非重複252セッションを1つ目のValidation windowとする。
+
+可能ならさらに前も使い、
+合計3〜5個程度の非重複windowで検証する。
 
 例:
+- Window 0: 最新252 = Discovery
+- Window 1: その直前252 = Validation
+- Window 2: さらに前252 = Validation
+- Window 3: さらに前252 = Validation
+- Window 4: さらに前252 = Validation
 
-```text
-Nikkei
-Trend↑ / Analog↑
-  n=72
-  actual_up=65.3%
-  Trend=65.3%
-  Analog=65.3%
-  Ensemble=65.3%
+市場ごとに営業日数・欠損が違うため、対象市場のセッション単位で区切る。
 
-Trend↑ / Analog↓
-  n=58
-  actual_up=39.7%
-  Trend=39.7%
-  Analog=60.3%
-  Ensemble=...
-```
+各windowの予測では、その予測時点より未来の情報を絶対に使わない。
+既存のwalk-forward / snapshot clock / as-of / Analog候補制約をそのまま利用する。
 
-特に「不一致時にTrend側とAnalog側のどちらが優位か」を確認できること。
+## 3. windowごとの診断
 
----
+各市場・各windowについて最低限:
 
-## 3. 一致 vs 不一致の集約
-
-4分類とは別に、
-
-```text
-Agreement:
-  TrendとAnalogが同方向
-
-Disagreement:
-  TrendとAnalogが逆方向
-```
-
-の2群へまとめた成績も出す。
-
-各市場について:
-
-```text
-agreement sample count
-agreement accuracy
-disagreement sample count
-Trend accuracy on disagreement
-Analog accuracy on disagreement
-Ensemble accuracy on disagreement
-```
-
-ここは将来の「信頼度」設計候補になるため重要。
-
----
-
-## 4. 予報の強さを分析する
-
-同じ「両方↑」でも、
-
-```text
-Trend 51% / Analog 52%
-```
-
-と
-
-```text
-Trend 72% / Analog 68%
-```
-
-では意味が違う。
-
-まず以下の単純な強さ指標を診断用に計算する。
-
-```text
-trend_strength  = abs(trend_probability  - 0.5)
-analog_strength = abs(analog_probability - 0.5)
-combined_strength = trend_strength + analog_strength
-```
-
-既存予報ロジックには使わない。
-
-### 固定bin
-
-後付け最適化を避けるため、
-分位点で「成績が良く見えるように」切らない。
-
-固定幅で例えば次の3群に分ける。
-
-```text
-weak:   combined_strength < 0.10
-medium: 0.10 <= combined_strength < 0.25
-strong: combined_strength >= 0.25
-```
-
-この閾値が実データ上不合理な場合のみ、
-理由を明示して単純な固定値へ変更してよい。
-
-各binで:
-
-```text
-sample count
-actual up rate
-Trend accuracy
-Analog accuracy
-Ensemble accuracy
-```
-
-を出す。
-
-Agreement群だけを対象にした
-weak / medium / strong の成績も出せるなら追加する。
-
----
-
-## 5. Analog類似度と成績の関係
-
-Analogには `analog_mean_distance` がある。
-
-「過去の天気図に非常によく似ている時ほど当たりやすいか」
-を確認する。
-
-### 重要
-
-distanceの閾値を成績に合わせて最適化しない。
-
-診断用には、
-各市場のwalk-forward対象サンプルを
-**距離の3分位または4分位**で機械的に分割してよい。
-
-これは「しきい値を予測ルールに使う」のではなく、
-単に低距離 / 中距離 / 高距離で成績差を見る診断なので可。
-
-最低限:
-
-```text
-closest group
-middle group
-farthest group
-```
-
-について、
-
-```text
-sample count
-mean distance
-Analog accuracy
-Ensemble accuracy
-actual up rate
-```
-
-を出す。
-
-可能なら `analog_count` が30未満になるケースの成績も別表示する。
-
----
-
-## 6. 確率予測としての評価
-
-実装負荷が小さければ、
-各市場について次を追加する。
-
+- Trend accuracy
+- Analog accuracy
+- Ensemble accuracy
 - Trend Brier Score
 - Analog Brier Score
 - Ensemble Brier Score
+- agreement count / accuracy
+- disagreement count
+- Trend accuracy on disagreement
+- Analog accuracy on disagreement
+- Ensemble accuracy on disagreement
 
-Brier Score:
+を出す。
 
-```text
-mean((probability - actual)^2)
-```
+可能なら4分類も維持する。
 
-actualは上昇=1、非上昇=0。
+- Trend↑ / Analog↑
+- Trend↑ / Analog↓
+- Trend↓ / Analog↑
+- Trend↓ / Analog↓
 
-これは方向正解率と違って、
-60%予報と90%予報の「外し方」も評価できる。
+## 4. 仮説A: 不一致時Analog優位の再現性
 
-未来リークなしの同じwalk-forwardレコードから算出する。
+日経 / Dow / GOLDで、
+Analog disagreement accuracy > Trend disagreement accuracy
+が複数のValidation windowでも繰り返されるかを見る。
 
-今回はCalibration曲線の本格実装までは不要。
-ただし簡単なら、
-40-50 / 50-60 / 60-70 / 70-80%程度の固定bin別actual up rateを
-補助出力してもよい。
+単一windowだけでなく、
+何window中何windowで再現したかを市場別にまとめる。
 
----
+## 5. 仮説B: Brier Score優位の再現性
 
-## 7. レポート形式
+各Validation windowでTrend / Analog / EnsembleのBrier Scoreを出す。
 
-CLIで読みやすく確認できることを優先する。
+特に Analog Brier < Trend Brier が、
+市場別に何window中何windowで再現するかをまとめる。
 
-必要なら別ファイルとして、
+## 6. 仮説C: USDJPYの異質性
 
-```text
-reports/backtest-diagnostics.json
-```
+DiscoveryではUSDJPYだけ、
+- 不一致時 Trend 50.9% / Analog 49.1%
+- Ensemble 57.4%
+- Trend↓ / Analog↓なのにactual up 74.3%
+だった。
 
+各Validation windowで最低限:
+
+- overall actual up rate
+- Trend↓ / Analog↓ sample count
+- Trend↓ / Analog↓ actual up rate
+- disagreement Trend accuracy
+- disagreement Analog accuracy
+- disagreement Ensemble accuracy
+
+を出す。
+
+期間自体のUSDJPY上昇バイアスを確認するため、
+各windowの単純actual up rateも必ず併記する。
+
+USDJPY専用ルールは今回作らない。
+
+## 7. 仮説D: Analog距離と精度
+
+既存のclosest / middle / farthest診断を各Validation windowでも実施する。
+
+距離閾値は成績に合わせて最適化しない。
+
+各windowで:
+- closest: mean distance / n / Analog accuracy
+- middle: mean distance / n / Analog accuracy
+- farthest: mean distance / n / Analog accuracy
+
+を出し、
+closestが毎回最良か、middleが繰り返し最良か、順位がバラバラかを見る。
+
+## 8. 仮説E: strengthと精度
+
+既存固定binを変更しない。
+
+- weak < 0.10
+- medium < 0.25
+- strong >= 0.25
+
+各Validation windowでTrend / Analog / Ensemble accuracyを出し、
+strongが一貫して良いかを見る。
+
+結果を見てbin境界を変更しない。
+
+## 9. paired comparison
+
+TrendとAnalogは同じ日を予測しているため、
+各市場・各windowで以下を数える。
+
+- both correct
+- Trend only correct
+- Analog only correct
+- both wrong
+
+不一致時についても同様に出せるなら出す。
+
+これにより、単なるaccuracy差ではなく
+Analogだけ正解する日が本当に多いのか確認する。
+
+## 10. 統計的不確実性
+
+実装負荷が小さければ追加する。
+
+accuracyについて95% Wilson confidence interval。
+
+標準Pythonだけで可能なら、
+Trend only correct vs Analog only correct のdiscordant pairに対する
+exact binomial p-valueも出してよい。
+
+外部統計ライブラリを新規導入する必要があるなら無理に入れない。
+
+p-valueだけで結論を決めず、
+サンプル数・差の大きさ・複数windowでの再現性を主に見る。
+
+## 11. 再現性サマリ
+
+Validation window全体について市場ごとにまとめる。
+
+例:
+- Analog overall accuracy > Trend: X / Y windows
+- Analog disagreement accuracy > Trend: X / Y windows
+- Analog Brier < Trend: X / Y windows
+
+全Validation期間のaggregateも出してよいが、
+window別結果を隠してaggregateだけ見せないこと。
+
+## 12. ルール候補は提案まで
+
+Validation結果から、
+将来検討すべきルール候補が見えても今回本番コードへ入れない。
+
+例:
+- 日経/Dow/Goldでは不一致時Analog優先
+- USDJPYだけ50:50維持
+
+などが見えても「次タスク候補」として報告するだけ。
+
+今回のPRでは予測ルール変更禁止。
+
+## 13. 出力
+
+CLIで確認できるようにする。
+
+可能なら、
+reports/phase2-validation.md
 または
+reports/phase2-validation.json
+を生成する。
 
-```text
-reports/backtest-diagnostics.md
-```
+最低限含めるもの:
 
-を生成してもよい。
+- window定義
+- 各市場各windowの期間
+- sample count
+- Trend / Analog / Ensemble accuracy
+- Brier
+- disagreement比較
+- paired comparison
+- strength
+- distance
+- USDJPY追加診断
+- 再現性サマリ
 
-ただし実行のたびに巨大な履歴をGit管理する必要はない。
-生成物をcommitするかどうかは、既存repo方針に合わせて判断する。
+合理的なサイズならreportをcommitしてよい。
 
-最低限CLIで市場ごとの診断が確認できればよい。
+## 14. テスト
 
----
+最低限:
 
-## 8. 今回は予測ロジックを変更しない
+- 非重複windowが正しく切られる
+- DiscoveryとValidationが重複しない
+- window内walk-forwardで未来データを使わない
+- paired counts合計がsample countと一致
+- disagreement paired countsが対象サンプル数と一致
+- Wilson CIが既知fixtureで妥当
+- Brier既存テスト維持
+- distance/strength診断を壊さない
+- snapshot clock / session close / holiday回帰テストを壊さない
+- 既存28 testsを壊さない
 
-重要。
+## 15. docs
 
-診断結果を見て、
+適切なdocsへフェーズ2の目的を記録する。
 
-- Analogを70%にする
-- Trendを捨てる
-- NYダウだけAnalogにする
-- 距離が近い時だけAnalogを使う
-- 一致時だけ強気にする
+特に:
+- 最新252セッションはDiscoveryでありholdoutではない
+- 別の非重複期間で再現性を見る
+- 結果を見ても同じPR内で予測ルールを変更しない
+- 単一期間の好成績を「発見」と「再現性」に分けて扱う
 
-などのルール変更は今回行わない。
+ことを明記する。
 
-今回のPRでやるのは
-**観測とレポートだけ**。
+## 16. GitHub運用
 
-結果を見て、別の仕様判断として次タスクを作る。
+今回は新規タスク。
 
----
-
-## 9. 既存の金融天気図実装を壊さない
-
-PR #4で修正済みの以下を維持する。
-
-- 共通snapshot clock
-- 市場別session close
-- 短縮取引日
-- 日経2024年取引時間延長
-- 日本/米国休場差
-- as-of join
-- staleness
-- accumulated external move
-- 未来リーク防止
-- 30次元Analog状態
-- k=30
-- MIN_ANALOGS=15
-- 50:50 Ensemble
-
----
-
-## 10. テスト
-
-最低限以下を追加する。
-
-- 4分類が期待通りに振り分けられる
-- agreement / disagreement集計が正しい
-- combined_strengthが正しく計算される
-- strength bin境界が正しい
-- distance groupのサンプル総数が元サンプル数と一致する
-- Brier Scoreが既知の小さなfixtureで正しい
-- Analog Noneのケースを安全に除外/扱える
-- 既存walk-forward未来リークテストを壊さない
-- 既存24 testsを壊さない
-
----
-
-## 11. docs
-
-`docs/forecast-algorithm.md` または適切なdocsへ、
-以下を短く追記する。
-
-- Trend = 単一市場自身の最近の流れ
-- Analog = 4市場の金融天気図から過去類似局面を探す予報
-- Ensemble = 現在はTrend/Analogを50:50平均した初期比較モデル
-- 一致/不一致分析は、将来のconfidenceや最終予報ルールを決めるための診断であり、
-  現時点では予測ロジックへ反映していない
-
----
-
-## 12. GitHub運用
-
-- PR #4 の同じbranch `金融天気図` を更新する
-- 新PRを作らない
+- main最新から新branchを作る
 - mainへ直接pushしない
-- PR #4最新headをcheckout/更新して作業する
-- commit / push
+- 実装
+- test
+- commit
+- push
+- 新しいPull Requestを作る
 - GitHub Actions確認
 - mergeはしない
 
----
-
 ## 完了条件
 
-- walk-forward各予測レコードを診断可能
-- Trend↑/Analog↑、Trend↑/Analog↓、Trend↓/Analog↑、Trend↓/Analog↓ の4分類成績が出る
-- agreement / disagreement成績が出る
-- weak / medium / strong成績が出る
-- Analog距離別成績が出る
-- 可能ならBrier Scoreが出る
-- 市場別に結果を比較できる
-- 予測ロジック自体は変更していない
+- Discovery windowを固定した
+- Discoveryと重複しない複数Validation windowを作った
+- 市場別・window別Trend / Analog / Ensemble成績が出る
+- Brier再現性が出る
+- 不一致時Analog優位の再現性が出る
+- USDJPYの異質性を別期間で確認できる
+- distance非単調性を別期間で確認できる
+- strength非単調性を別期間で確認できる
+- paired comparisonが出る
+- 可能ならconfidence interval / exact paired testが出る
+- 予測ロジックは変更していない
 - tests成功
-- `git diff --check`成功
+- git diff --check成功
 - GitHub Actions成功
 - docs更新
-- PR #4更新済み
+- 新PR作成済み
 - mergeしていない
-
----
 
 ## 最後の報告
 
 以下を報告する。
 
+- branch名
 - commit SHA
-- PR #4最新head
-- 追加した診断項目
-- 市場別4分類結果
-- agreement / disagreement結果
-- strength別結果
-- Analog距離別結果
-- Brier Score（実装した場合）
+- PR番号
+- Discovery window
+- Validation window一覧
+- 各市場・各windowのTrend / Analog / Ensemble accuracy
+- 各市場・各windowのBrier Score
+- disagreement比較
+- paired comparison
+- USDJPY追加診断
+- distance結果
+- strength結果
+- 再現性サマリ
+- 統計的不確実性（実装した場合）
 - test結果
 - Actions結果
 - 変更ファイル
 - 見えてきた傾向
-- ただし予測ルールは変更していないこと
+- 次タスク候補
+- 予測ルールは変更していないこと
