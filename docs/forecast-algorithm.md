@@ -379,7 +379,9 @@ walk-forwardの各予測について、時刻、Trend・Analog・Ensemble確率�
 
 生成する`reports/phase2-validation.json`には、window別の正解率、Brier Score、一致・不一致、
 paired comparison、固定strength bin、距離3分割、95% Wilson区間、discordant pairのexact binomial
-p-valueと、Validation window間の再現回数を記録する。単一期間の好成績を「発見」と「再現性」に
+p-valueに加え、always-up、always-down、確率50%固定、各予測時点より前だけの実績上昇率を使う
+expanding historical up-rate baselineとの比較と、Validation window間の再現回数を記録する。
+単一期間の好成績を「発見」と「再現性」に
 分けて扱い、結果を見て同じPR内で30次元金融天気図、閾値、重み、予測ルールを変更しない。
 
 ## 13. 現在の位置付け

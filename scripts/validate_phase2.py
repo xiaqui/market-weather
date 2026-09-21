@@ -80,6 +80,8 @@ def describe_window(records: list[model.BacktestRecord]) -> dict[str, Any]:
     pairs = paired_counts(available)
     disagreement_pairs = paired_counts(disagreement)
     summary = model.summarize_backtest_records(records)
+    actual_up_rate = sum(record.actual_up for record in records) / len(records)
+    historical_correct = model._correct_count(records, "historical_up_probability")
     intervals = {
         name: wilson_interval(model._correct_count(rows, f"{name}_probability"), len(rows))
         for name, rows in (
@@ -93,7 +95,16 @@ def describe_window(records: list[model.BacktestRecord]) -> dict[str, Any]:
         "end_date_utc": datetime.fromtimestamp(records[-1].timestamp, timezone.utc).date().isoformat(),
         "sample_count": len(records),
         "analog_available_count": diagnostics["analog_available_count"],
-        "actual_up_rate": sum(record.actual_up for record in records) / len(records),
+        "actual_up_rate": actual_up_rate,
+        "naive_baselines": {
+            "always_up_accuracy": actual_up_rate,
+            "always_down_accuracy": 1 - actual_up_rate,
+            "constant_50_brier": 0.25,
+            "expanding_historical_up_rate": {
+                "accuracy": historical_correct / len(records),
+                "brier": model.brier_score(records, "historical_up_probability"),
+            },
+        },
         "accuracy": {name: summary[f"{name}_accuracy"] for name in ("trend", "analog", "ensemble")},
         "accuracy_wilson_95": intervals,
         "brier": diagnostics["brier"],
@@ -133,6 +144,30 @@ def build_report(histories: dict[str, list[model.Candle]]) -> dict[str, Any]:
                 "analog_brier_below_trend": sum(
                     item["brier"]["analog"] < item["brier"]["trend"] for item in validations
                 ),
+                "analog_accuracy_above_always_up": sum(
+                    item["accuracy"]["analog"] > item["naive_baselines"]["always_up_accuracy"]
+                    for item in validations
+                ),
+                "analog_accuracy_above_always_down": sum(
+                    item["accuracy"]["analog"] > item["naive_baselines"]["always_down_accuracy"]
+                    for item in validations
+                ),
+                "analog_accuracy_above_both_always_baselines": sum(
+                    item["accuracy"]["analog"] > max(
+                        item["naive_baselines"]["always_up_accuracy"],
+                        item["naive_baselines"]["always_down_accuracy"],
+                    )
+                    for item in validations
+                ),
+                "analog_brier_below_constant_50": sum(
+                    item["brier"]["analog"] < item["naive_baselines"]["constant_50_brier"]
+                    for item in validations
+                ),
+                "analog_brier_below_historical_up_rate": sum(
+                    item["brier"]["analog"]
+                    < item["naive_baselines"]["expanding_historical_up_rate"]["brier"]
+                    for item in validations
+                ),
             },
         }
     return {
@@ -164,6 +199,12 @@ def main() -> None:
             f"{counts['analog_accuracy_above_trend']}/{total}, disagreement "
             f"{counts['analog_disagreement_accuracy_above_trend']}/{total}, "
             f"Brier {counts['analog_brier_below_trend']}/{total}"
+        )
+        print(
+            f"  naive: accuracy above both always baselines "
+            f"{counts['analog_accuracy_above_both_always_baselines']}/{total}, "
+            f"Brier below 0.25 {counts['analog_brier_below_constant_50']}/{total}, "
+            f"below historical rate {counts['analog_brier_below_historical_up_rate']}/{total}"
         )
     print(f"Wrote {args.output}")
 

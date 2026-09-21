@@ -144,6 +144,7 @@ class BacktestRecord:
     actual_up: bool
     analog_count: int
     analog_mean_distance: float | None
+    historical_up_probability: float = 0.5
 
 
 def _finite_number(value: Any) -> float | None:
@@ -593,6 +594,11 @@ def walk_forward_records(
     global_timestamps = sorted({
         candle.timestamp for rows in histories.values() for candle in rows
     })
+    cumulative_up = [0]
+    for index in range(1, len(target)):
+        cumulative_up.append(
+            cumulative_up[-1] + (target[index].close > target[index - 1].close)
+        )
     records = []
     # Report the latest trading year while retaining the full preceding
     # decade as the expanding analog candidate set.
@@ -608,6 +614,10 @@ def walk_forward_records(
         trend = float(build_prediction(history)["trend_probability"])
         analog = find_analogs(current, states, target)
         actual_up = target[next_index].close > target[next_index - 1].close
+        historical_up_probability = (
+            cumulative_up[next_index - 1] / (next_index - 1)
+            if next_index > 1 else 0.5
+        )
         if analog is None:
             ensemble = trend
             analog_probability = None
@@ -626,6 +636,7 @@ def walk_forward_records(
             actual_up=actual_up,
             analog_count=analog_count,
             analog_mean_distance=analog_mean_distance,
+            historical_up_probability=historical_up_probability,
         ))
     return records
 

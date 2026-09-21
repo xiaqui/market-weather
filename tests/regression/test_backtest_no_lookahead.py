@@ -221,6 +221,32 @@ class BacktestRegressionTest(unittest.TestCase):
             max(rows[-1].timestamp for rows in histories.values()),
         )
 
+    def test_expanding_historical_up_rate_excludes_predicted_outcome(self) -> None:
+        target = self.market_rows(last_index=24, growth=0.01)
+        histories = {market: list(target) for market in market_data.MARKET_ORDER}
+        current = market_data.WeatherMapState(target[-1].timestamp, (0.0,) * 30)
+
+        with (
+            patch.object(market_data, "_historical_states", return_value=[]),
+            patch.object(market_data, "snapshot_clock", return_value=target[-1].timestamp),
+            patch.object(market_data, "weather_map_at", return_value=current),
+            patch.object(market_data, "find_analogs", return_value=None),
+            patch.object(market_data, "build_prediction", return_value={"trend_probability": 0.5}),
+        ):
+            rising = market_data.walk_forward_records(histories, "nikkei", sessions=1)
+            histories["nikkei"][-1] = market_data.Candle(
+                target[-1].timestamp, 1.0, 1.0, 1.0, 1.0, None
+            )
+            falling = market_data.walk_forward_records(histories, "nikkei", sessions=1)
+
+        self.assertTrue(rising[0].actual_up)
+        self.assertFalse(falling[0].actual_up)
+        self.assertEqual(rising[0].historical_up_probability, 1.0)
+        self.assertEqual(
+            rising[0].historical_up_probability,
+            falling[0].historical_up_probability,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

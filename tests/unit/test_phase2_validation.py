@@ -4,7 +4,13 @@ from scripts import fetch_market_data as market_data
 from scripts import validate_phase2
 
 
-def record(timestamp: int, trend: float, analog: float, actual_up: bool):
+def record(
+    timestamp: int,
+    trend: float,
+    analog: float,
+    actual_up: bool,
+    historical_up: float = 0.5,
+):
     return market_data.BacktestRecord(
         timestamp=timestamp,
         trend_probability=trend,
@@ -13,6 +19,7 @@ def record(timestamp: int, trend: float, analog: float, actual_up: bool):
         actual_up=actual_up,
         analog_count=30,
         analog_mean_distance=float(timestamp),
+        historical_up_probability=historical_up,
     )
 
 
@@ -56,6 +63,25 @@ class Phase2ValidationTest(unittest.TestCase):
         self.assertEqual(validate_phase2.exact_paired_p_value(0, 4), 0.125)
         self.assertEqual(validate_phase2.exact_paired_p_value(2, 2), 1.0)
         self.assertIsNone(validate_phase2.exact_paired_p_value(0, 0))
+
+    def test_naive_baselines_use_predictions_recorded_before_each_outcome(self):
+        records = [
+            record(1, 0.7, 0.8, True, historical_up=0.6),
+            record(2, 0.7, 0.8, False, historical_up=0.7),
+            record(3, 0.7, 0.8, True, historical_up=0.4),
+            record(4, 0.7, 0.8, True, historical_up=0.3),
+        ]
+
+        baselines = validate_phase2.describe_window(records)["naive_baselines"]
+
+        self.assertEqual(baselines["always_up_accuracy"], 0.75)
+        self.assertEqual(baselines["always_down_accuracy"], 0.25)
+        self.assertEqual(baselines["constant_50_brier"], 0.25)
+        self.assertEqual(baselines["expanding_historical_up_rate"]["accuracy"], 0.25)
+        self.assertAlmostEqual(
+            baselines["expanding_historical_up_rate"]["brier"],
+            (0.16 + 0.49 + 0.36 + 0.49) / 4,
+        )
 
 
 if __name__ == "__main__":
