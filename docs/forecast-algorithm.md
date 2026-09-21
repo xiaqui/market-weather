@@ -351,6 +351,25 @@ JSONには `trend_probability`、`analog_probability`、`analog_count`、
 サンプル数を別々にCLIへ表示する。報告期間は直近252セッションとし、それ以前を含む
 最大10年の履歴は候補集合として使う。Analog不足時のEnsembleはTrendと同じ値になる。
 
+### Trend / Analog 予報士比較
+
+Trendは対象市場自身の直近の流れを見る予報、Analogは4市場をまとめた金融天気図から
+過去の類似局面を探す予報である。Ensembleは両者を50:50で平均した初期比較モデルであり、
+今回の診断によって重みや予測ルールは変更しない。
+
+walk-forwardの各予測について、時刻、Trend・Analog・Ensemble確率、実績方向、類似局面数、
+平均距離を保持する。同じ未来リーク防止済みレコードから、次をCLIへ出力する。
+
+- Trend↑/Analog↑、Trend↑/Analog↓、Trend↓/Analog↑、Trend↓/Analog↓の4分類
+- 一致時と不一致時の件数・実績上昇率・各予報の正解率
+- `abs(Trend - 0.5) + abs(Analog - 0.5)`による固定strength bin
+  （weak `< 0.10`、medium `< 0.25`、strong `>= 0.25`）
+- Analog平均距離をサンプル数で機械的に3分割したclosest / middle / farthest
+- Trend、Analog、EnsembleのBrier Score
+
+一致・不一致や強さ、距離別の分析は、将来のconfidenceや最終予報ルールを判断するための
+診断に限る。成績に合わせた閾値最適化や、現行予報への条件分岐追加は行っていない。
+
 ## 13. 現在の位置付け
 
 現在の baseline は以下を満たすための最小構成。

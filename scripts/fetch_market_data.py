@@ -135,6 +135,17 @@ class AnalogResult:
     nearest: tuple[tuple[int, float], ...]
 
 
+@dataclass(frozen=True)
+class BacktestRecord:
+    timestamp: int
+    trend_probability: float
+    analog_probability: float | None
+    ensemble_probability: float
+    actual_up: bool
+    analog_count: int
+    analog_mean_distance: float | None
+
+
 def _finite_number(value: Any) -> float | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
@@ -572,17 +583,16 @@ def backtest(candles: list[Candle]) -> tuple[int, int, float]:
     return correct, samples, correct / samples if samples else 0.0
 
 
-def cross_asset_backtest(
+def walk_forward_records(
     histories: dict[str, list[Candle]], market: str
-) -> dict[str, float | int]:
-    """Walk forward Trend, Analog, and ensemble without future states/outcomes."""
+) -> list[BacktestRecord]:
+    """Return leak-safe per-session forecasts for evaluation and diagnostics."""
     target = histories[market]
     states = _historical_states(histories, market)
     global_timestamps = sorted({
         candle.timestamp for rows in histories.values() for candle in rows
     })
-    trend_correct = analog_correct = ensemble_correct = 0
-    samples = analog_samples = 0
+    records = []
     # Report the latest trading year while retaining the full preceding
     # decade as the expanding analog candidate set.
     start = max(MINIMUM_HISTORY, len(target) - BACKTEST_SESSIONS)
@@ -597,26 +607,211 @@ def cross_asset_backtest(
         trend = float(build_prediction(history)["trend_probability"])
         analog = find_analogs(current, states, target)
         actual_up = target[next_index].close > target[next_index - 1].close
-        trend_correct += (trend >= 0.5) == actual_up
         if analog is None:
             ensemble = trend
+            analog_probability = None
+            analog_count = 0
+            analog_mean_distance = None
         else:
-            analog_correct += (analog.probability >= 0.5) == actual_up
-            analog_samples += 1
+            analog_probability = analog.probability
+            analog_count = analog.count
+            analog_mean_distance = analog.mean_distance
             ensemble = (1 - ANALOG_WEIGHT) * trend + ANALOG_WEIGHT * analog.probability
-        ensemble_correct += (ensemble >= 0.5) == actual_up
-        samples += 1
+        records.append(BacktestRecord(
+            timestamp=target[next_index].timestamp,
+            trend_probability=trend,
+            analog_probability=analog_probability,
+            ensemble_probability=ensemble,
+            actual_up=actual_up,
+            analog_count=analog_count,
+            analog_mean_distance=analog_mean_distance,
+        ))
+    return records
+
+
+def _accuracy(records: list[BacktestRecord], field: str) -> float:
+    if not records:
+        return 0.0
+    return sum((getattr(record, field) >= 0.5) == record.actual_up for record in records) / len(records)
+
+
+def _correct_count(records: list[BacktestRecord], field: str) -> int:
+    return sum((getattr(record, field) >= 0.5) == record.actual_up for record in records)
+
+
+def summarize_backtest_records(records: list[BacktestRecord]) -> dict[str, float | int]:
+    analog_records = [record for record in records if record.analog_probability is not None]
+    trend_correct = _correct_count(records, "trend_probability")
+    analog_correct = _correct_count(analog_records, "analog_probability")
+    ensemble_correct = _correct_count(records, "ensemble_probability")
     return {
         "trend_correct": trend_correct,
-        "trend_samples": samples,
-        "trend_accuracy": trend_correct / samples if samples else 0.0,
+        "trend_samples": len(records),
+        "trend_accuracy": trend_correct / len(records) if records else 0.0,
         "analog_correct": analog_correct,
-        "analog_samples": analog_samples,
-        "analog_accuracy": analog_correct / analog_samples if analog_samples else 0.0,
+        "analog_samples": len(analog_records),
+        "analog_accuracy": analog_correct / len(analog_records) if analog_records else 0.0,
         "ensemble_correct": ensemble_correct,
-        "ensemble_samples": samples,
-        "ensemble_accuracy": ensemble_correct / samples if samples else 0.0,
+        "ensemble_samples": len(records),
+        "ensemble_accuracy": ensemble_correct / len(records) if records else 0.0,
     }
+
+
+def cross_asset_backtest(
+    histories: dict[str, list[Candle]], market: str
+) -> dict[str, float | int]:
+    """Summarize the same walk-forward records used by diagnostics."""
+    return summarize_backtest_records(walk_forward_records(histories, market))
+
+
+def combined_strength(record: BacktestRecord) -> float | None:
+    if record.analog_probability is None:
+        return None
+    return abs(record.trend_probability - 0.5) + abs(record.analog_probability - 0.5)
+
+
+def strength_bin(strength: float) -> str:
+    if strength < 0.10:
+        return "weak"
+    if strength < 0.25:
+        return "medium"
+    return "strong"
+
+
+def direction_group(record: BacktestRecord) -> str | None:
+    if record.analog_probability is None:
+        return None
+    trend = "up" if record.trend_probability >= 0.5 else "down"
+    analog = "up" if record.analog_probability >= 0.5 else "down"
+    return f"trend_{trend}_analog_{analog}"
+
+
+def brier_score(records: list[BacktestRecord], field: str) -> float | None:
+    available = [record for record in records if getattr(record, field) is not None]
+    if not available:
+        return None
+    return statistics.fmean(
+        (getattr(record, field) - float(record.actual_up)) ** 2
+        for record in available
+    )
+
+
+def _diagnostic_metrics(records: list[BacktestRecord]) -> dict[str, float | int]:
+    if not records:
+        return {
+            "sample_count": 0, "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0, "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0,
+        }
+    return {
+        "sample_count": len(records),
+        "actual_up_rate": sum(record.actual_up for record in records) / len(records),
+        "trend_accuracy": _accuracy(records, "trend_probability"),
+        "analog_accuracy": _accuracy(records, "analog_probability"),
+        "ensemble_accuracy": _accuracy(records, "ensemble_probability"),
+    }
+
+
+def build_backtest_diagnostics(records: list[BacktestRecord]) -> dict[str, Any]:
+    """Aggregate fixed, non-optimized views without changing forecast behavior."""
+    available = [record for record in records if record.analog_probability is not None]
+    group_names = (
+        "trend_up_analog_up", "trend_up_analog_down",
+        "trend_down_analog_up", "trend_down_analog_down",
+    )
+    direction_groups = {
+        name: _diagnostic_metrics([
+            record for record in available if direction_group(record) == name
+        ])
+        for name in group_names
+    }
+    agreement = [
+        record for record in available
+        if (record.trend_probability >= 0.5) == (record.analog_probability >= 0.5)
+    ]
+    disagreement = [record for record in available if record not in agreement]
+
+    strength_groups = {
+        name: _diagnostic_metrics([
+            record for record in available if strength_bin(combined_strength(record)) == name
+        ])
+        for name in ("weak", "medium", "strong")
+    }
+    agreement_strength_groups = {
+        name: _diagnostic_metrics([
+            record for record in agreement if strength_bin(combined_strength(record)) == name
+        ])
+        for name in ("weak", "medium", "strong")
+    }
+
+    distance_records = sorted(
+        (record for record in available if record.analog_mean_distance is not None),
+        key=lambda record: record.analog_mean_distance,
+    )
+    distance_groups: dict[str, dict[str, float | int]] = {}
+    for group_index, name in enumerate(("closest", "middle", "farthest")):
+        start = len(distance_records) * group_index // 3
+        end = len(distance_records) * (group_index + 1) // 3
+        group = distance_records[start:end]
+        metrics = _diagnostic_metrics(group)
+        metrics["mean_distance"] = (
+            statistics.fmean(record.analog_mean_distance for record in group)
+            if group else 0.0
+        )
+        distance_groups[name] = metrics
+
+    return {
+        "sample_count": len(records),
+        "analog_available_count": len(available),
+        "analog_unavailable_count": len(records) - len(available),
+        "direction_groups": direction_groups,
+        "agreement": _diagnostic_metrics(agreement),
+        "disagreement": _diagnostic_metrics(disagreement),
+        "strength_groups": strength_groups,
+        "agreement_strength_groups": agreement_strength_groups,
+        "distance_groups": distance_groups,
+        "below_k": _diagnostic_metrics([
+            record for record in available if record.analog_count < ANALOG_K
+        ]),
+        "brier": {
+            "trend": brier_score(records, "trend_probability"),
+            "analog": brier_score(records, "analog_probability"),
+            "ensemble": brier_score(records, "ensemble_probability"),
+        },
+    }
+
+
+def _format_metrics(metrics: dict[str, float | int]) -> str:
+    return (
+        f"n={metrics['sample_count']}, actual_up={metrics['actual_up_rate']:.1%}, "
+        f"Trend={metrics['trend_accuracy']:.1%}, "
+        f"Analog={metrics['analog_accuracy']:.1%}, "
+        f"Ensemble={metrics['ensemble_accuracy']:.1%}"
+    )
+
+
+def print_backtest_diagnostics(market: str, diagnostics: dict[str, Any]) -> None:
+    print(f"  diagnostics ({market}, analog available {diagnostics['analog_available_count']}/"
+          f"{diagnostics['sample_count']}):")
+    for name, metrics in diagnostics["direction_groups"].items():
+        print(f"    {name}: {_format_metrics(metrics)}")
+    print(f"    agreement: {_format_metrics(diagnostics['agreement'])}")
+    print(f"    disagreement: {_format_metrics(diagnostics['disagreement'])}")
+    for name, metrics in diagnostics["strength_groups"].items():
+        print(f"    strength_{name}: {_format_metrics(metrics)}")
+    for name, metrics in diagnostics["agreement_strength_groups"].items():
+        print(f"    agreement_strength_{name}: {_format_metrics(metrics)}")
+    for name, metrics in diagnostics["distance_groups"].items():
+        print(f"    distance_{name} (mean={metrics['mean_distance']:.4f}): "
+              f"{_format_metrics(metrics)}")
+    print(f"    analog_count_below_{ANALOG_K}: {_format_metrics(diagnostics['below_k'])}")
+    brier = diagnostics["brier"]
+    formatted_brier = {
+        name: f"{value:.4f}" if value is not None else "n/a"
+        for name, value in brier.items()
+    }
+    print(f"    Brier: Trend={formatted_brier['trend']}, "
+          f"Analog={formatted_brier['analog']}, Ensemble={formatted_brier['ensemble']}")
 
 
 def update_forecast(path: Path = FORECAST_PATH) -> dict[str, dict[str, float | str | int | None]]:
@@ -663,7 +858,8 @@ def main() -> None:
 
     histories = {market: snapshot.candles for market, snapshot in snapshots.items()}
     for market_id, prediction in predictions.items():
-        report = cross_asset_backtest(histories, market_id)
+        records = walk_forward_records(histories, market_id)
+        report = summarize_backtest_records(records)
         print(f"{market_id}: {json.dumps(prediction, ensure_ascii=False)}")
         print(
             "  backtest: "
@@ -674,6 +870,7 @@ def main() -> None:
             f"Ensemble {report['ensemble_accuracy']:.1%} "
             f"({report['ensemble_correct']}/{report['ensemble_samples']})"
         )
+        print_backtest_diagnostics(market_id, build_backtest_diagnostics(records))
     print(f"Updated {FORECAST_PATH.relative_to(ROOT)}")
 
 
