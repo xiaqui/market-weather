@@ -1,14 +1,14 @@
 {
-  "generated_at": "2026-09-20T20:58:59+00:00",
+  "generated_at": "2026-09-21T05:41:53+00:00",
   "markets": [
     {
       "id": "nikkei",
       "name": "日経平均",
       "current": 65018.95,
-      "up_probability": 0.67,
-      "range_low": 41790.0,
-      "range_high": 42462.0,
-      "confidence": 0.82,
+      "up_probability": 0.6699,
+      "range_low": 64087.4449,
+      "range_high": 65963.9944,
+      "confidence": 0.6,
       "weather": "sunny",
       "risk": "normal"
     },
@@ -16,34 +16,34 @@
       "id": "dow",
       "name": "NYダウ",
       "current": 51682.64,
-      "up_probability": 0.54,
-      "range_low": 45840.0,
-      "range_high": 46580.0,
-      "confidence": 0.73,
-      "weather": "partly_cloudy",
+      "up_probability": 0.2135,
+      "range_low": 51223.6238,
+      "range_high": 52145.7695,
+      "confidence": 1.0,
+      "weather": "rainy",
       "risk": "calm"
     },
     {
       "id": "usdjpy",
       "name": "USD/JPY",
-      "current": 156.855,
-      "up_probability": 0.41,
-      "range_low": 146.9,
-      "range_high": 148.6,
-      "confidence": 0.69,
+      "current": 157.053,
+      "up_probability": 0.5091,
+      "range_low": 155.6135,
+      "range_high": 158.5058,
+      "confidence": 0.6,
       "weather": "cloudy",
-      "risk": "caution"
+      "risk": "calm"
     },
     {
       "id": "gold",
       "name": "GOLD",
-      "current": 4424.9,
-      "up_probability": 0.31,
-      "range_low": 3615.0,
-      "range_high": 3728.0,
-      "confidence": 0.76,
+      "current": 4398.5,
+      "up_probability": 0.44,
+      "range_low": 4323.9983,
+      "range_high": 4474.2854,
+      "confidence": 0.6,
       "weather": "rainy",
-      "risk": "storm"
+      "risk": "normal"
     }
   ]
 }
