@@ -8,6 +8,7 @@ import math
 import os
 import statistics
 import tempfile
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -61,6 +62,14 @@ class Features:
     volatility_20d: float
 
 
+@dataclass(frozen=True)
+class MarketSnapshot:
+    """Completed daily candles plus Yahoo's latest tradable price."""
+
+    candles: list[Candle]
+    current: float
+
+
 def _finite_number(value: Any) -> float | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
@@ -68,7 +77,9 @@ def _finite_number(value: Any) -> float | None:
     return number if math.isfinite(number) else None
 
 
-def parse_history(payload: dict[str, Any], symbol: str) -> list[Candle]:
+def parse_history(
+    payload: dict[str, Any], symbol: str, now_timestamp: float | None = None
+) -> list[Candle]:
     """Parse only complete OHLC observations from a Yahoo Chart response."""
     try:
         result = payload["chart"]["result"][0]
@@ -96,6 +107,24 @@ def parse_history(payload: dict[str, Any], symbol: str) -> list[Candle]:
         candles.append(Candle(int(timestamp), open_value, high, low, close, volume))
 
     candles.sort(key=lambda candle: candle.timestamp)
+
+    # Yahoo includes the currently forming interval in daily chart responses.
+    # Its timestamp falls inside the current regular session.  Keep it out of
+    # all features and backtests until that session has ended; the live value
+    # remains available separately through meta.regularMarketPrice.
+    now = time.time() if now_timestamp is None else now_timestamp
+    try:
+        regular_session = result["meta"]["currentTradingPeriod"]["regular"]
+        session_start = float(regular_session["start"])
+        session_end = float(regular_session["end"])
+    except (KeyError, TypeError, ValueError):
+        session_start = session_end = 0.0
+    if session_start <= now < session_end:
+        candles = [
+            candle
+            for candle in candles
+            if not session_start <= candle.timestamp < session_end
+        ]
     if len(candles) < MINIMUM_HISTORY:
         raise ValueError(
             f"Insufficient daily history for {symbol}: {len(candles)} "
@@ -104,19 +133,32 @@ def parse_history(payload: dict[str, Any], symbol: str) -> list[Candle]:
     return candles
 
 
-def fetch_history(symbol: str) -> list[Candle]:
-    """Fetch about one year of daily history from Yahoo Finance."""
+def fetch_market(symbol: str) -> MarketSnapshot:
+    """Fetch completed daily history and the latest price from Yahoo Finance."""
     request = Request(
         YAHOO_CHART_URL.format(quote(symbol, safe="")),
         headers={"User-Agent": "market-weather/0.2"},
     )
     with urlopen(request, timeout=20) as response:
-        return parse_history(json.load(response), symbol)
+        payload = json.load(response)
+    candles = parse_history(payload, symbol)
+    try:
+        current = _finite_number(payload["chart"]["result"][0]["meta"]["regularMarketPrice"])
+    except (KeyError, IndexError, TypeError) as error:
+        raise ValueError(f"No current price returned for {symbol}") from error
+    if current is None or current <= 0:
+        raise ValueError(f"Invalid current price returned for {symbol}")
+    return MarketSnapshot(candles, current)
+
+
+def fetch_history(symbol: str) -> list[Candle]:
+    """Compatibility helper returning completed daily observations."""
+    return fetch_market(symbol).candles
 
 
 def fetch_price(symbol: str) -> float:
-    """Compatibility helper returning the most recent usable daily close."""
-    return fetch_history(symbol)[-1].close
+    """Compatibility helper returning Yahoo's latest regular-market price."""
+    return fetch_market(symbol).current
 
 
 def calculate_features(candles: list[Candle]) -> Features:
@@ -157,7 +199,9 @@ def risk_for_volatility(volatility: float) -> str:
     return "storm"
 
 
-def build_prediction(candles: list[Candle]) -> dict[str, float | str]:
+def build_prediction(
+    candles: list[Candle], current_price: float | None = None
+) -> dict[str, float | str]:
     """Create the baseline prediction from past and current candles only."""
     features = calculate_features(candles)
     volatility_5d = max(features.volatility_5d, MINIMUM_DAILY_VOLATILITY)
@@ -177,7 +221,7 @@ def build_prediction(candles: list[Candle]) -> dict[str, float | str]:
     sufficiency = min(1.0, len(candles) / FULL_CONFIDENCE_HISTORY)
     confidence = sufficiency * (0.5 + 0.5 * agreement)
 
-    current = candles[-1].close
+    current = candles[-1].close if current_price is None else current_price
     range_factor = max(features.volatility_20d, MINIMUM_DAILY_VOLATILITY) * RANGE_VOLATILITY_MULTIPLIER
     low, high = current * math.exp(-range_factor), current * math.exp(range_factor)
     return {
@@ -207,8 +251,11 @@ def backtest(candles: list[Candle]) -> tuple[int, int, float]:
 
 def update_forecast(path: Path = FORECAST_PATH) -> dict[str, dict[str, float | str]]:
     """Fetch all markets successfully before atomically replacing the forecast."""
-    histories = {market_id: fetch_history(symbol) for market_id, symbol in SYMBOLS.items()}
-    predictions = {market_id: build_prediction(history) for market_id, history in histories.items()}
+    snapshots = {market_id: fetch_market(symbol) for market_id, symbol in SYMBOLS.items()}
+    predictions = {
+        market_id: build_prediction(snapshot.candles, snapshot.current)
+        for market_id, snapshot in snapshots.items()
+    }
     _write_forecast(path, predictions)
     return predictions
 
@@ -240,13 +287,16 @@ def _write_forecast(path: Path, predictions: dict[str, dict[str, float | str]]) 
 
 
 def main() -> None:
-    histories = {market_id: fetch_history(symbol) for market_id, symbol in SYMBOLS.items()}
-    predictions = {market_id: build_prediction(history) for market_id, history in histories.items()}
+    snapshots = {market_id: fetch_market(symbol) for market_id, symbol in SYMBOLS.items()}
+    predictions = {
+        market_id: build_prediction(snapshot.candles, snapshot.current)
+        for market_id, snapshot in snapshots.items()
+    }
     # Reuse already fetched data: production runs must not silently mix snapshots.
     _write_forecast(FORECAST_PATH, predictions)
 
     for market_id, prediction in predictions.items():
-        correct, samples, accuracy = backtest(histories[market_id])
+        correct, samples, accuracy = backtest(snapshots[market_id].candles)
         print(f"{market_id}: {json.dumps(prediction, ensure_ascii=False)}")
         print(f"  backtest: {accuracy:.1%} ({correct}/{samples})")
     print(f"Updated {FORECAST_PATH.relative_to(ROOT)}")

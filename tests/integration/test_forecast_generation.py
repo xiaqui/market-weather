@@ -22,7 +22,11 @@ class ForecastGenerationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "forecast.json"
             path.write_text(json.dumps(original), encoding="utf-8")
-            with patch.object(market_data, "fetch_history", side_effect=[history(100 * (i + 1)) for i in range(4)]):
+            snapshots = [
+                market_data.MarketSnapshot(history(100 * (i + 1)), 200 * (i + 1))
+                for i in range(4)
+            ]
+            with patch.object(market_data, "fetch_market", side_effect=snapshots):
                 predictions = market_data.update_forecast(path)
             result = json.loads(path.read_text(encoding="utf-8"))
 
@@ -37,7 +41,7 @@ class ForecastGenerationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "forecast.json"
             path.write_text(original, encoding="utf-8")
-            with patch.object(market_data, "fetch_history", side_effect=RuntimeError("network")):
+            with patch.object(market_data, "fetch_market", side_effect=RuntimeError("network")):
                 with self.assertRaisesRegex(RuntimeError, "network"):
                     market_data.update_forecast(path)
             self.assertEqual(path.read_text(encoding="utf-8"), original)
