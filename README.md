@@ -1,6 +1,6 @@
 # market-weather
 
-日経平均、NYダウ、ドル円、金価格を「天気予報」のように表示するAndroidアプリの実験プロジェクトです。
+日経平均、NYダウ、ドル円、金価格を「天気予報」のように表示するWebアプリとAndroidアプリの実験プロジェクトです。
 
 一点の終値を当てにいくのではなく、翌営業日の
 
@@ -20,7 +20,18 @@
 `python scripts/fetch_market_data.py` は Yahoo Finance のキー不要な Chart API から
 4市場の過去1年の日足を取得し、正本である `shared/forecast.json` の現在値と予測値を
 更新します。続けて
-`python scripts/sync_forecast.py` を実行すると Android / Web の配布用JSONへ反映されます。
+`python scripts/sync_forecast.py` を実行するとAndroid / Webの配布用JSONへ反映されます。
+Android側にも互換用コピーは生成されますが、WebView版の表示やビルドはその内容に依存しません。
+
+## Web版とAndroid APK
+
+GitHub Pagesで公開するWeb版が表示の正本です。Android APKは
+`https://xiaqui.github.io/market-weather/` をAndroid System WebViewで表示する薄いカプセルであり、
+通常の市場データ・予測・Web UIの更新ではAPKの再ビルドを必要としません。
+
+APKの再ビルドが必要なのは、表示URL、WebView設定、権限、アプリアイコンなどAndroid側の
+殻を変更した場合です。従来のComposeネイティブ版は`native-compose`ブランチに保全し、
+必要な節目でWeb版への追従を検討します。
 
 ### Trend baseline
 
@@ -47,11 +58,9 @@ Android APKに加えて、同じ予報データを表示するWeb版をGitHub Pa
 - [開発仕様](docs/market-weather-spec.md)
 - [TODO / 開発・検証タスク](docs/TODO.md)
 
-## 初期技術構成
+## 技術構成
 
-- Kotlin
-- Jetpack Compose
-- Material 3
+- Android System WebView
 - Python
 - GitHub Actions
 - Gradle Wrapper
