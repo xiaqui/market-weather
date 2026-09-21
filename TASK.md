@@ -2,602 +2,416 @@
 
 ## 目的
 
-Market Weather に、このアプリ固有の予測要素として
-**Cross-Asset Historical Analog（金融天気図・過去類似局面）モデル**
-を追加する。
+PR #4「金融天気図による過去類似局面予報を追加」の追加検証として、
+Trend / Analog / Ensemble の成績を「単純な全体正解率」だけでなく、
+**TrendとAnalogが一致した時・割れた時・確信が強い時・類似度が高い時**
+に分解して確認できる診断レポートを追加する。
 
-現在の Trend baseline は残す。
-今回追加するモデルは、日経平均 / NYダウ / USDJPY / GOLD の4市場を
-別々に見るのではなく、4市場の相対的な動き・組み合わせを
-1枚の「金融天気図」として表現し、
+今回の目的はモデルを調整することではない。
 
-> 今と似た4市場の配置・動きが過去に現れたとき、その翌営業日に各市場がどう動いたか
+- 重みを変えない
+- kを変えない
+- 特徴量を変えない
+- 閾値を成績に合わせて最適化しない
+- 現行50:50 Ensembleを変更しない
 
-を検索・集計して予報へ反映する。
-
-単なるRSI/MACD追加や一般的な単一市場テクニカル予測ではなく、
-**4市場間の関係性そのものを予測材料にすること**が今回の主眼。
-
----
-
-## 背景 / 発想
-
-投資家の資金配分は市場間で独立ではない。
-
-例:
-
-- GOLDへ資金が向かう
-- 株から資金が抜ける
-- ドルから円へ資金が移る
-- 円高と日本株の組み合わせが変わる
-- 米株横ばい + GOLD上昇 + USDJPY下落のような複合局面が生じる
-
-厳密な「資金保存則」を仮定するものではないが、
-投資家のリスク選好や資産配分の変化が複数市場へ同時に現れる、という考え方を使う。
-
-天気予報で気圧・風・雲など複数要素の配置を見て
-過去の類似天気図を参照するのと同様に、
-金融市場でも4市場の「配置と変化」を比較する。
+まず、今ある2人の「予報士」がどんな場面で当たりやすいかを観察可能にする。
 
 ---
 
-## 現在の実装
+## 背景
 
-現行予測:
+現在の直近252セッションbacktestでは、
 
-- Yahoo Finance 日足
-- 1/5/20日騰落率
-- 5/20日移動平均乖離
-- 5/20日ボラティリティ
-- Trend baseline
-- walk-forward backtest
+- 日経: Trend 48.4% / Analog 57.5% / Ensemble 53.2%
+- NYダウ: Trend 48.4% / Analog 55.2% / Ensemble 48.0%
+- USDJPY: Trend 50.8% / Analog 50.0% / Ensemble 53.6%
+- GOLD: Trend 50.0% / Analog 57.5% / Ensemble 52.8%
 
-詳細は:
+特にNYダウではAnalog単独が55.2%なのに、
+50:50 Ensembleでは48.0%へ悪化している。
 
-`docs/forecast-algorithm.md`
+このため、
+「常にTrendとAnalogを平均すればよい」
+とは限らない。
 
-現行Trend baselineは削除しない。
-比較対象・フォールバックとして維持する。
+次に確認したいのは、
+
+- TrendとAnalogが同じ方向を向いた時は強いのか
+- 意見が割れた時はどちらが強いのか
+- 両者が強く一致した時は本当に精度が上がるのか
+- Analogの類似度が高い時は精度が上がるのか
+
+という条件別成績。
 
 ---
 
-# 今回の実装
+## 1. walk-forwardの各予測レコードを記録可能にする
 
-## 1. データ期間を拡張
-
-Historical Analog では類似局面数が必要なため、
-現在の `range=1y` では不足する。
-
-Yahoo Finance Chart API から、
-可能なら **10年程度の日足** を取得する。
-
-推奨:
+既存の未来リークなしwalk-forwardをそのまま使い、
+各市場・各予測時点について最低限次を保持できるようにする。
 
 ```text
-interval=1d
-range=10y
-```
-
-4市場すべてで取得可能か確認し、
-取得不能な場合のみ合理的な期間へ短縮する。
-
-現在値表示は従来どおり `regularMarketPrice` を使う。
-
-形成中の日足を確定足として扱わない既存対策は必ず維持する。
-
----
-
-## 2. 「金融天気図」状態ベクトルを作る
-
-各時点で4市場をまとめて1つの状態ベクトルにする。
-
-生の価格水準は使わない。
-時代による価格スケール差を避けるため、
-騰落率・移動平均乖離・ボラティリティ等の
-無次元または正規化可能な値を使う。
-
-### 各市場ごとの基本状態
-
-最低限、各市場について以下を作る。
-
-- 1日騰落率 / 5日ボラ
-- 5日騰落率 / (5日ボラ × √5)
-- 20日騰落率 / (20日ボラ × √20)
-- 20日移動平均乖離 / 20日ボラ
-- 5日ボラ / 20日ボラ
-
-極端値の影響を避けるため、
-方向系シグナルは現行baseline同様に適切にclipする。
-
-例:
-
-```text
-Nikkei:
-  n1, n5, n20, n_ma20, n_vol_ratio
-
-Dow:
-  d1, d5, d20, d_ma20, d_vol_ratio
-
-USDJPY:
-  u1, u5, u20, u_ma20, u_vol_ratio
-
-Gold:
-  g1, g5, g20, g_ma20, g_vol_ratio
-```
-
-ここまでで20次元程度。
-
----
-
-## 3. 市場間の相対関係を明示的に特徴量へ入れる
-
-単に4市場の特徴を連結するだけではなく、
-今回の主眼である「絡み合い」を明示的に入れる。
-
-最低限、5日正規化モメンタムについて
-4市場の全ペア差分を作る。
-
-4市場なので6組:
-
-```text
-Nikkei - Dow
-Nikkei - USDJPY
-Nikkei - Gold
-Dow - USDJPY
-Dow - Gold
-USDJPY - Gold
-```
-
-必要なら20日側にも同様の相対特徴を追加してよいが、
-最初から過剰次元にしない。
-
-目的は、
-「どれが上がってどれが横ばい / 下がっているか」
-という相対配置を距離計算へ反映すること。
-
----
-
-## 4. 日付・時差・未来データ混入を厳密に扱う
-
-ここは最重要。
-
-日経、米株、為替、金は取引時間・休日が異なるため、
-単純に同じ配列indexや同じ日付文字列で結合しない。
-
-各Historical Analog用スナップショットでは、
-
-> そのスナップショット時刻までに、実際に利用可能だった各市場の
-> 最新の「確定済み日足」だけ
-
-を使う。
-
-未来の終値を混ぜない。
-
-実装方法はCodex側で最も安全で単純なものを選んでよいが、
-以下を満たすこと:
-
-- 形成中日足は除外
-- 休日は直近の確定日足を利用可能
-- 予測対象日の結果は特徴量に入れない
-- backtest時に現在のデータを過去へ漏らさない
-- タイムゾーン差をコード上で明示する
-- index位置合わせだけで済ませない
-
-この要件を自動テストで守る。
-
----
-
-## 5. 類似局面検索
-
-現在の金融天気図ベクトルと、
-過去の各スナップショットの金融天気図ベクトルを比較する。
-
-初版は説明可能性を優先して、
-**k-nearest neighbors型の類似検索** とする。
-
-機械学習ライブラリを必須にはしない。
-標準Pythonで十分なら標準Pythonを優先する。
-
-### 距離
-
-初版は標準化された特徴量同士の
-Euclidean distanceを基本とする。
-
-ただし特徴量のスケール差が残る場合は、
-過去データのみを使った標準化を入れる。
-
-重要:
-
-- 全期間を使って平均・標準偏差を算出しない
-- backtest時はその時点より未来の統計量を使わない
-
----
-
-## 6. 近傍数
-
-初版の既定値:
-
-```text
-k = 30
-```
-
-ただし利用可能な過去局面が少ない場合に備える。
-
-最低近傍数:
-
-```text
-MIN_ANALOGS = 15
-```
-
-15件未満ならAnalog予報を無理に出さず、
-Trend baselineのみへフォールバックする。
-
-kや最低件数は定数化し、
-将来調整できるようにする。
-
----
-
-## 7. 類似度による重み付け
-
-30件を単純多数決するだけではなく、
-近い局面ほど少し強く効くようにする。
-
-推奨:
-
-```text
-weight = 1 / (distance + epsilon)
-```
-
-などの単純な逆距離重み。
-
-極端な1件だけが支配しないよう、
-epsilonやweight capを設けてもよい。
-
-複雑なkernel最適化は今回不要。
-
----
-
-## 8. Analog上昇確率
-
-各過去類似局面について、
-そのスナップショットの「次の確定日足」が
-上昇したか下落したかを見る。
-
-市場ごとに別々に集計する。
-
-例:
-
-```text
-類似局面 30件
-
-Nikkei:
-  上昇 20
-  下落 10
-  距離加重上昇確率 0.68
-
-Dow:
-  上昇 14
-  下落 16
-  距離加重上昇確率 0.46
-```
-
-出力:
-
-```text
+date / timestamp
+trend_probability
 analog_probability
+ensemble_probability
+actual_up
 analog_count
 analog_mean_distance
 ```
 
-可能なら、
-類似局面の翌日平均リターンも算出する。
+Analogが利用不能なケースは明示する。
+
+本番forecast JSONへ全履歴を入れる必要はない。
+backtest診断用の内部構造・CLI出力・別report JSONなど、
+保守しやすい方法を選んでよい。
+
+---
+
+## 2. Trend / Analog 一致・不一致の4分類
+
+各予測を50%境界で次の4群に分ける。
 
 ```text
-analog_mean_next_return
+A: Trend ↑ / Analog ↑
+B: Trend ↑ / Analog ↓
+C: Trend ↓ / Analog ↑
+D: Trend ↓ / Analog ↓
 ```
 
----
-
-## 9. Trend baselineとAnalogを分けて保持
-
-最初からAnalogでTrend baselineを置き換えない。
-
-JSON上で両方を明示的に残す。
-
-推奨フィールド:
-
-```json
-{
-  "trend_probability": 0.64,
-  "analog_probability": 0.70,
-  "analog_count": 30,
-  "analog_mean_distance": 1.23,
-  "analog_mean_next_return": 0.004,
-  "up_probability": 0.67
-}
-```
-
-既存 `up_probability` は最終予報として維持する。
-
----
-
-## 10. 初版ensemble
-
-初版は恣意的な最適化をしない。
-
-Analogが有効な場合:
+市場ごとに各群について最低限次を出す。
 
 ```text
-final_probability
-= 0.5 × trend_probability
-+ 0.5 × analog_probability
-```
-
-AnalogがMIN_ANALOGS未満なら:
-
-```text
-final_probability
-= trend_probability
-```
-
-将来backtest結果を見て重みを変更できるよう、
-重みは定数化する。
-
-**今回、過去成績に合わせて重みを最適化しない。**
-
-後付けで過学習しないため。
-
----
-
-## 11. weatherは最終確率から決める
-
-既存のweather分類は、
-Trend単独ではなくensemble後の `up_probability` から決める。
-
-riskは当面、
-現行20日ボラティリティベースを維持してよい。
-
-予想レンジも今回は既存方式を維持してよい。
-
-Analogの平均翌日リターンをレンジ中心へ反映するのは将来課題とする。
-
----
-
-## 12. confidenceの扱い
-
-現在の `confidence` は
-Trend内部の方向一致度であり、
-「予報的中確率」ではない。
-
-今回Analog追加後も、
-この意味を曖昧にしない。
-
-最低限:
-
-- 既存Trendの一致度は内部値として残す
-- Analog側には `analog_count` と距離情報を持つ
-- 最終confidenceを新しく定義する場合は、その式と意味をdocsへ明記
-
-無理に今回final confidenceを高度化しなくてよい。
-
-既存UIの「信頼度100%」が誤解を招く問題は別途扱えるよう、
-今回のコード変更で意味をさらに曖昧にしないこと。
-
----
-
-## 13. walk-forward backtest
-
-Analogモデルも必ずwalk-forwardで検証する。
-
-各予測時点で:
-
-1. その時点までに利用可能な4市場データだけで金融天気図を作る
-2. それ以前の局面だけを類似検索対象にする
-3. 類似局面の翌日結果を集計
-4. その時点のTrend予報とAnalog予報をensemble
-5. 実際の次営業日方向と比較
-
-現在以降のAnalog候補を検索対象に含めない。
-
-### 比較出力
-
-市場ごとに最低限:
-
-```text
+sample count
+actual up rate
 Trend accuracy
 Analog accuracy
 Ensemble accuracy
-sample count
 ```
 
-を表示する。
+例:
 
-可能ならBrier Scoreも追加する。
-実装負荷が小さければ今回入れてよい。
+```text
+Nikkei
+Trend↑ / Analog↑
+  n=72
+  actual_up=65.3%
+  Trend=65.3%
+  Analog=65.3%
+  Ensemble=65.3%
 
-ただし精度が悪くても隠さない。
-初版の目的は「法則があるか検証可能にすること」。
+Trend↑ / Analog↓
+  n=58
+  actual_up=39.7%
+  Trend=39.7%
+  Analog=60.3%
+  Ensemble=...
+```
+
+特に「不一致時にTrend側とAnalog側のどちらが優位か」を確認できること。
 
 ---
 
-## 14. 「金融天気図」の説明可能性
+## 3. 一致 vs 不一致の集約
 
-詳細画面や将来UIで使えるよう、
-予測結果JSONにはAnalogの説明材料を残す。
+4分類とは別に、
+
+```text
+Agreement:
+  TrendとAnalogが同方向
+
+Disagreement:
+  TrendとAnalogが逆方向
+```
+
+の2群へまとめた成績も出す。
+
+各市場について:
+
+```text
+agreement sample count
+agreement accuracy
+disagreement sample count
+Trend accuracy on disagreement
+Analog accuracy on disagreement
+Ensemble accuracy on disagreement
+```
+
+ここは将来の「信頼度」設計候補になるため重要。
+
+---
+
+## 4. 予報の強さを分析する
+
+同じ「両方↑」でも、
+
+```text
+Trend 51% / Analog 52%
+```
+
+と
+
+```text
+Trend 72% / Analog 68%
+```
+
+では意味が違う。
+
+まず以下の単純な強さ指標を診断用に計算する。
+
+```text
+trend_strength  = abs(trend_probability  - 0.5)
+analog_strength = abs(analog_probability - 0.5)
+combined_strength = trend_strength + analog_strength
+```
+
+既存予報ロジックには使わない。
+
+### 固定bin
+
+後付け最適化を避けるため、
+分位点で「成績が良く見えるように」切らない。
+
+固定幅で例えば次の3群に分ける。
+
+```text
+weak:   combined_strength < 0.10
+medium: 0.10 <= combined_strength < 0.25
+strong: combined_strength >= 0.25
+```
+
+この閾値が実データ上不合理な場合のみ、
+理由を明示して単純な固定値へ変更してよい。
+
+各binで:
+
+```text
+sample count
+actual up rate
+Trend accuracy
+Analog accuracy
+Ensemble accuracy
+```
+
+を出す。
+
+Agreement群だけを対象にした
+weak / medium / strong の成績も出せるなら追加する。
+
+---
+
+## 5. Analog類似度と成績の関係
+
+Analogには `analog_mean_distance` がある。
+
+「過去の天気図に非常によく似ている時ほど当たりやすいか」
+を確認する。
+
+### 重要
+
+distanceの閾値を成績に合わせて最適化しない。
+
+診断用には、
+各市場のwalk-forward対象サンプルを
+**距離の3分位または4分位**で機械的に分割してよい。
+
+これは「しきい値を予測ルールに使う」のではなく、
+単に低距離 / 中距離 / 高距離で成績差を見る診断なので可。
 
 最低限:
 
-- analog_probability
-- analog_count
-- analog_mean_distance
-- analog_mean_next_return
-
-可能なら、
-最も近い過去局面3件程度について
-日付と距離を別のdebug/report出力へ残す。
-
-本番JSONが肥大化するなら、
-通常forecast.jsonへ全候補を入れる必要はない。
-
-CLI出力または別report JSONでもよい。
-
----
-
-## 15. UI
-
-今回の主目的は予測エンジン。
-
-ただし既存詳細ダイアログへ簡単に追加できるなら、
-以下を表示する。
-
 ```text
-トレンド予報        64%
-類似天気図予報      70%
-類似局面            30件
-最終予報            67%
+closest group
+middle group
+farthest group
 ```
 
-レイアウトを大きく作り直さない。
+について、
 
-トップカードは既存の `up_probability` を表示するだけでよい。
+```text
+sample count
+mean distance
+Analog accuracy
+Ensemble accuracy
+actual up rate
+```
 
----
+を出す。
 
-## 16. docs更新
-
-以下を更新する。
-
-### `docs/forecast-algorithm.md`
-
-現行Trend baselineに加えて、
-
-- 金融天気図とは何か
-- 4市場の関係性を見る理由
-- 状態ベクトル
-- 相対特徴
-- 類似度
-- k近傍
-- 距離加重
-- Trendとのensemble
-- walk-forward
-- タイムゾーン/休日処理
-
-を人間が読める言葉で追記する。
-
-### 新規または既存docs
-
-必要なら
-`docs/cross-asset-weather-map.md`
-を作ってもよい。
-
-数式だけでなく、
-「日経↑ / Dow→ / USDJPY↓ / Gold↑ のような配置を1枚の天気図として見る」
-という発想を必ず説明する。
+可能なら `analog_count` が30未満になるケースの成績も別表示する。
 
 ---
 
-## 17. テスト
+## 6. 確率予測としての評価
+
+実装負荷が小さければ、
+各市場について次を追加する。
+
+- Trend Brier Score
+- Analog Brier Score
+- Ensemble Brier Score
+
+Brier Score:
+
+```text
+mean((probability - actual)^2)
+```
+
+actualは上昇=1、非上昇=0。
+
+これは方向正解率と違って、
+60%予報と90%予報の「外し方」も評価できる。
+
+未来リークなしの同じwalk-forwardレコードから算出する。
+
+今回はCalibration曲線の本格実装までは不要。
+ただし簡単なら、
+40-50 / 50-60 / 60-70 / 70-80%程度の固定bin別actual up rateを
+補助出力してもよい。
+
+---
+
+## 7. レポート形式
+
+CLIで読みやすく確認できることを優先する。
+
+必要なら別ファイルとして、
+
+```text
+reports/backtest-diagnostics.json
+```
+
+または
+
+```text
+reports/backtest-diagnostics.md
+```
+
+を生成してもよい。
+
+ただし実行のたびに巨大な履歴をGit管理する必要はない。
+生成物をcommitするかどうかは、既存repo方針に合わせて判断する。
+
+最低限CLIで市場ごとの診断が確認できればよい。
+
+---
+
+## 8. 今回は予測ロジックを変更しない
+
+重要。
+
+診断結果を見て、
+
+- Analogを70%にする
+- Trendを捨てる
+- NYダウだけAnalogにする
+- 距離が近い時だけAnalogを使う
+- 一致時だけ強気にする
+
+などのルール変更は今回行わない。
+
+今回のPRでやるのは
+**観測とレポートだけ**。
+
+結果を見て、別の仕様判断として次タスクを作る。
+
+---
+
+## 9. 既存の金融天気図実装を壊さない
+
+PR #4で修正済みの以下を維持する。
+
+- 共通snapshot clock
+- 市場別session close
+- 短縮取引日
+- 日経2024年取引時間延長
+- 日本/米国休場差
+- as-of join
+- staleness
+- accumulated external move
+- 未来リーク防止
+- 30次元Analog状態
+- k=30
+- MIN_ANALOGS=15
+- 50:50 Ensemble
+
+---
+
+## 10. テスト
 
 最低限以下を追加する。
 
-- 未来データがAnalog候補へ入らない
-- 形成中日足が入らない
-- 休日/欠損があってもindexずれで他市場の未来値を拾わない
-- 金融天気図ベクトルが期待した次元で生成される
-- ペア差分が正しく計算される
-- 近い局面ほど距離が小さい
-- k件を超えて候補を使わない
-- MIN_ANALOGS未満でTrendのみへフォールバック
-- analog_probabilityが0〜1
-- ensemble probabilityが0〜1
-- walk-forwardで予測対象日以降を検索しない
-- 既存Trend baselineテストを壊さない
+- 4分類が期待通りに振り分けられる
+- agreement / disagreement集計が正しい
+- combined_strengthが正しく計算される
+- strength bin境界が正しい
+- distance groupのサンプル総数が元サンプル数と一致する
+- Brier Scoreが既知の小さなfixtureで正しい
+- Analog Noneのケースを安全に除外/扱える
+- 既存walk-forward未来リークテストを壊さない
+- 既存24 testsを壊さない
 
 ---
 
-## 18. 実装上の注意
+## 11. docs
 
-- pandas / numpy / scikit-learn を新規導入する場合は、本当に必要か検討する
-- 標準Pythonで十分なら依存を増やさない
-- データ取得と予測ロジックを分離する
-- 定数・特徴量名を明示する
-- magic numberを散らさない
-- 説明可能性を保つ
-- 精度を良く見せるための恣意的なparameter tuningをしない
-- 未来リーク回避を精度より優先する
+`docs/forecast-algorithm.md` または適切なdocsへ、
+以下を短く追記する。
 
----
-
-## 19. 今回やらないこと
-
-- ニュース解析
-- SNS解析
-- LLM予測
-- RSI/MACD大量追加
-- Neural Network
-- 複雑なGradient Boosting
-- パラメータ自動最適化
-- 売買シグナル
-- 証券会社接続
-- Analog予報だけへの全面置換
-- 3営業日 / 1週間予報
-
-まず、
-**4市場の絡み合いを過去類似局面から読む**
-という一本を正しく作る。
+- Trend = 単一市場自身の最近の流れ
+- Analog = 4市場の金融天気図から過去類似局面を探す予報
+- Ensemble = 現在はTrend/Analogを50:50平均した初期比較モデル
+- 一致/不一致分析は、将来のconfidenceや最終予報ルールを決めるための診断であり、
+  現時点では予測ロジックへ反映していない
 
 ---
 
-## 20. GitHub運用
+## 12. GitHub運用
 
+- PR #4 の同じbranch `金融天気図` を更新する
+- 新PRを作らない
 - mainへ直接pushしない
-- 専用branchを作る
-- 実装
-- test
-- commit
-- push
-- Pull Request作成
-- GitHub Actions結果を確認
+- PR #4最新headをcheckout/更新して作業する
+- commit / push
+- GitHub Actions確認
 - mergeはしない
-
-Cloud内にAndroid SDKが無い場合はAndroid buildを無理に行わず、
-既存ルールどおりGitHub Actionsを正式build確認とする。
 
 ---
 
 ## 完了条件
 
-- 4市場をまとめた金融天気図ベクトルが生成できる
-- 市場間の相対特徴が含まれる
-- 過去類似局面を検索できる
-- 市場ごとのAnalog上昇確率を計算できる
-- Trend / Analog / Ensembleを別々に確認できる
-- Analog不足時に安全にTrendへフォールバックする
-- walk-forward backtestで未来リークがない
-- Trend / Analog / Ensembleの成績比較が出る
-- forecast JSONへAnalog情報が追加される
-- Web版が既存表示を壊さない
-- Python tests成功
-- `git diff --check` 成功
+- walk-forward各予測レコードを診断可能
+- Trend↑/Analog↑、Trend↑/Analog↓、Trend↓/Analog↑、Trend↓/Analog↓ の4分類成績が出る
+- agreement / disagreement成績が出る
+- weak / medium / strong成績が出る
+- Analog距離別成績が出る
+- 可能ならBrier Scoreが出る
+- 市場別に結果を比較できる
+- 予測ロジック自体は変更していない
+- tests成功
+- `git diff --check`成功
 - GitHub Actions成功
 - docs更新
-- PR作成済み
+- PR #4更新済み
+- mergeしていない
 
 ---
 
 ## 最後の報告
 
-以下だけ報告する。
+以下を報告する。
 
-- branch名
 - commit SHA
-- PR番号
-- 金融天気図ベクトルの最終構成
-- 類似度計算方法
-- k / MIN_ANALOGS
-- Trend / Analog / Ensembleの各backtest結果
-- タイムゾーン・休日・未来リーク対策
+- PR #4最新head
+- 追加した診断項目
+- 市場別4分類結果
+- agreement / disagreement結果
+- strength別結果
+- Analog距離別結果
+- Brier Score（実装した場合）
 - test結果
 - Actions結果
 - 変更ファイル
-- 残課題
+- 見えてきた傾向
+- ただし予測ルールは変更していないこと
