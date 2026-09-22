@@ -47,6 +47,36 @@ class BacktestRegressionTest(unittest.TestCase):
         self.assertEqual([candle.timestamp for candle in parsed], completed_timestamps)
         self.assertEqual(parsed[-1].close, 100.0)
 
+    def test_last_data_date_does_not_use_in_progress_daily_candle(self) -> None:
+        ny = ZoneInfo("America/New_York")
+        session_start = int(datetime(2026, 9, 22, 9, 30, tzinfo=ny).timestamp())
+        timestamps = [
+            int(datetime(2026, 9, day, 9, 30, tzinfo=ny).timestamp())
+            for day in range(1, 22)
+        ] + [session_start]
+        payload = {
+            "chart": {"result": [{
+                "meta": {"currentTradingPeriod": {"regular": {
+                    "start": session_start,
+                    "end": session_start + 6 * 3600 + 30 * 60,
+                }}},
+                "timestamp": timestamps,
+                "indicators": {"quote": [{
+                    "open": [100.0] * 22,
+                    "high": [101.0] * 22,
+                    "low": [99.0] * 22,
+                    "close": [100.0] * 21 + [150.0],
+                    "volume": [1000] * 22,
+                }]},
+            }]}
+        }
+
+        parsed = market_data.parse_history(
+            payload, "^DJI", now_timestamp=session_start + 100
+        )
+
+        self.assertEqual(market_data.last_data_date("^DJI", parsed), "2026-09-21")
+
     def test_each_prediction_sees_only_rows_before_target(self) -> None:
         candles = [market_data.Candle(i, 100 + i, 101 + i, 99 + i, 100 + i, None) for i in range(25)]
         seen_lengths = []

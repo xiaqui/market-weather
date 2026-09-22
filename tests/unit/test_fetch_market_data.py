@@ -1,4 +1,6 @@
 import unittest
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from scripts import fetch_market_data as market_data
 
@@ -70,6 +72,17 @@ class FeatureAndPredictionTest(unittest.TestCase):
         self.assertLess(prediction["current"], prediction["range_high"])
         self.assertEqual(prediction["weather"], "sunny")
         self.assertEqual(prediction["risk"], "calm")
+
+    def test_last_data_date_uses_latest_completed_candle_local_date(self) -> None:
+        ny_close = market_data.Candle(
+            int(datetime(2026, 9, 21, 16, 0, tzinfo=ZoneInfo("America/New_York")).timestamp()),
+            100.0, 101.0, 99.0, 100.5, None,
+        )
+
+        self.assertEqual(
+            market_data.last_data_date("^DJI", candles()[:-1] + [ny_close]),
+            "2026-09-21",
+        )
 
     def test_weather_and_risk_thresholds(self) -> None:
         self.assertEqual([market_data.weather_for_probability(value) for value in (0.7, 0.6, 0.5, 0.4)],
