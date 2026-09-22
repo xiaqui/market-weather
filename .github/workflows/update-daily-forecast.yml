@@ -1,0 +1,55 @@
+name: Update Daily Forecast
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run after the US cash-market close (07:30 JST on the following day).
+    - cron: "30 22 * * 1-5"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-daily-forecast
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch completed market data
+        run: python scripts/fetch_market_data.py
+
+      - name: Sync forecast copies
+        run: python scripts/sync_forecast.py
+
+      - name: Commit updated forecasts
+        run: |
+          if git diff --quiet -- \
+            shared/forecast.json \
+            android/app/src/main/assets/forecast.json \
+            android/app/src/test/resources/forecast.json \
+            web/forecast.json; then
+            echo "Forecast data is already up to date."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- \
+            shared/forecast.json \
+            android/app/src/main/assets/forecast.json \
+            android/app/src/test/resources/forecast.json \
+            web/forecast.json
+          git commit -m "Update daily market forecast"
+          git push origin HEAD:main
