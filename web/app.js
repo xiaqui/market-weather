@@ -9,6 +9,7 @@ const percent = value => `${Math.round(value * 100)}%`;
 const safeCondition = value => weather[value] || ["❔", value];
 let markets = [];
 let selectedMarket = null;
+const liveCurrentValues = new Map();
 const escapeHtml = value => String(value)
   .replaceAll("&", "&amp;")
   .replaceAll("<", "&lt;")
@@ -54,15 +55,13 @@ function renderDetail(market) {
 }
 window.updateCurrentValues = updates => {
   if (!Array.isArray(updates)) return;
-  const valuesById = new Map(
-    updates
-      .filter(update => update && typeof update.id === "string"
-        && typeof update.current === "number" && Number.isFinite(update.current))
-      .map(update => [update.id, update.current]),
-  );
+  updates
+    .filter(update => update && typeof update.id === "string"
+      && typeof update.current === "number" && Number.isFinite(update.current))
+    .forEach(update => liveCurrentValues.set(update.id, update.current));
   let changed = false;
   markets.forEach(market => {
-    const current = valuesById.get(market.id);
+    const current = liveCurrentValues.get(market.id);
     if (current != null) {
       market.current = current;
       changed = true;
@@ -81,6 +80,7 @@ async function loadForecast() {
     const forecast = await response.json();
     document.querySelector("#generated").textContent = `生成日時 ${new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium", timeStyle: "short" }).format(new Date(forecast.generated_at))}`;
     markets = forecast.markets;
+    window.updateCurrentValues([]);
     renderMarkets();
   } catch (error) {
     console.error(error);

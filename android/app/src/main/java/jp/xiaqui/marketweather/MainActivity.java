@@ -335,6 +335,9 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        polling = false;
+        updateHandler.removeCallbacks(updateRunnable);
+        networkExecutor.shutdownNow();
         if (webView != null) {
             webView.destroy();
         }
