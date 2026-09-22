@@ -62,6 +62,7 @@ process.stdout.write(JSON.stringify({{
   detail: elements["#current-status-detail"].textContent,
   diagnosticsHidden: elements["#current-status-diagnostics"].hidden,
   diagnosticsCount: elements["#current-status-list"].children.length,
+  diagnostics: elements["#current-status-list"].children.map(child => child.textContent),
   weather: forecast.markets[0].weather,
   probability: forecast.markets[0].up_probability,
   rangeLow: forecast.markets[0].range_low,
@@ -104,23 +105,29 @@ class CurrentStatusAndroidOnlyTest(unittest.TestCase):
         rendered = run_status_scenario(
             "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 MarketWeatherApp/1.0",
             [{"attempted": True, "total": 4, "successCount": 4, "failedMarkets": [],
-              "manualUpdating": False, "lastUpdatedAt": 1700000000000, "quotes": []}],
+              "manualUpdating": False, "lastUpdatedAt": 1700000000000,
+              "quotes": [{"id": "gold", "ok": True, "price": 4366.1, "timestamp": 1700000000}]}],
         )
         self.assertFalse(rendered["statusHidden"])
         self.assertIn("Yahoo取得成功 4/4", rendered["line"])
         self.assertIn("更新:", rendered["detail"])
+        self.assertEqual(
+            "GOLD: 成功 regularMarketPrice=4,366.1 regularMarketTime=2023/11/14 22:13:20",
+            rendered["diagnostics"][0],
+        )
 
     def test_partial_failure_status_on_android(self) -> None:
         rendered = run_status_scenario(
             "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 MarketWeatherApp/1.0",
             [{"attempted": True, "total": 4, "successCount": 3, "failedMarkets": ["gold"],
               "manualUpdating": False, "lastUpdatedAt": 1700000000000,
-              "quotes": [{"id": "gold", "ok": False, "price": None, "timestamp": None}]}],
+              "quotes": [{"id": "gold", "ok": False, "reason": "HTTP 429"}]}],
         )
         self.assertIn("Yahoo取得 3/4", rendered["line"])
         self.assertIn("GOLD取得失敗", rendered["detail"])
         self.assertFalse(rendered["diagnosticsHidden"])
         self.assertEqual(1, rendered["diagnosticsCount"])
+        self.assertEqual("GOLD: 失敗 HTTP 429", rendered["diagnostics"][0])
 
     def test_full_failure_keeps_previous_value_message(self) -> None:
         rendered = run_status_scenario(
@@ -133,6 +140,21 @@ class CurrentStatusAndroidOnlyTest(unittest.TestCase):
         self.assertIn("前回値を表示中", rendered["detail"])
         # The market's current value is untouched by a total failure.
         self.assertEqual(100, rendered["current"])
+
+    def test_diagnostics_update_on_subsequent_status_calls(self) -> None:
+        rendered = run_status_scenario(
+            "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 MarketWeatherApp/1.0",
+            [
+                {"attempted": True, "total": 4, "successCount": 0,
+                 "failedMarkets": ["nikkei"], "manualUpdating": True,
+                 "quotes": [{"id": "nikkei", "ok": False, "reason": "HTTP 401"}]},
+                {"attempted": True, "total": 4, "successCount": 0,
+                 "failedMarkets": ["nikkei"], "manualUpdating": False,
+                 "quotes": [{"id": "nikkei", "ok": False, "reason": "UnknownHostException: offline"}]},
+            ],
+        )
+        self.assertEqual(["NIKKEI: 失敗 UnknownHostException: offline"], rendered["diagnostics"])
+        self.assertIn("Yahoo取得失敗", rendered["line"])
 
     def test_manual_updating_flag_is_reflected(self) -> None:
         rendered = run_status_scenario(
@@ -186,6 +208,34 @@ class AndroidPullToRefreshImplementationTest(unittest.TestCase):
         self.assertIn('status.put("failedMarkets", failed)', self.source)
         self.assertIn('"lastUpdatedAt"', self.source)
         self.assertIn('status.put("quotes", quotes)', self.source)
+        self.assertIn('item.put("reason", diagnostic.reason != null ? diagnostic.reason : JSONObject.NULL)', self.source)
+
+
+class AndroidYahooDiagnosticsImplementationTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.source = ACTIVITY.read_text(encoding="utf-8")
+
+    def test_fetch_failures_preserve_specific_http_and_exception_reasons(self) -> None:
+        for snippet in (
+            'MarketFetchResult.failure(marketId, "HTTP " + statusCode)',
+            "catch (UnknownHostException exception)",
+            "catch (SocketTimeoutException exception)",
+            "catch (ConnectException exception)",
+            "catch (SSLException exception)",
+            'return MarketFetchResult.failure(marketId, formatException(exception));',
+            '"JSON parse error: " + formatException(exception)',
+        ):
+            self.assertIn(snippet, self.source)
+
+    def test_parse_failures_distinguish_missing_result_meta_price_and_time(self) -> None:
+        for snippet in (
+            '"chart.result missing"',
+            '"meta missing"',
+            '"regularMarketPrice missing or invalid"',
+            '"regularMarketTime missing or invalid"',
+            "MarketFetchResult.success(new MarketQuote(marketId, price, timestamp))",
+        ):
+            self.assertIn(snippet, self.source)
 
 
 class IndexHtmlCurrentStatusMarkupTest(unittest.TestCase):

@@ -88,8 +88,8 @@ process.stdout.write(JSON.stringify({{
             "gold": "GC=F",
         }.items():
             self.assertIn(f'symbols.put("{market_id}", "{symbol}")', source)
-        self.assertIn('optDouble("regularMarketPrice", Double.NaN)', source)
-        self.assertIn('optLong("regularMarketTime", -1L)', source)
+        self.assertIn('meta.opt("regularMarketPrice")', source)
+        self.assertIn('meta.opt("regularMarketTime")', source)
         self.assertIn("protected void onResume()", source)
         self.assertIn("protected void onPause()", source)
         self.assertIn("private long pollingGeneration;", source)

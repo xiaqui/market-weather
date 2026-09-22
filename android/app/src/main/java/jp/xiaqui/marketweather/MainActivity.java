@@ -24,6 +24,9 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -34,6 +37,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import javax.net.ssl.SSLException;
 
 public class MainActivity extends Activity {
     private static final String START_URL = "https://xiaqui.github.io/market-weather/";
@@ -240,19 +245,12 @@ public class MainActivity extends Activity {
             List<MarketStatus> diagnostics = new ArrayList<>();
             for (Map.Entry<String, String> market : MARKET_SYMBOLS.entrySet()) {
                 String marketId = market.getKey();
-                try {
-                    MarketQuote quote = fetchMarketQuote(marketId, market.getValue());
-                    if (quote != null) {
-                        quotes.add(quote);
-                        diagnostics.add(new MarketStatus(marketId, true, quote.price, quote.timestamp));
-                    } else {
-                        failedMarkets.add(marketId);
-                        diagnostics.add(new MarketStatus(marketId, false, 0, 0));
-                    }
-                } catch (IOException | JSONException ignored) {
-                    // Keep the last successfully displayed value and retry on the next interval.
+                MarketFetchResult result = fetchMarketQuote(marketId, market.getValue());
+                diagnostics.add(result.status);
+                if (result.quote != null) {
+                    quotes.add(result.quote);
+                } else {
                     failedMarkets.add(marketId);
-                    diagnostics.add(new MarketStatus(marketId, false, 0, 0));
                 }
             }
             runOnUiThread(() -> {
@@ -277,38 +275,86 @@ public class MainActivity extends Activity {
         });
     }
 
-    private MarketQuote fetchMarketQuote(String marketId, String symbol)
-            throws IOException, JSONException {
-        String encodedSymbol = URLEncoder.encode(symbol, StandardCharsets.UTF_8.name());
-        HttpURLConnection connection = (HttpURLConnection) new URL(
-                YAHOO_CHART_URL + encodedSymbol
-        ).openConnection();
-        connection.setConnectTimeout(NETWORK_TIMEOUT_MS);
-        connection.setReadTimeout(NETWORK_TIMEOUT_MS);
-        connection.setRequestMethod("GET");
-        connection.setRequestProperty("Accept", "application/json");
+    private MarketFetchResult fetchMarketQuote(String marketId, String symbol) {
+        String encodedSymbol = URLEncoder.encode(symbol, StandardCharsets.UTF_8);
+        HttpURLConnection connection = null;
 
         try {
-            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
-                return null;
+            connection = (HttpURLConnection) new URL(
+                    YAHOO_CHART_URL + encodedSymbol
+            ).openConnection();
+            connection.setConnectTimeout(NETWORK_TIMEOUT_MS);
+            connection.setReadTimeout(NETWORK_TIMEOUT_MS);
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("Accept", "application/json");
+            int statusCode = connection.getResponseCode();
+            if (statusCode != HttpURLConnection.HTTP_OK) {
+                return MarketFetchResult.failure(marketId, "HTTP " + statusCode);
             }
             String response = readResponse(connection);
-            JSONObject chart = new JSONObject(response).optJSONObject("chart");
-            JSONArray results = chart == null ? null : chart.optJSONArray("result");
-            JSONObject result = results == null ? null : results.optJSONObject(0);
-            JSONObject meta = result == null ? null : result.optJSONObject("meta");
-            if (meta == null) {
-                return null;
-            }
-            double price = meta.optDouble("regularMarketPrice", Double.NaN);
-            long timestamp = meta.optLong("regularMarketTime", -1L);
-            if (!Double.isFinite(price) || price <= 0 || timestamp < 0) {
-                return null;
-            }
-            return new MarketQuote(marketId, price, timestamp);
+            return parseMarketQuote(marketId, response);
+        } catch (UnknownHostException exception) {
+            return MarketFetchResult.failure(marketId, formatException(exception));
+        } catch (SocketTimeoutException exception) {
+            return MarketFetchResult.failure(marketId, formatException(exception));
+        } catch (ConnectException exception) {
+            return MarketFetchResult.failure(marketId, formatException(exception));
+        } catch (SSLException exception) {
+            return MarketFetchResult.failure(marketId, formatException(exception));
+        } catch (JSONException exception) {
+            return MarketFetchResult.failure(
+                    marketId,
+                    "JSON parse error: " + formatException(exception)
+            );
+        } catch (IOException exception) {
+            return MarketFetchResult.failure(marketId, formatException(exception));
         } finally {
-            connection.disconnect();
+            if (connection != null) {
+                connection.disconnect();
+            }
         }
+    }
+
+    private MarketFetchResult parseMarketQuote(String marketId, String response) throws JSONException {
+        JSONObject chart = new JSONObject(response).optJSONObject("chart");
+        JSONArray results = chart == null ? null : chart.optJSONArray("result");
+        if (results == null || results.length() == 0 || results.optJSONObject(0) == null) {
+            return MarketFetchResult.failure(marketId, "chart.result missing");
+        }
+        JSONObject meta = results.optJSONObject(0).optJSONObject("meta");
+        if (meta == null) {
+            return MarketFetchResult.failure(marketId, "meta missing");
+        }
+        Object rawPrice = meta.opt("regularMarketPrice");
+        if (!(rawPrice instanceof Number)) {
+            return MarketFetchResult.failure(marketId, "regularMarketPrice missing or invalid");
+        }
+        double price = ((Number) rawPrice).doubleValue();
+        if (!Double.isFinite(price) || price <= 0) {
+            return MarketFetchResult.failure(marketId, "regularMarketPrice missing or invalid");
+        }
+        Object rawTimestamp = meta.opt("regularMarketTime");
+        if (!(rawTimestamp instanceof Number)) {
+            return MarketFetchResult.failure(marketId, "regularMarketTime missing or invalid");
+        }
+        long timestamp = ((Number) rawTimestamp).longValue();
+        if (timestamp < 0) {
+            return MarketFetchResult.failure(marketId, "regularMarketTime missing or invalid");
+        }
+        return MarketFetchResult.success(new MarketQuote(marketId, price, timestamp));
+    }
+
+    private String formatException(Exception exception) {
+        String name = exception.getClass().getSimpleName();
+        String message = exception.getMessage();
+        if (message == null || message.trim().isEmpty()) {
+            return name;
+        }
+        String singleLine = message.replace('\r', ' ').replace('\n', ' ').trim();
+        if (singleLine.length() > 120) {
+            singleLine = singleLine.substring(0, 117) + "...";
+        }
+        return name + ": " + singleLine;
     }
 
     private String readResponse(HttpURLConnection connection) throws IOException {
@@ -370,6 +416,7 @@ public class MainActivity extends Activity {
                 item.put("ok", diagnostic.ok);
                 item.put("price", diagnostic.ok ? diagnostic.price : JSONObject.NULL);
                 item.put("timestamp", diagnostic.ok ? diagnostic.timestamp : JSONObject.NULL);
+                item.put("reason", diagnostic.reason != null ? diagnostic.reason : JSONObject.NULL);
                 quotes.put(item);
             }
             status.put("quotes", quotes);
@@ -396,12 +443,38 @@ public class MainActivity extends Activity {
         private final boolean ok;
         private final double price;
         private final long timestamp;
+        private final String reason;
 
-        private MarketStatus(String marketId, boolean ok, double price, long timestamp) {
+        private MarketStatus(String marketId, boolean ok, double price, long timestamp, String reason) {
             this.marketId = marketId;
             this.ok = ok;
             this.price = price;
             this.timestamp = timestamp;
+            this.reason = reason;
+        }
+    }
+
+    private static final class MarketFetchResult {
+        private final MarketQuote quote;
+        private final MarketStatus status;
+
+        private MarketFetchResult(MarketQuote quote, MarketStatus status) {
+            this.quote = quote;
+            this.status = status;
+        }
+
+        private static MarketFetchResult success(MarketQuote quote) {
+            return new MarketFetchResult(
+                    quote,
+                    new MarketStatus(quote.marketId, true, quote.price, quote.timestamp, null)
+            );
+        }
+
+        private static MarketFetchResult failure(String marketId, String reason) {
+            return new MarketFetchResult(
+                    null,
+                    new MarketStatus(marketId, false, 0, 0, reason)
+            );
         }
     }
 
