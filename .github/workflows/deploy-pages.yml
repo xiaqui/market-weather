@@ -1,6 +1,9 @@
 name: Deploy Web to GitHub Pages
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: [Update Daily Forecast]
+    types: [completed]
   push:
     branches: [main]
     paths: [web/**, shared/forecast.json, scripts/sync_forecast.py, .github/workflows/deploy-pages.yml]
@@ -13,6 +16,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   deploy:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
