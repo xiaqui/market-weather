@@ -191,6 +191,13 @@ def session_close_timestamp(symbol: str, raw_timestamp: int) -> int:
     return int(datetime.combine(session_date, close_time, tzinfo=zone).timestamp())
 
 
+def last_data_date(symbol: str, candles: list[Candle]) -> str:
+    """Return the market-local trading date of the latest completed input candle."""
+    hours = MARKET_HOURS.get(symbol)
+    zone = ZoneInfo(hours.timezone_name) if hours is not None else timezone.utc
+    return datetime.fromtimestamp(candles[-1].timestamp, zone).date().isoformat()
+
+
 def parse_history(
     payload: dict[str, Any], symbol: str, now_timestamp: float | None = None
 ) -> list[Candle]:
@@ -542,6 +549,7 @@ def build_cross_asset_predictions(
     for market in MARKET_ORDER:
         snapshot = snapshots[market]
         prediction = build_prediction(snapshot.candles, snapshot.current)
+        prediction["last_data_date"] = last_data_date(SYMBOLS[market], snapshot.candles)
         query_timestamp = snapshot_clock(histories, market)
         query = weather_map_at(histories, query_timestamp, market)
         if query is None:

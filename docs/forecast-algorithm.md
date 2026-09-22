@@ -308,6 +308,16 @@ Yahooの日足ラベルを市場別カレンダーとタイムゾーンから、
 通常終了時刻を使うため、値を実際より早く利用可能にする方向ではなく、遅らせる安全側になる。
 形成中足は時刻変換前に除外する。
 
+### live forecast の `last_data_date`
+
+live forecast の各 market object には `last_data_date` を `YYYY-MM-DD` 形式で持たせる。
+これは `generated_at` の別名ではなく、各市場の live prediction に実際に渡した candle 列の末尾、
+すなわち形成中足を除外した後の最新 completed candle が表す市場ローカルの取引日である。
+
+市場ごとに休場日とタイムゾーンが異なるため、`last_data_date` は market ごとに異なってよい。
+人間向け表示ではこのローカル取引日を使い、モデル側は従来どおり `session_close_timestamp()` で
+正規化した completed-candle timestamp を使い続ける。
+
 ### snapshot clock、as-of join、休日差
 
 配列indexや同じcalendar dateでは結合しない。live forecastのclockは、4市場で最後に確定した
@@ -410,6 +420,10 @@ scripts/fetch_market_data.py
 shared/forecast.json
 web/forecast.json
 ```
+
+各 market object には `generated_at` と別に `last_data_date` を含める。
+`last_data_date` は市場別の `YYYY-MM-DD` 文字列で、live prediction に使った最新 completed candle の
+市場ローカル取引日を表す。
 
 Android APKは現在WebViewカプセルであり、
 GitHub Pages版を表示するため、
