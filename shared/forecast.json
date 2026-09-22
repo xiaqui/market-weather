@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-22T06:13:10+00:00",
+  "generated_at": "2026-09-22T10:42:03+00:00",
   "markets": [
     {
       "id": "nikkei",
@@ -40,10 +40,10 @@
     {
       "id": "usdjpy",
       "name": "USD/JPY",
-      "current": 157.614,
+      "current": 156.967,
       "up_probability": 0.6762,
-      "range_low": 156.1645,
-      "range_high": 159.0769,
+      "range_low": 155.5235,
+      "range_high": 158.4239,
       "confidence": 0.8,
       "weather": "sunny",
       "risk": "calm",
@@ -58,10 +58,10 @@
     {
       "id": "gold",
       "name": "GOLD",
-      "current": 4358.8,
+      "current": 4367.9,
       "up_probability": 0.4535,
-      "range_low": 4291.8965,
-      "range_high": 4426.7464,
+      "range_low": 4300.8569,
+      "range_high": 4435.9882,
       "confidence": 0.8,
       "weather": "rainy",
       "risk": "normal",
