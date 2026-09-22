@@ -33,6 +33,10 @@ APKの再ビルドが必要なのは、表示URL、WebView設定、権限、ア�
 殻を変更した場合です。従来のComposeネイティブ版は`native-compose`ブランチに保全し、
 必要な節目でWeb版への追従を検討します。
 
+GitHub Actions では Debug APK を artifact `market-weather-debug` として生成します。
+取得する場合は GitHub の `Actions` → `Build Android APK` → 成功した workflow run →
+`Artifacts` → `market-weather-debug` の順に開いてダウンロードしてください。
+
 ### Trend baseline
 
 初期予測は学習モデルではなく、説明可能なTrend baselineです。1・5・20日騰落率と
