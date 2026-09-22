@@ -62,6 +62,7 @@ Android APKに加えて、同じ予報データを表示するWeb版をGitHub Pa
 
 - [開発仕様](docs/market-weather-spec.md)
 - [TODO / 開発・検証タスク](docs/TODO.md)
+- [開発環境・端末検証バックログ](docs/development-environment.md)
 
 ## 技術構成
 
