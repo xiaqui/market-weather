@@ -338,7 +338,7 @@ public class MainActivity extends Activity {
             return MarketFetchResult.failure(marketId, "regularMarketTime missing or invalid");
         }
         long timestamp = ((Number) rawTimestamp).longValue();
-        if (timestamp < 0) {
+        if (timestamp <= 0) {
             return MarketFetchResult.failure(marketId, "regularMarketTime missing or invalid");
         }
         return MarketFetchResult.success(new MarketQuote(marketId, price, timestamp));
