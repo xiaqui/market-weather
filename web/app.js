@@ -53,7 +53,7 @@ function renderDetail(market) {
     : `<time datetime="${escapeHtml(nextSessionDateValue)}">${escapeHtml(formatLocalDate(nextSessionDateValue))}</time>`;
   document.querySelector("#detail-content").innerHTML = `<h2>${market.name} の詳細</h2><dl class="detail-list"><dt>現在値</dt><dd>${number.format(market.current)}</dd><dt>元データ最終日</dt><dd><time datetime="${lastDataDate}">${localizedLastDataDate}</time></dd><dt>予測対象セッション（次回営業日）</dt><dd>${nextSessionDetail}</dd><dt>天気</dt><dd>${safeCondition(market.weather)[1]}</dd><dt>トレンド予報</dt><dd>${percent(market.trend_probability ?? market.up_probability)}</dd>${analog}<dt>最終予報</dt><dd>${percent(market.up_probability)}</dd><dt>予想レンジ</dt><dd>${number.format(market.range_low)} ～ ${number.format(market.range_high)}</dd><dt>信頼度</dt><dd>${percent(market.confidence)}</dd><dt>リスク状態</dt><dd>${risks[market.risk] || market.risk}</dd></dl>`;
 }
-window.updateCurrentValues = updates => {
+globalThis.updateCurrentValues = updates => {
   if (!Array.isArray(updates)) return;
   updates
     .filter(update => update && typeof update.id === "string"
@@ -80,7 +80,7 @@ async function loadForecast() {
     const forecast = await response.json();
     document.querySelector("#generated").textContent = `生成日時 ${new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium", timeStyle: "short" }).format(new Date(forecast.generated_at))}`;
     markets = forecast.markets;
-    window.updateCurrentValues([]);
+    globalThis.updateCurrentValues([]);
     renderMarkets();
   } catch (error) {
     console.error(error);

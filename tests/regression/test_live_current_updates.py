@@ -50,21 +50,18 @@ const context = {{
 }};
 vm.createContext(context);
 vm.runInContext(source, context);
-(async () => {{
-  await Promise.resolve();
-  await Promise.resolve();
-  context.updateCurrentValues([{{ id: "nikkei", current: 111 }}, {{ id: "unknown", current: 999 }}]);
-  elements["#markets"].children[0].onclick();
-  context.updateCurrentValues([{{ id: "nikkei", current: 112 }}]);
-  process.stdout.write(JSON.stringify({{
-    nikkeiCard: elements["#markets"].children[0].innerHTML,
-    dowCard: elements["#markets"].children[1].innerHTML,
-    detail: elements["#detail-content"].innerHTML,
-    weather: forecast.markets[0].weather,
-    probability: forecast.markets[0].up_probability,
-    rangeLow: forecast.markets[0].range_low,
-  }}));
-}})();
+vm.runInContext("markets = " + JSON.stringify(forecast.markets) + "; renderMarkets();", context);
+context.updateCurrentValues([{{ id: "nikkei", current: 111 }}, {{ id: "unknown", current: 999 }}]);
+elements["#markets"].children[0].onclick();
+context.updateCurrentValues([{{ id: "nikkei", current: 112 }}]);
+process.stdout.write(JSON.stringify({{
+  nikkeiCard: elements["#markets"].children[0].innerHTML,
+  dowCard: elements["#markets"].children[1].innerHTML,
+  detail: elements["#detail-content"].innerHTML,
+  weather: forecast.markets[0].weather,
+  probability: forecast.markets[0].up_probability,
+  rangeLow: forecast.markets[0].range_low,
+}}));
 """,
             ],
             cwd=ROOT,
