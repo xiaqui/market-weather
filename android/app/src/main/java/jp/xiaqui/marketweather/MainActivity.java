@@ -6,6 +6,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.MotionEvent;
 import android.webkit.CookieManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -37,8 +38,10 @@ import java.util.concurrent.Executors;
 public class MainActivity extends Activity {
     private static final String START_URL = "https://xiaqui.github.io/market-weather/";
     private static final String YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/";
+    private static final String UA_APP_SUFFIX = " MarketWeatherApp/1.0";
     private static final long UPDATE_INTERVAL_MS = 60_000L;
     private static final int NETWORK_TIMEOUT_MS = 10_000;
+    private static final float PULL_REFRESH_THRESHOLD_DP = 96f;
     private static final Map<String, String> MARKET_SYMBOLS = createMarketSymbols();
 
     private WebView webView;
@@ -48,6 +51,15 @@ public class MainActivity extends Activity {
     private boolean polling;
     private long pollingGeneration;
     private Runnable scheduledUpdate;
+    private boolean fetchInProgress;
+    private boolean lastAttempted;
+    private int lastSuccessCount;
+    private List<String> lastFailedMarkets = new ArrayList<>();
+    private List<MarketStatus> lastDiagnostics = new ArrayList<>();
+    private long lastUpdatedAtMillis;
+    private float pullStartY;
+    private boolean pullEligible;
+    private float pullRefreshThresholdPx;
 
     private static Map<String, String> createMarketSymbols() {
         Map<String, String> symbols = new LinkedHashMap<>();
@@ -72,6 +84,9 @@ public class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setLoadWithOverviewMode(true);
         settings.setUseWideViewPort(true);
+        settings.setUserAgentString(settings.getUserAgentString() + UA_APP_SUFFIX);
+
+        pullRefreshThresholdPx = PULL_REFRESH_THRESHOLD_DP * getResources().getDisplayMetrics().density;
 
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
@@ -134,11 +149,51 @@ public class MainActivity extends Activity {
             }
         });
 
+        webView.setOnTouchListener((view, event) -> {
+            handlePullToRefreshTouch(event);
+            return false;
+        });
+
         if (savedInstanceState == null) {
             webView.loadUrl(START_URL);
         } else {
             webView.restoreState(savedInstanceState);
         }
+    }
+
+    private void handlePullToRefreshTouch(MotionEvent event) {
+        switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                pullStartY = event.getRawY();
+                pullEligible = webView.getScrollY() <= 0;
+                break;
+            case MotionEvent.ACTION_MOVE:
+                if (pullEligible) {
+                    if (webView.getScrollY() > 0) {
+                        pullEligible = false;
+                    } else if (event.getRawY() - pullStartY > pullRefreshThresholdPx) {
+                        pullEligible = false;
+                        triggerManualRefresh();
+                    }
+                }
+                break;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                pullEligible = false;
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void triggerManualRefresh() {
+        if (!polling || fetchInProgress) {
+            return;
+        }
+        long generation = pollingGeneration;
+        cancelScheduledPolling();
+        reportCurrentStatus(true);
+        fetchCurrentValues(generation, true);
     }
 
     @Override
@@ -159,7 +214,7 @@ public class MainActivity extends Activity {
 
     private void schedulePolling(long generation, long delayMs) {
         cancelScheduledPolling();
-        scheduledUpdate = () -> fetchCurrentValues(generation);
+        scheduledUpdate = () -> fetchCurrentValues(generation, false);
         updateHandler.postDelayed(scheduledUpdate, delayMs);
     }
 
@@ -174,23 +229,34 @@ public class MainActivity extends Activity {
         return polling && generation == pollingGeneration;
     }
 
-    private void fetchCurrentValues(long generation) {
-        if (!isActiveGeneration(generation)) {
+    private void fetchCurrentValues(long generation, boolean manual) {
+        if (!isActiveGeneration(generation) || fetchInProgress) {
             return;
         }
+        fetchInProgress = true;
         networkExecutor.execute(() -> {
             List<MarketQuote> quotes = new ArrayList<>();
+            List<String> failedMarkets = new ArrayList<>();
+            List<MarketStatus> diagnostics = new ArrayList<>();
             for (Map.Entry<String, String> market : MARKET_SYMBOLS.entrySet()) {
+                String marketId = market.getKey();
                 try {
-                    MarketQuote quote = fetchMarketQuote(market.getKey(), market.getValue());
+                    MarketQuote quote = fetchMarketQuote(marketId, market.getValue());
                     if (quote != null) {
                         quotes.add(quote);
+                        diagnostics.add(new MarketStatus(marketId, true, quote.price, quote.timestamp));
+                    } else {
+                        failedMarkets.add(marketId);
+                        diagnostics.add(new MarketStatus(marketId, false, 0, 0));
                     }
                 } catch (IOException | JSONException ignored) {
                     // Keep the last successfully displayed value and retry on the next interval.
+                    failedMarkets.add(marketId);
+                    diagnostics.add(new MarketStatus(marketId, false, 0, 0));
                 }
             }
             runOnUiThread(() -> {
+                fetchInProgress = false;
                 if (!isActiveGeneration(generation)) {
                     return;
                 }
@@ -200,6 +266,12 @@ public class MainActivity extends Activity {
                 if (!latestQuotes.isEmpty()) {
                     applyLatestQuotes();
                 }
+                lastAttempted = true;
+                lastSuccessCount = quotes.size();
+                lastFailedMarkets = failedMarkets;
+                lastDiagnostics = diagnostics;
+                lastUpdatedAtMillis = System.currentTimeMillis();
+                reportCurrentStatus(false);
                 schedulePolling(generation, UPDATE_INTERVAL_MS);
             });
         });
@@ -272,6 +344,41 @@ public class MainActivity extends Activity {
         webView.evaluateJavascript("window.updateCurrentValues(" + updates + ");", null);
     }
 
+    private void reportCurrentStatus(boolean manualUpdating) {
+        if (webView == null) {
+            return;
+        }
+        JSONObject status = new JSONObject();
+        try {
+            status.put("attempted", lastAttempted);
+            status.put("total", MARKET_SYMBOLS.size());
+            status.put("successCount", lastSuccessCount);
+            status.put("manualUpdating", manualUpdating);
+            status.put(
+                    "lastUpdatedAt",
+                    lastUpdatedAtMillis > 0 ? lastUpdatedAtMillis : JSONObject.NULL
+            );
+            JSONArray failed = new JSONArray();
+            for (String marketId : lastFailedMarkets) {
+                failed.put(marketId);
+            }
+            status.put("failedMarkets", failed);
+            JSONArray quotes = new JSONArray();
+            for (MarketStatus diagnostic : lastDiagnostics) {
+                JSONObject item = new JSONObject();
+                item.put("id", diagnostic.marketId);
+                item.put("ok", diagnostic.ok);
+                item.put("price", diagnostic.ok ? diagnostic.price : JSONObject.NULL);
+                item.put("timestamp", diagnostic.ok ? diagnostic.timestamp : JSONObject.NULL);
+                quotes.put(item);
+            }
+            status.put("quotes", quotes);
+        } catch (JSONException ignored) {
+            return;
+        }
+        webView.evaluateJavascript("window.updateCurrentStatus(" + status + ");", null);
+    }
+
     private static final class MarketQuote {
         private final String marketId;
         private final double price;
@@ -279,6 +386,20 @@ public class MainActivity extends Activity {
 
         private MarketQuote(String marketId, double price, long timestamp) {
             this.marketId = marketId;
+            this.price = price;
+            this.timestamp = timestamp;
+        }
+    }
+
+    private static final class MarketStatus {
+        private final String marketId;
+        private final boolean ok;
+        private final double price;
+        private final long timestamp;
+
+        private MarketStatus(String marketId, boolean ok, double price, long timestamp) {
+            this.marketId = marketId;
+            this.ok = ok;
             this.price = price;
             this.timestamp = timestamp;
         }

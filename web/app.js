@@ -10,6 +10,9 @@ const safeCondition = value => weather[value] || ["❔", value];
 let markets = [];
 let selectedMarket = null;
 const liveCurrentValues = new Map();
+const isAndroidApp = /MarketWeatherApp\//.test(
+  (typeof navigator !== "undefined" && navigator.userAgent) || ""
+);
 const escapeHtml = value => String(value)
   .replaceAll("&", "&amp;")
   .replaceAll("<", "&lt;")
@@ -73,6 +76,62 @@ globalThis.updateCurrentValues = updates => {
     renderDetail(selectedMarket);
   }
 };
+function renderCurrentStatus(status) {
+  if (!isAndroidApp || !status || typeof status !== "object") return;
+  const line = document.querySelector("#current-status-line");
+  const detail = document.querySelector("#current-status-detail");
+  const diagnostics = document.querySelector("#current-status-diagnostics");
+  const list = document.querySelector("#current-status-list");
+  const total = Number.isFinite(status.total) ? status.total : 0;
+  const successCount = Number.isFinite(status.successCount) ? status.successCount : 0;
+  const failedMarkets = Array.isArray(status.failedMarkets) ? status.failedMarkets : [];
+  let headline;
+  if (!status.attempted) {
+    headline = "現在値: 取得状況を確認中…";
+  } else if (successCount === 0) {
+    headline = "現在値: Yahoo取得失敗";
+  } else if (failedMarkets.length === 0) {
+    headline = `現在値: Yahoo取得成功 ${successCount}/${total}`;
+  } else {
+    headline = `現在値: Yahoo取得 ${successCount}/${total}`;
+  }
+  line.textContent = status.manualUpdating ? `${headline}（更新中…）` : headline;
+  const detailParts = [];
+  if (status.attempted && successCount === 0) {
+    detailParts.push("前回値を表示中");
+  }
+  failedMarkets.forEach(id => detailParts.push(`${String(id).toUpperCase()}取得失敗`));
+  if (status.attempted && Number.isFinite(status.lastUpdatedAt)) {
+    const time = new Intl.DateTimeFormat("ja-JP", { timeStyle: "medium" })
+      .format(new Date(status.lastUpdatedAt));
+    detailParts.push(`更新: ${time}`);
+  }
+  detail.textContent = detailParts.join(" / ");
+  if (Array.isArray(status.quotes) && status.quotes.length) {
+    diagnostics.hidden = false;
+    list.replaceChildren(...status.quotes.map(quote => {
+      const item = document.createElement("li");
+      const time = Number.isFinite(quote.timestamp)
+        ? new Intl.DateTimeFormat("ja-JP", { dateStyle: "short", timeStyle: "medium" })
+            .format(new Date(quote.timestamp * 1000))
+        : "-";
+      const price = Number.isFinite(quote.price) ? number.format(quote.price) : "-";
+      item.textContent = `${String(quote.id).toUpperCase()}: ${quote.ok ? "成功" : "失敗"}`
+        + ` regularMarketPrice=${price} regularMarketTime=${time}`;
+      return item;
+    }));
+  } else {
+    diagnostics.hidden = true;
+  }
+}
+globalThis.updateCurrentStatus = status => {
+  renderCurrentStatus(status);
+};
+if (isAndroidApp) {
+  const statusSection = document.querySelector("#current-status");
+  if (statusSection) statusSection.hidden = false;
+  renderCurrentStatus({ attempted: false, total: 0, successCount: 0, failedMarkets: [], manualUpdating: false });
+}
 async function loadForecast() {
   try {
     const response = await fetch("forecast.json");
