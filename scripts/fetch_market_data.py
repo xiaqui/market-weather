@@ -218,6 +218,7 @@ def _easter_sunday(year: int) -> date:
 
 @lru_cache(maxsize=None)
 def _us_market_holidays(year: int) -> frozenset[date]:
+    """Full-day US cash-equity closures used by the Dow."""
     holidays = {
         _observed_us_holiday(date(year, 1, 1)),
         _nth_weekday_of_month(year, 1, 0, 3),  # MLK Day
@@ -228,6 +229,25 @@ def _us_market_holidays(year: int) -> frozenset[date]:
         _observed_us_holiday(date(year, 7, 4)),
         _nth_weekday_of_month(year, 9, 0, 1),  # Labor Day
         _nth_weekday_of_month(year, 11, 3, 4),  # Thanksgiving
+        _observed_us_holiday(date(year, 12, 25)),
+    }
+    observed_next_new_year = _observed_us_holiday(date(year + 1, 1, 1))
+    if observed_next_new_year.year == year:
+        holidays.add(observed_next_new_year)
+    return frozenset(holidays)
+
+
+@lru_cache(maxsize=None)
+def _gold_futures_full_closures(year: int) -> frozenset[date]:
+    """Conservative full-day closures for COMEX Gold, not NYSE holidays.
+
+    Many US federal holidays have a shortened Globex metals session and still
+    produce a daily bar. Treating every NYSE holiday as closed would therefore
+    skip valid Gold forecast targets.
+    """
+    holidays = {
+        _observed_us_holiday(date(year, 1, 1)),
+        _easter_sunday(year) - timedelta(days=2),  # Good Friday
         _observed_us_holiday(date(year, 12, 25)),
     }
     observed_next_new_year = _observed_us_holiday(date(year + 1, 1, 1))
@@ -329,8 +349,14 @@ def _is_market_session_day(symbol: str, session_date: date) -> bool:
         if (session_date.month, session_date.day) in {(1, 2), (1, 3), (12, 31)}:
             return False
         return session_date not in _japan_market_holidays(session_date.year)
-    if symbol in {"^DJI", "JPY=X", "GC=F"}:
+    if symbol == "^DJI":
         return session_date not in _us_market_holidays(session_date.year)
+    if symbol == "JPY=X":
+        # Spot FX is a global 24/5 market. US cash-equity holidays are not
+        # full-session closures, so weekdays remain valid forecast targets.
+        return True
+    if symbol == "GC=F":
+        return session_date not in _gold_futures_full_closures(session_date.year)
     return True
 
 
