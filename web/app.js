@@ -34,7 +34,13 @@ function showDetail(market) {
     : `<dt>類似天気図予報</dt><dd>${percent(market.analog_probability)}</dd><dt>類似局面</dt><dd>${market.analog_count}件</dd>`;
   const lastDataDate = escapeHtml(market.last_data_date);
   const localizedLastDataDate = escapeHtml(formatLocalDate(market.last_data_date));
-  document.querySelector("#detail-content").innerHTML = `<h2>${market.name} の詳細</h2><dl class="detail-list"><dt>現在値</dt><dd>${number.format(market.current)}</dd><dt>元データ最終日</dt><dd><time datetime="${lastDataDate}">${localizedLastDataDate}</time></dd><dt>天気</dt><dd>${safeCondition(market.weather)[1]}</dd><dt>トレンド予報</dt><dd>${percent(market.trend_probability ?? market.up_probability)}</dd>${analog}<dt>最終予報</dt><dd>${percent(market.up_probability)}</dd><dt>予想レンジ</dt><dd>${number.format(market.range_low)} ～ ${number.format(market.range_high)}</dd><dt>信頼度</dt><dd>${percent(market.confidence)}</dd><dt>リスク状態</dt><dd>${risks[market.risk] || market.risk}</dd></dl>`;
+  const nextSessionDateValue = typeof market.next_session_date === "string" && market.next_session_date
+    ? market.next_session_date
+    : "不明";
+  const nextSessionDetail = nextSessionDateValue === "不明"
+    ? '<span aria-label="予測対象セッション日不明">不明</span>'
+    : `<time datetime="${escapeHtml(nextSessionDateValue)}">${escapeHtml(formatLocalDate(nextSessionDateValue))}</time>`;
+  document.querySelector("#detail-content").innerHTML = `<h2>${market.name} の詳細</h2><dl class="detail-list"><dt>現在値</dt><dd>${number.format(market.current)}</dd><dt>元データ最終日</dt><dd><time datetime="${lastDataDate}">${localizedLastDataDate}</time></dd><dt>予測対象セッション（次回営業日）</dt><dd>${nextSessionDetail}</dd><dt>天気</dt><dd>${safeCondition(market.weather)[1]}</dd><dt>トレンド予報</dt><dd>${percent(market.trend_probability ?? market.up_probability)}</dd>${analog}<dt>最終予報</dt><dd>${percent(market.up_probability)}</dd><dt>予想レンジ</dt><dd>${number.format(market.range_low)} ～ ${number.format(market.range_high)}</dd><dt>信頼度</dt><dd>${percent(market.confidence)}</dd><dt>リスク状態</dt><dd>${risks[market.risk] || market.risk}</dd></dl>`;
   document.querySelector("#detail").showModal();
 }
 async function loadForecast() {

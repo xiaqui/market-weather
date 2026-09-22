@@ -77,6 +77,25 @@ class BacktestRegressionTest(unittest.TestCase):
 
         self.assertEqual(market_data.last_data_date("^DJI", parsed), "2026-09-21")
 
+    def test_next_session_date_handles_2026_09_21_holiday_gap(self) -> None:
+        nikkei_close = market_data.Candle(
+            int(datetime(2026, 9, 18, 15, 30, tzinfo=ZoneInfo("Asia/Tokyo")).timestamp()),
+            100.0, 101.0, 99.0, 100.5, None,
+        )
+        dow_close = market_data.Candle(
+            int(datetime(2026, 9, 21, 16, 0, tzinfo=ZoneInfo("America/New_York")).timestamp()),
+            100.0, 101.0, 99.0, 100.5, None,
+        )
+
+        self.assertEqual(
+            market_data.next_session_date("^N225", [nikkei_close]),
+            "2026-09-24",
+        )
+        self.assertEqual(
+            market_data.next_session_date("^DJI", [dow_close]),
+            "2026-09-22",
+        )
+
     def test_each_prediction_sees_only_rows_before_target(self) -> None:
         candles = [market_data.Candle(i, 100 + i, 101 + i, 99 + i, 100 + i, None) for i in range(25)]
         seen_lengths = []

@@ -318,6 +318,23 @@ live forecast の各 market object には `last_data_date` を `YYYY-MM-DD` 形�
 人間向け表示ではこのローカル取引日を使い、モデル側は従来どおり `session_close_timestamp()` で
 正規化した completed-candle timestamp を使い続ける。
 
+### live forecast の `next_session_date`
+
+各 market object には `next_session_date` も `YYYY-MM-DD` 形式で持たせる。これは
+`generated_at` とも `last_data_date` とも別概念であり、その market の live forecast が
+対象にしている「次の実際の営業セッション日」を表す。
+
+算出には forecast 生成時点で既に確定済みの latest completed candle だけを使う。すなわち
+`last_data_date` の翌日以降を市場カレンダーで順に進め、週末と休場日を飛ばして最初に開く
+営業日を採用する。日経平均は日本祝日・振替休日・国民の休日と東証年末年始休場、米国側3市場は
+米国祝日と週末を考慮する。実装上の日本カレンダーは、このアプリのYahoo履歴レンジに合わせて
+2016-2099年を対応範囲とする。
+
+この日付を決めるために、形成中の日足、`generated_at` 時点でまだ未確定の future session、
+あるいは別市場のあとから確定した価格を予測入力へ混ぜない。予測ロジック自体は従来どおり
+completed candle と `snapshot_clock()` で固定し、`next_session_date` はその結果を人間へ
+説明するための付加情報に限る。
+
 ### snapshot clock、as-of join、休日差
 
 配列indexや同じcalendar dateでは結合しない。live forecastのclockは、4市場で最後に確定した
@@ -421,9 +438,9 @@ shared/forecast.json
 web/forecast.json
 ```
 
-各 market object には `generated_at` と別に `last_data_date` を含める。
-`last_data_date` は市場別の `YYYY-MM-DD` 文字列で、live prediction に使った最新 completed candle の
-市場ローカル取引日を表す。
+各 market object には `generated_at` と別に `last_data_date` と `next_session_date` を含める。
+`last_data_date` は live prediction に使った最新 completed candle の市場ローカル取引日、
+`next_session_date` はその予報が対象にする次の実営業日を表す。
 
 Android APKは現在WebViewカプセルであり、
 GitHub Pages版を表示するため、

@@ -12,6 +12,7 @@ import time
 from bisect import bisect_right
 from dataclasses import dataclass
 from datetime import date, datetime, time as datetime_time, timedelta, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -58,6 +59,8 @@ WEATHER_MAP_FEATURE_NAMES = tuple(
     f"{market}_{feature}" for market in MARKET_ORDER for feature in BASE_STATE_NAMES
 ) + PAIR_NAMES
 CONTEXT_FEATURE_COUNT = 4
+SUPPORTED_NEXT_SESSION_START_YEAR = 2016
+SUPPORTED_NEXT_SESSION_END_YEAR = 2099
 
 
 def weather_map_feature_names(target_market: str) -> tuple[str, ...]:
@@ -173,6 +176,164 @@ def _is_us_early_close(session_date: date) -> bool:
     )
 
 
+def _nth_weekday_of_month(year: int, month: int, weekday: int, occurrence: int) -> date:
+    first = date(year, month, 1)
+    return first + timedelta(
+        days=(weekday - first.weekday()) % 7 + 7 * (occurrence - 1)
+    )
+
+
+def _last_weekday_of_month(year: int, month: int, weekday: int) -> date:
+    if month == 12:
+        current = date(year + 1, 1, 1) - timedelta(days=1)
+    else:
+        current = date(year, month + 1, 1) - timedelta(days=1)
+    return current - timedelta(days=(current.weekday() - weekday) % 7)
+
+
+def _observed_us_holiday(day: date) -> date:
+    if day.weekday() == 5:
+        return day - timedelta(days=1)
+    if day.weekday() == 6:
+        return day + timedelta(days=1)
+    return day
+
+
+def _easter_sunday(year: int) -> date:
+    century = year // 100
+    year_in_century = year % 100
+    leap_century = century // 4
+    century_remainder = century % 4
+    correction = (century + 8) // 25
+    adjustment = (century - correction + 1) // 3
+    epact = (19 * (year % 19) + century - leap_century - adjustment + 15) % 30
+    leap_years = year_in_century // 4
+    remainder = year_in_century % 4
+    weekday_offset = (32 + 2 * century_remainder + 2 * leap_years - epact - remainder) % 7
+    moon = (year % 19 + 11 * epact + 22 * weekday_offset) // 451
+    month = (epact + weekday_offset - 7 * moon + 114) // 31
+    day = (epact + weekday_offset - 7 * moon + 114) % 31 + 1
+    return date(year, month, day)
+
+
+@lru_cache(maxsize=None)
+def _us_market_holidays(year: int) -> frozenset[date]:
+    holidays = {
+        _observed_us_holiday(date(year, 1, 1)),
+        _nth_weekday_of_month(year, 1, 0, 3),  # MLK Day
+        _nth_weekday_of_month(year, 2, 0, 3),  # Presidents Day
+        _easter_sunday(year) - timedelta(days=2),  # Good Friday
+        _last_weekday_of_month(year, 5, 0),  # Memorial Day
+        _observed_us_holiday(date(year, 6, 19)),  # Juneteenth
+        _observed_us_holiday(date(year, 7, 4)),
+        _nth_weekday_of_month(year, 9, 0, 1),  # Labor Day
+        _nth_weekday_of_month(year, 11, 3, 4),  # Thanksgiving
+        _observed_us_holiday(date(year, 12, 25)),
+    }
+    observed_next_new_year = _observed_us_holiday(date(year + 1, 1, 1))
+    if observed_next_new_year.year == year:
+        holidays.add(observed_next_new_year)
+    return frozenset(holidays)
+
+
+def _vernal_equinox_day(year: int) -> int:
+    return int(20.8431 + 0.242194 * (year - 1980) - (year - 1980) // 4)
+
+
+def _autumnal_equinox_day(year: int) -> int:
+    return int(23.2488 + 0.242194 * (year - 1980) - (year - 1980) // 4)
+
+
+@lru_cache(maxsize=None)
+def _japan_market_holidays(year: int) -> frozenset[date]:
+    if not SUPPORTED_NEXT_SESSION_START_YEAR <= year <= SUPPORTED_NEXT_SESSION_END_YEAR:
+        raise ValueError(
+            "Japanese next-session calendar supports years "
+            f"{SUPPORTED_NEXT_SESSION_START_YEAR}-{SUPPORTED_NEXT_SESSION_END_YEAR}"
+        )
+    holidays = {
+        date(year, 1, 1),
+        date(year, 2, 11),
+        date(year, 3, _vernal_equinox_day(year)),
+        date(year, 4, 29),
+        date(year, 5, 3),
+        date(year, 5, 4),
+        date(year, 5, 5),
+        date(year, 9, _autumnal_equinox_day(year)),
+        date(year, 11, 3),
+        date(year, 11, 23),
+    }
+    if year >= 2000:
+        holidays.add(_nth_weekday_of_month(year, 1, 0, 2))  # Coming of Age Day
+    else:
+        holidays.add(date(year, 1, 15))
+    if year >= 2003:
+        holidays.add(_nth_weekday_of_month(year, 9, 0, 3))  # Respect for the Aged Day
+    else:
+        holidays.add(date(year, 9, 15))
+    if year == 2020:
+        holidays.update({
+            date(year, 7, 23),  # Marine Day
+            date(year, 7, 24),  # Sports Day
+            date(year, 8, 10),  # Mountain Day
+        })
+    elif year == 2021:
+        holidays.update({
+            date(year, 7, 22),  # Marine Day
+            date(year, 7, 23),  # Sports Day
+            date(year, 8, 8),   # Mountain Day
+        })
+    else:
+        if year >= 2003:
+            holidays.add(_nth_weekday_of_month(year, 7, 0, 3))  # Marine Day
+        elif year >= 1996:
+            holidays.add(date(year, 7, 20))
+        if year >= 2016:
+            holidays.add(date(year, 8, 11))
+        if year >= 2000:
+            holidays.add(_nth_weekday_of_month(year, 10, 0, 2))  # Sports Day
+        else:
+            holidays.add(date(year, 10, 10))
+    if year >= 2020:
+        holidays.add(date(year, 2, 23))
+    elif 1989 <= year <= 2018:
+        holidays.add(date(year, 12, 23))
+
+    for holiday in sorted(tuple(holidays)):
+        if holiday.weekday() != 6:
+            continue
+        substitute = holiday + timedelta(days=1)
+        while substitute.weekday() >= 5 or substitute in holidays:
+            substitute += timedelta(days=1)
+        holidays.add(substitute)
+
+    start = min(holidays)
+    end = max(holidays)
+    current = start + timedelta(days=1)
+    while current < end:
+        if (
+            current.weekday() < 5
+            and current not in holidays
+            and current - timedelta(days=1) in holidays
+            and current + timedelta(days=1) in holidays
+        ):
+            holidays.add(current)
+        current += timedelta(days=1)
+    return frozenset(holidays)
+
+
+def _is_market_session_day(symbol: str, session_date: date) -> bool:
+    if session_date.weekday() >= 5:
+        return False
+    if symbol == "^N225":
+        if (session_date.month, session_date.day) in {(1, 2), (1, 3), (12, 31)}:
+            return False
+        return session_date not in _japan_market_holidays(session_date.year)
+    if symbol in {"^DJI", "JPY=X", "GC=F"}:
+        return session_date not in _us_market_holidays(session_date.year)
+    return True
+
+
 def session_close_timestamp(symbol: str, raw_timestamp: int) -> int:
     """Map a Yahoo daily label to that session's conservative calendar close."""
     hours = MARKET_HOURS.get(symbol)
@@ -196,6 +357,27 @@ def last_data_date(symbol: str, candles: list[Candle]) -> str:
     hours = MARKET_HOURS.get(symbol)
     zone = ZoneInfo(hours.timezone_name) if hours is not None else timezone.utc
     return datetime.fromtimestamp(candles[-1].timestamp, zone).date().isoformat()
+
+
+def next_session_date(symbol: str, candles: list[Candle]) -> str:
+    """Return the next real market session date after the latest completed candle."""
+    hours = MARKET_HOURS.get(symbol)
+    zone = ZoneInfo(hours.timezone_name) if hours is not None else timezone.utc
+    session_date = datetime.fromtimestamp(candles[-1].timestamp, zone).date()
+    if (
+        symbol == "^N225"
+        and not SUPPORTED_NEXT_SESSION_START_YEAR
+        <= session_date.year
+        <= SUPPORTED_NEXT_SESSION_END_YEAR
+    ):
+        raise ValueError(
+            "Japanese next-session calendar supports years "
+            f"{SUPPORTED_NEXT_SESSION_START_YEAR}-{SUPPORTED_NEXT_SESSION_END_YEAR}"
+        )
+    while True:
+        session_date += timedelta(days=1)
+        if _is_market_session_day(symbol, session_date):
+            return session_date.isoformat()
 
 
 def parse_history(
@@ -550,6 +732,9 @@ def build_cross_asset_predictions(
         snapshot = snapshots[market]
         prediction = build_prediction(snapshot.candles, snapshot.current)
         prediction["last_data_date"] = last_data_date(SYMBOLS[market], snapshot.candles)
+        prediction["next_session_date"] = next_session_date(
+            SYMBOLS[market], snapshot.candles
+        )
         query_timestamp = snapshot_clock(histories, market)
         query = weather_map_at(histories, query_timestamp, market)
         if query is None:
