@@ -6,11 +6,11 @@
 
 ### 実測結果
 
-- ブラウザ直接取得: **この sandbox 環境では未確認**
-- 実ブラウザ `fetch()` 結果: **4市場とも失敗**
-- 失敗理由としてブラウザコンソールで確認できた内容: **CORS ではなく `net::ERR_NAME_NOT_RESOLVED`**
-- HTTPS origin 相当の確認: **ローカル HTTPS origin では実施済み**
-- GitHub Pages 本番 origin での実測: **未実施**
+- Copilot sandbox内の headless Chrome: **4市場とも失敗**
+  - 失敗理由は CORS ではなく `net::ERR_NAME_NOT_RESOLVED`
+- GitHub Pages 本番 origin `https://xiaqui.github.io` からの通常ブラウザ実測: **4市場ともCORSで失敗**
+- ブラウザコンソールで `blocked by CORS policy` と `No 'Access-Control-Allow-Origin' header is present` を確認
+- したがって、GitHub Pages上のブラウザJavaScriptから Yahoo Finance Chart API を直接 `fetch()` する方式は不採用とする
 
 ### 外部情報からの推定
 
@@ -21,14 +21,15 @@
 
 ## 今回の目的に対する回答
 
-今回追加調査で確認できたのは、**実ブラウザ環境で `fetch()` を実行した事実**と、
-**この sandbox では Yahoo Finance ホスト解決に失敗しているため、CORS 可否までは実測確定できなかった**、
-という点である。
+追加調査では、Copilot sandbox内の headless Chrome では Yahoo Finance ホストの名前解決に失敗した。
+その後、GitHub Pages 本番 origin `https://xiaqui.github.io` 上で通常ブラウザから同じ4市場へ
+`fetch()` を実行し、4市場すべてで CORS により拒否されることを実測確認した。
 
-したがって、本ドキュメントでは以下を明確に分ける。
+したがって、ブラウザ直接取得については推定ではなく、
+**GitHub Pages 本番環境で利用不可と判断できる**。
 
-- **実測結果**: Chrome から実際に `fetch()` した結果
-- **推定**: 外部情報・既存実装・公開レスポンス例からの判断
+一方、`regularMarketPrice` / `regularMarketTime` の値そのものは、
+既存のサーバー側実装・AP37での直接取得実績・公開レスポンス例を根拠に扱う。
 
 ## 調査対象
 
@@ -159,27 +160,29 @@ JavaScript の catch 側では4市場すべてで共通して以下だった。
 
 ### 実測
 
-- GitHub Pages 本番 origin からの実測はしていない
-- ただし、**ローカル HTTPS origin** からのブラウザ `fetch()` は実施し、4市場とも
-  `ERR_NAME_NOT_RESOLVED` で失敗した
+GitHub Pages 本番 origin `https://xiaqui.github.io` から、
+通常ブラウザの JavaScript `fetch()` で以下4市場を確認した。
 
-### 推定
+- `^N225`
+- `^DJI`
+- `JPY=X`
+- `GC=F`
 
-- GitHub Pages は静的ホスティングであり、ブラウザから Yahoo Finance を直接叩く構成になる
-- そのため、到達できる環境でも CORS 制約を受ける可能性が高い
-- よって **GitHub Pages で安定運用できる見込みは低い** と推定する
+4市場すべてで取得に失敗し、ブラウザコンソールに以下の趣旨のCORSエラーを確認した。
 
-ただし、これは今回の sandbox 実測だけではなく、外部報告も踏まえた推定である。
+```text
+blocked by CORS policy
+No 'Access-Control-Allow-Origin' header is present
+```
+
+したがって、**GitHub Pages から Yahoo Finance Chart API をブラウザ直接取得する方式は利用不可**と判断する。
 
 ## 次の推奨構成
 
 ### 1. ブラウザ直接取得
 
-- **現時点では推奨しない**
-- 理由:
-  - 今回の sandbox 実測では到達失敗
-  - 外部報告では CORS 失敗の可能性が高い
-  - つまり到達性・CORS の両面で不確実性が高い
+- **不採用**
+- GitHub Pages 本番 origin から4市場ともCORSで拒否されることを実測確認済み
 
 ### 2. `current.json`
 
@@ -196,14 +199,16 @@ JavaScript の catch 側では4市場すべてで共通して以下だった。
 
 ## 推奨判断
 
-今回の **実測 + 推定** を合わせると、次の順で妥当。
+GitHub Pages からのブラウザ直接取得はCORS実測により不採用とする。
+
+Web版で現在値を高頻度更新する場合の候補は以下。
 
 1. **軽量proxy**
 2. **`current.json`**
-3. **ブラウザ直接取得**
 
-ただし、最終判断前に
-**GitHub Pages もしくは通常ネットワークの実ブラウザから追加実測**を行う価値はある。
+一方、Androidネイティブ版ではブラウザCORSの制約を受けない取得方式を利用できるため、
+次タスク `OJT.md` で Yahoo Finance から現在値を直接取得し、
+WebView上の current だけを更新する方式を検証する。
 
 ## TODO への影響
 
