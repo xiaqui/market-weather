@@ -150,6 +150,8 @@ Market Weather の開発・検証タスク一覧。
 
 ## P2: GitHub運用
 
+- [ ] APK手動Build workflowのbranch指定を改善し、モバイルから毎回長いPR branch名を選ばなくてよい運用にする
+- [ ] Android APKを固定署名鍵で署名し、実機でアンインストールせず上書きインストールできるようにする
 - [x] Web版公開URLをREADMEに記載
 - [x] READMEに「予測は保証ではない」旨を記載
 - [x] APK Artifact名を `market-weather-debug` に固定
