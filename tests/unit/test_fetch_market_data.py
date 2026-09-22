@@ -84,6 +84,81 @@ class FeatureAndPredictionTest(unittest.TestCase):
             "2026-09-21",
         )
 
+    def test_next_session_date_skips_us_holiday_and_weekend(self) -> None:
+        ny_close = market_data.Candle(
+            int(datetime(2026, 9, 4, 16, 0, tzinfo=ZoneInfo("America/New_York")).timestamp()),
+            100.0, 101.0, 99.0, 100.5, None,
+        )
+
+        self.assertEqual(
+            market_data.next_session_date("^DJI", candles()[:-1] + [ny_close]),
+            "2026-09-08",
+        )
+
+    def test_next_session_date_does_not_apply_nyse_holidays_to_fx(self) -> None:
+        fx_close = market_data.Candle(
+            int(datetime(2026, 9, 4, 17, 0, tzinfo=ZoneInfo("America/New_York")).timestamp()),
+            100.0, 101.0, 99.0, 100.5, None,
+        )
+
+        self.assertEqual(
+            market_data.next_session_date("JPY=X", candles()[:-1] + [fx_close]),
+            "2026-09-07",
+        )
+
+    def test_next_session_date_does_not_apply_nyse_holidays_to_gold(self) -> None:
+        gold_close = market_data.Candle(
+            int(datetime(2026, 9, 4, 17, 0, tzinfo=ZoneInfo("America/New_York")).timestamp()),
+            100.0, 101.0, 99.0, 100.5, None,
+        )
+
+        self.assertEqual(
+            market_data.next_session_date("GC=F", candles()[:-1] + [gold_close]),
+            "2026-09-07",
+        )
+
+    def test_next_session_date_gold_skips_full_christmas_closure(self) -> None:
+        gold_close = market_data.Candle(
+            int(datetime(2026, 12, 24, 17, 0, tzinfo=ZoneInfo("America/New_York")).timestamp()),
+            100.0, 101.0, 99.0, 100.5, None,
+        )
+
+        self.assertEqual(
+            market_data.next_session_date("GC=F", candles()[:-1] + [gold_close]),
+            "2026-12-28",
+        )
+
+    def test_next_session_date_skips_japan_holiday_stretch(self) -> None:
+        tokyo_close = market_data.Candle(
+            int(datetime(2026, 9, 18, 15, 30, tzinfo=ZoneInfo("Asia/Tokyo")).timestamp()),
+            100.0, 101.0, 99.0, 100.5, None,
+        )
+
+        self.assertEqual(
+            market_data.next_session_date("^N225", candles()[:-1] + [tokyo_close]),
+            "2026-09-24",
+        )
+
+    def test_next_session_date_uses_shifted_2021_japan_holidays(self) -> None:
+        tokyo_close = market_data.Candle(
+            int(datetime(2021, 7, 21, 15, 30, tzinfo=ZoneInfo("Asia/Tokyo")).timestamp()),
+            100.0, 101.0, 99.0, 100.5, None,
+        )
+
+        self.assertEqual(
+            market_data.next_session_date("^N225", candles()[:-1] + [tokyo_close]),
+            "2021-07-26",
+        )
+
+    def test_next_session_date_rejects_unsupported_japan_calendar_years(self) -> None:
+        tokyo_close = market_data.Candle(
+            int(datetime(2015, 12, 30, 15, 0, tzinfo=ZoneInfo("Asia/Tokyo")).timestamp()),
+            100.0, 101.0, 99.0, 100.5, None,
+        )
+
+        with self.assertRaisesRegex(ValueError, "Japanese next-session calendar supports years"):
+            market_data.next_session_date("^N225", candles()[:-1] + [tokyo_close])
+
     def test_weather_and_risk_thresholds(self) -> None:
         self.assertEqual([market_data.weather_for_probability(value) for value in (0.7, 0.6, 0.5, 0.4)],
                          ["sunny", "partly_cloudy", "cloudy", "rainy"])
