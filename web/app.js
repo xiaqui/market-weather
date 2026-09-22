@@ -111,13 +111,20 @@ function renderCurrentStatus(status) {
     diagnostics.hidden = false;
     list.replaceChildren(...status.quotes.map(quote => {
       const item = document.createElement("li");
-      const time = Number.isFinite(quote.timestamp)
-        ? new Intl.DateTimeFormat("ja-JP", { dateStyle: "short", timeStyle: "medium" })
-            .format(new Date(quote.timestamp * 1000))
-        : "-";
-      const price = Number.isFinite(quote.price) ? number.format(quote.price) : "-";
-      item.textContent = `${String(quote.id).toUpperCase()}: ${quote.ok ? "成功" : "失敗"}`
-        + ` regularMarketPrice=${price} regularMarketTime=${time}`;
+      if (quote.ok) {
+        const time = Number.isFinite(quote.timestamp)
+          ? new Intl.DateTimeFormat("ja-JP", { dateStyle: "short", timeStyle: "medium" })
+              .format(new Date(quote.timestamp * 1000))
+          : "-";
+        const price = Number.isFinite(quote.price) ? number.format(quote.price) : "-";
+        item.textContent = `${String(quote.id).toUpperCase()}: 成功`
+          + ` regularMarketPrice=${price} regularMarketTime=${time}`;
+      } else {
+        const reason = typeof quote.reason === "string" && quote.reason
+          ? quote.reason
+          : "原因不明";
+        item.textContent = `${String(quote.id).toUpperCase()}: 失敗 ${reason}`;
+      }
       return item;
     }));
   } else {
