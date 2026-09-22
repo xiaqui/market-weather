@@ -78,7 +78,7 @@ process.stdout.write(JSON.stringify({{
         self.assertEqual(0.7, rendered["probability"])
         self.assertEqual(95, rendered["rangeLow"])
 
-    def test_android_uses_all_symbols_and_safe_lifecycle_polling(self) -> None:
+    def test_android_uses_symbols_generation_polling_and_quote_cache(self) -> None:
         source = ACTIVITY.read_text(encoding="utf-8")
 
         for market_id, symbol in {
@@ -92,8 +92,14 @@ process.stdout.write(JSON.stringify({{
         self.assertIn('optLong("regularMarketTime", -1L)', source)
         self.assertIn("protected void onResume()", source)
         self.assertIn("protected void onPause()", source)
-        self.assertIn("updateHandler.removeCallbacks(updateRunnable)", source)
-        self.assertIn("updateHandler.postDelayed(updateRunnable, UPDATE_INTERVAL_MS)", source)
+        self.assertIn("private long pollingGeneration;", source)
+        self.assertIn("private boolean isActiveGeneration(long generation)", source)
+        self.assertIn("generation == pollingGeneration", source)
+        self.assertIn("schedulePolling(pollingGeneration, 0)", source)
+        self.assertIn("schedulePolling(generation, UPDATE_INTERVAL_MS)", source)
+        self.assertIn("latestQuotes.put(quote.marketId, quote)", source)
+        self.assertNotIn("latestQuotes.clear()", source)
+        self.assertIn("latestQuotes.values()", source)
         self.assertIn("window.updateCurrentValues(", source)
 
 

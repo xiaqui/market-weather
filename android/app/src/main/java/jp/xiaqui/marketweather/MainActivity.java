@@ -44,9 +44,10 @@ public class MainActivity extends Activity {
     private WebView webView;
     private final Handler updateHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
-    private final List<MarketQuote> latestQuotes = new ArrayList<>();
+    private final Map<String, MarketQuote> latestQuotes = new LinkedHashMap<>();
     private boolean polling;
-    private final Runnable updateRunnable = this::fetchCurrentValues;
+    private long pollingGeneration;
+    private Runnable scheduledUpdate;
 
     private static Map<String, String> createMarketSymbols() {
         Map<String, String> symbols = new LinkedHashMap<>();
@@ -144,19 +145,37 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         polling = true;
-        updateHandler.removeCallbacks(updateRunnable);
-        updateHandler.post(updateRunnable);
+        pollingGeneration++;
+        schedulePolling(pollingGeneration, 0);
     }
 
     @Override
     protected void onPause() {
         polling = false;
-        updateHandler.removeCallbacks(updateRunnable);
+        pollingGeneration++;
+        cancelScheduledPolling();
         super.onPause();
     }
 
-    private void fetchCurrentValues() {
-        if (!polling) {
+    private void schedulePolling(long generation, long delayMs) {
+        cancelScheduledPolling();
+        scheduledUpdate = () -> fetchCurrentValues(generation);
+        updateHandler.postDelayed(scheduledUpdate, delayMs);
+    }
+
+    private void cancelScheduledPolling() {
+        if (scheduledUpdate != null) {
+            updateHandler.removeCallbacks(scheduledUpdate);
+            scheduledUpdate = null;
+        }
+    }
+
+    private boolean isActiveGeneration(long generation) {
+        return polling && generation == pollingGeneration;
+    }
+
+    private void fetchCurrentValues(long generation) {
+        if (!isActiveGeneration(generation)) {
             return;
         }
         networkExecutor.execute(() -> {
@@ -172,15 +191,16 @@ public class MainActivity extends Activity {
                 }
             }
             runOnUiThread(() -> {
-                if (!polling) {
+                if (!isActiveGeneration(generation)) {
                     return;
                 }
-                if (!quotes.isEmpty()) {
-                    latestQuotes.clear();
-                    latestQuotes.addAll(quotes);
+                for (MarketQuote quote : quotes) {
+                    latestQuotes.put(quote.marketId, quote);
+                }
+                if (!latestQuotes.isEmpty()) {
                     applyLatestQuotes();
                 }
-                updateHandler.postDelayed(updateRunnable, UPDATE_INTERVAL_MS);
+                schedulePolling(generation, UPDATE_INTERVAL_MS);
             });
         });
     }
@@ -238,7 +258,7 @@ public class MainActivity extends Activity {
             return;
         }
         JSONArray updates = new JSONArray();
-        for (MarketQuote quote : latestQuotes) {
+        for (MarketQuote quote : latestQuotes.values()) {
             JSONObject update = new JSONObject();
             try {
                 update.put("id", quote.marketId);
@@ -336,7 +356,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         polling = false;
-        updateHandler.removeCallbacks(updateRunnable);
+        pollingGeneration++;
+        cancelScheduledPolling();
         networkExecutor.shutdownNow();
         if (webView != null) {
             webView.destroy();
