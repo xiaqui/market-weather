@@ -95,6 +95,39 @@ class FeatureAndPredictionTest(unittest.TestCase):
             "2026-09-08",
         )
 
+    def test_next_session_date_does_not_apply_nyse_holidays_to_fx(self) -> None:
+        fx_close = market_data.Candle(
+            int(datetime(2026, 9, 4, 17, 0, tzinfo=ZoneInfo("America/New_York")).timestamp()),
+            100.0, 101.0, 99.0, 100.5, None,
+        )
+
+        self.assertEqual(
+            market_data.next_session_date("JPY=X", candles()[:-1] + [fx_close]),
+            "2026-09-07",
+        )
+
+    def test_next_session_date_does_not_apply_nyse_holidays_to_gold(self) -> None:
+        gold_close = market_data.Candle(
+            int(datetime(2026, 9, 4, 17, 0, tzinfo=ZoneInfo("America/New_York")).timestamp()),
+            100.0, 101.0, 99.0, 100.5, None,
+        )
+
+        self.assertEqual(
+            market_data.next_session_date("GC=F", candles()[:-1] + [gold_close]),
+            "2026-09-07",
+        )
+
+    def test_next_session_date_gold_skips_full_christmas_closure(self) -> None:
+        gold_close = market_data.Candle(
+            int(datetime(2026, 12, 24, 17, 0, tzinfo=ZoneInfo("America/New_York")).timestamp()),
+            100.0, 101.0, 99.0, 100.5, None,
+        )
+
+        self.assertEqual(
+            market_data.next_session_date("GC=F", candles()[:-1] + [gold_close]),
+            "2026-12-28",
+        )
+
     def test_next_session_date_skips_japan_holiday_stretch(self) -> None:
         tokyo_close = market_data.Candle(
             int(datetime(2026, 9, 18, 15, 30, tzinfo=ZoneInfo("Asia/Tokyo")).timestamp()),
