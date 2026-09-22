@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.webkit.CookieManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -13,9 +15,47 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 public class MainActivity extends Activity {
     private static final String START_URL = "https://xiaqui.github.io/market-weather/";
+    private static final String YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/";
+    private static final long UPDATE_INTERVAL_MS = 60_000L;
+    private static final int NETWORK_TIMEOUT_MS = 10_000;
+    private static final Map<String, String> MARKET_SYMBOLS = createMarketSymbols();
+
     private WebView webView;
+    private final Handler updateHandler = new Handler(Looper.getMainLooper());
+    private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
+    private final List<MarketQuote> latestQuotes = new ArrayList<>();
+    private boolean polling;
+    private final Runnable updateRunnable = this::fetchCurrentValues;
+
+    private static Map<String, String> createMarketSymbols() {
+        Map<String, String> symbols = new LinkedHashMap<>();
+        symbols.put("nikkei", "^N225");
+        symbols.put("dow", "^DJI");
+        symbols.put("usdjpy", "JPY=X");
+        symbols.put("gold", "GC=F");
+        return Collections.unmodifiableMap(symbols);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -85,12 +125,142 @@ public class MainActivity extends Activity {
                     );
                 }
             }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                applyLatestQuotes();
+            }
         });
 
         if (savedInstanceState == null) {
             webView.loadUrl(START_URL);
         } else {
             webView.restoreState(savedInstanceState);
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        polling = true;
+        updateHandler.removeCallbacks(updateRunnable);
+        updateHandler.post(updateRunnable);
+    }
+
+    @Override
+    protected void onPause() {
+        polling = false;
+        updateHandler.removeCallbacks(updateRunnable);
+        super.onPause();
+    }
+
+    private void fetchCurrentValues() {
+        if (!polling) {
+            return;
+        }
+        networkExecutor.execute(() -> {
+            List<MarketQuote> quotes = new ArrayList<>();
+            for (Map.Entry<String, String> market : MARKET_SYMBOLS.entrySet()) {
+                try {
+                    MarketQuote quote = fetchMarketQuote(market.getKey(), market.getValue());
+                    if (quote != null) {
+                        quotes.add(quote);
+                    }
+                } catch (IOException | JSONException ignored) {
+                    // Keep the last successfully displayed value and retry on the next interval.
+                }
+            }
+            runOnUiThread(() -> {
+                if (!polling) {
+                    return;
+                }
+                if (!quotes.isEmpty()) {
+                    latestQuotes.clear();
+                    latestQuotes.addAll(quotes);
+                    applyLatestQuotes();
+                }
+                updateHandler.postDelayed(updateRunnable, UPDATE_INTERVAL_MS);
+            });
+        });
+    }
+
+    private MarketQuote fetchMarketQuote(String marketId, String symbol)
+            throws IOException, JSONException {
+        String encodedSymbol = URLEncoder.encode(symbol, StandardCharsets.UTF_8.name());
+        HttpURLConnection connection = (HttpURLConnection) new URL(
+                YAHOO_CHART_URL + encodedSymbol
+        ).openConnection();
+        connection.setConnectTimeout(NETWORK_TIMEOUT_MS);
+        connection.setReadTimeout(NETWORK_TIMEOUT_MS);
+        connection.setRequestMethod("GET");
+        connection.setRequestProperty("Accept", "application/json");
+
+        try {
+            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                return null;
+            }
+            String response = readResponse(connection);
+            JSONObject chart = new JSONObject(response).optJSONObject("chart");
+            JSONArray results = chart == null ? null : chart.optJSONArray("result");
+            JSONObject result = results == null ? null : results.optJSONObject(0);
+            JSONObject meta = result == null ? null : result.optJSONObject("meta");
+            if (meta == null) {
+                return null;
+            }
+            double price = meta.optDouble("regularMarketPrice", Double.NaN);
+            long timestamp = meta.optLong("regularMarketTime", -1L);
+            if (!Double.isFinite(price) || price <= 0 || timestamp < 0) {
+                return null;
+            }
+            return new MarketQuote(marketId, price, timestamp);
+        } finally {
+            connection.disconnect();
+        }
+    }
+
+    private String readResponse(HttpURLConnection connection) throws IOException {
+        StringBuilder response = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                connection.getInputStream(), StandardCharsets.UTF_8
+        ))) {
+            char[] buffer = new char[4096];
+            int count;
+            while ((count = reader.read(buffer)) != -1) {
+                response.append(buffer, 0, count);
+            }
+        }
+        return response.toString();
+    }
+
+    private void applyLatestQuotes() {
+        if (webView == null || latestQuotes.isEmpty()) {
+            return;
+        }
+        JSONArray updates = new JSONArray();
+        for (MarketQuote quote : latestQuotes) {
+            JSONObject update = new JSONObject();
+            try {
+                update.put("id", quote.marketId);
+                update.put("current", quote.price);
+                update.put("timestamp", quote.timestamp);
+                updates.put(update);
+            } catch (JSONException ignored) {
+                return;
+            }
+        }
+        webView.evaluateJavascript("window.updateCurrentValues(" + updates + ");", null);
+    }
+
+    private static final class MarketQuote {
+        private final String marketId;
+        private final double price;
+        private final long timestamp;
+
+        private MarketQuote(String marketId, double price, long timestamp) {
+            this.marketId = marketId;
+            this.price = price;
+            this.timestamp = timestamp;
         }
     }
 
