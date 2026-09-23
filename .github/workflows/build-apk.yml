@@ -19,6 +19,23 @@ jobs:
       - name: Generate Gradle Wrapper
         working-directory: android
         run: gradle wrapper --gradle-version 8.11.1 --distribution-type bin
+      - name: Prepare fixed APK signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "Fixed signing secrets are not configured; this run will use the runner debug key."
+            exit 0
+          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/market-weather-signing.jks"
+          echo "MW_KEYSTORE_FILE=$RUNNER_TEMP/market-weather-signing.jks" >> "$GITHUB_ENV"
+          echo "MW_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "MW_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "MW_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+
       - name: Sync forecast data
         run: python3 scripts/sync_forecast.py
       - name: Run unit tests

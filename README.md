@@ -37,6 +37,24 @@ GitHub Actions では Debug APK を artifact `market-weather-debug` として生
 取得する場合は GitHub の `Actions` → `Build Android APK` → 成功した workflow run →
 `Artifacts` → `market-weather-debug` の順に開いてダウンロードしてください。
 
+### Android APK の固定署名
+
+GitHub Actions で毎回同じ署名鍵を使う場合は、Repository Secrets に次の4項目を登録します。
+
+- `KEYSTORE_BASE64`: keystore ファイル全体をBase64化した文字列
+- `KEYSTORE_PASSWORD`: keystore のパスワード
+- `KEY_ALIAS`: 署名鍵のalias
+- `KEY_PASSWORD`: 署名鍵のパスワード
+
+4項目がそろっているbuildでは、workflowが一時keystoreを復元し、Debug APKを固定鍵で署名します。
+Secretsが未設定のbuildは従来どおりrunnerのdebug署名へフォールバックします。
+Secretsを追加・更新した後は、新しいworkflow runを開始して固定署名APKを生成してください。
+
+固定署名へ切り替える最初の1回だけは、既に端末へ入っている従来署名版をアンインストールしてから
+インストールする必要があります。その後は同じ `applicationId` と固定署名鍵を維持する限り、
+新しいAPKをアンインストールせず上書きインストールできます。keystoreを紛失・変更すると
+その署名系列では上書き更新できなくなるため、鍵は安全に保管してください。
+
 ### Trend baseline
 
 初期予測は学習モデルではなく、説明可能なTrend baselineです。1・5・20日騰落率と

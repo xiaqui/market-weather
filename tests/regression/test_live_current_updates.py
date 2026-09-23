@@ -79,6 +79,18 @@ process.stdout.write(JSON.stringify({{
         self.assertEqual(0.7, rendered["probability"])
         self.assertEqual(95, rendered["rangeLow"])
 
+    def test_android_live_direction_markers_use_point_one_percent_deadband(self) -> None:
+        source = APP_JS.read_text(encoding="utf-8")
+        for snippet in (
+            "LIVE_DIRECTION_NEUTRAL_THRESHOLD = 0.001",
+            "Math.abs(changeRatio) <= LIVE_DIRECTION_NEUTRAL_THRESHOLD",
+            "live-direction-flat",
+            "live-direction-up",
+            "live-direction-down",
+            "forecast_current: market.current",
+        ):
+            self.assertIn(snippet, source)
+
     def test_last_successful_quotes_are_persisted_and_failures_do_not_clear_them(self) -> None:
         source = ACTIVITY.read_text(encoding="utf-8")
         for snippet in (
