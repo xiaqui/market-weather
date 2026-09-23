@@ -249,6 +249,18 @@ class AndroidYahooDiagnosticsImplementationTest(unittest.TestCase):
         ):
             self.assertIn(snippet, self.fetch_page)
 
+    def test_each_market_fetch_has_a_timeout_and_continues_after_abort(self) -> None:
+        for snippet in (
+            "FETCH_TIMEOUT_MS = 10_000",
+            "new AbortController()",
+            "controller.abort()",
+            "signal: controller.signal",
+            'error.name === "AbortError"',
+            'reason: timedOut ? `timeout ${FETCH_TIMEOUT_MS}ms`',
+            "clearTimeout(timeoutId)",
+        ):
+            self.assertIn(snippet, self.fetch_page)
+
     def test_429_stops_cycle_and_persists_cooldown(self) -> None:
         for snippet in (
             "MARKET_REQUEST_SPACING_MS = 1_500L",
