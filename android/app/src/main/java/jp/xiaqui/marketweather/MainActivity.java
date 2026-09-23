@@ -5,8 +5,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.view.MotionEvent;
 import android.webkit.CookieManager;
 import android.webkit.WebChromeClient;
@@ -54,7 +52,6 @@ public class MainActivity extends Activity {
     private static final Map<String, String> MARKET_SYMBOLS = createMarketSymbols();
 
     private WebView webView;
-    private final Handler updateHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
     private final Map<String, MarketQuote> latestQuotes = new LinkedHashMap<>();
     private boolean polling;
