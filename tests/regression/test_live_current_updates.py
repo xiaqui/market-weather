@@ -79,6 +79,18 @@ process.stdout.write(JSON.stringify({{
         self.assertEqual(0.7, rendered["probability"])
         self.assertEqual(95, rendered["rangeLow"])
 
+    def test_last_successful_quotes_are_persisted_and_failures_do_not_clear_them(self) -> None:
+        source = ACTIVITY.read_text(encoding="utf-8")
+        for snippet in (
+            'PREF_QUOTE_PRICE_PREFIX = "quote_price_"',
+            'PREF_QUOTE_TIME_PREFIX = "quote_time_"',
+            "loadPersistedQuotes();",
+            "persistQuote(quote);",
+            "latestQuotes.put(quote.marketId, quote)",
+        ):
+            self.assertIn(snippet, source)
+        self.assertNotIn("latestQuotes.clear()", source)
+
     def test_android_uses_webview_fetch_generation_and_quote_cache(self) -> None:
         source = ACTIVITY.read_text(encoding="utf-8")
         fetch_page = YAHOO_FETCH.read_text(encoding="utf-8")
