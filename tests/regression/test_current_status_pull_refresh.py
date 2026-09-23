@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 APP_JS = ROOT / "web/app.js"
 INDEX_HTML = ROOT / "web/index.html"
 ACTIVITY = ROOT / "android/app/src/main/java/jp/xiaqui/marketweather/MainActivity.java"
+YAHOO_FETCH = ROOT / "android/app/src/main/assets/yahoo_fetch.html"
 
 
 def run_status_scenario(user_agent: str, status_calls: list) -> dict:
@@ -223,41 +224,46 @@ class AndroidPullToRefreshImplementationTest(unittest.TestCase):
 class AndroidYahooDiagnosticsImplementationTest(unittest.TestCase):
     def setUp(self) -> None:
         self.source = ACTIVITY.read_text(encoding="utf-8")
+        self.fetch_page = YAHOO_FETCH.read_text(encoding="utf-8")
 
-    def test_fetch_failures_preserve_specific_http_and_exception_reasons(self) -> None:
+    def test_yahoo_fetch_uses_isolated_webview_javascript(self) -> None:
         for snippet in (
-            'MarketFetchResult.failure(marketId, "HTTP " + statusCode)',
-            "catch (UnknownHostException exception)",
-            "catch (SocketTimeoutException exception)",
-            "catch (ConnectException exception)",
-            "catch (SSLException exception)",
-            'return MarketFetchResult.failure(marketId, formatException(exception));',
-            '"JSON parse error: " + formatException(exception)',
+            'YAHOO_FETCH_PAGE = "file:///android_asset/yahoo_fetch.html"',
+            "setAllowUniversalAccessFromFileURLs(true)",
+            'addJavascriptInterface(new YahooFetchBridge(), "AndroidYahoo")',
+            "window.fetchYahooMarkets(",
+            "@JavascriptInterface",
         ):
             self.assertIn(snippet, self.source)
+        self.assertNotIn("HttpURLConnection", self.source)
 
-    def test_parse_failures_distinguish_missing_result_meta_price_and_time(self) -> None:
+    def test_ap37_style_urls_and_plain_fetch_are_preserved(self) -> None:
         for snippet in (
-            '"chart.result missing"',
-            '"meta missing"',
-            '"regularMarketPrice missing or invalid"',
-            '"regularMarketTime missing or invalid"',
-            "MarketFetchResult.success(new MarketQuote(marketId, price, timestamp))",
+            "https://query1.finance.yahoo.com/v8/finance/chart/%5EN225",
+            "https://query1.finance.yahoo.com/v8/finance/chart/%5EDJI",
+            "https://query1.finance.yahoo.com/v8/finance/chart/USDJPY=X",
+            "https://query1.finance.yahoo.com/v8/finance/chart/GC=F",
+            "await fetch(url)",
+            "meta.regularMarketPrice",
+            "meta.regularMarketTime",
         ):
-            self.assertIn(snippet, self.source)
+            self.assertIn(snippet, self.fetch_page)
 
     def test_429_stops_cycle_and_persists_cooldown(self) -> None:
         for snippet in (
             "MARKET_REQUEST_SPACING_MS = 1_500L",
             "RATE_LIMIT_COOLDOWN_MS = 5 * 60_000L",
-            "statusCode == 429",
-            "if (result.rateLimited)",
+            'item.optBoolean("rateLimited", false)',
             "setRateLimitCooldownUntil(triggeredCooldownUntil)",
-            '"HTTP 429 cooldown中（未取得）"',
-            "break;",
             "getSharedPreferences(PREFS_NAME, MODE_PRIVATE)",
         ):
             self.assertIn(snippet, self.source)
+        for snippet in (
+            "response.status === 429",
+            '"HTTP 429 cooldown中（未取得）"',
+            "break;",
+        ):
+            self.assertIn(snippet, self.fetch_page)
 
     def test_rotation_restore_skips_immediate_refetch(self) -> None:
         self.assertIn("skipNextResumeFetch = savedInstanceState != null", self.source)
