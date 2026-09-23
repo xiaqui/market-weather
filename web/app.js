@@ -13,6 +13,8 @@ const liveCurrentValues = new Map();
 const isAndroidApp = /MarketWeatherApp\//.test(
   (typeof navigator !== "undefined" && navigator.userAgent) || ""
 );
+const showAndroidCurrentDiagnostics = false;
+const LIVE_DIRECTION_NEUTRAL_THRESHOLD = 0.001;
 const escapeHtml = value => String(value)
   .replaceAll("&", "&amp;")
   .replaceAll("<", "&lt;")
@@ -25,12 +27,26 @@ function formatLocalDate(value) {
   }
   return date.format(new Date(year, month - 1, day));
 }
+function liveDirectionMarkup(market) {
+  if (!isAndroidApp || !liveCurrentValues.has(market.id)) return "";
+  const base = market.forecast_current;
+  const current = liveCurrentValues.get(market.id);
+  if (!Number.isFinite(base) || base === 0 || !Number.isFinite(current)) return "";
+  const changeRatio = (current - base) / Math.abs(base);
+  if (Math.abs(changeRatio) <= LIVE_DIRECTION_NEUTRAL_THRESHOLD) {
+    return '<span class="live-direction live-direction-flat" aria-label="予報時終値とほぼ同じ">ー</span>';
+  }
+  if (changeRatio > 0) {
+    return '<span class="live-direction live-direction-up" aria-label="予報時終値より上">↑</span>';
+  }
+  return '<span class="live-direction live-direction-down" aria-label="予報時終値より下">↓</span>';
+}
 function card(market) {
   const [icon, label] = safeCondition(market.weather);
   const button = document.createElement("button");
   button.type = "button";
   button.className = "market-card";
-  button.innerHTML = `<div class="card-top"><div><p class="name">${market.name}</p><p class="current">${number.format(market.current)}</p></div><div class="condition"><span class="icon">${icon}</span><span class="weather-name">${label}</span></div></div><div class="stats"><div><span class="label">上昇確率</span><span class="value">${percent(market.up_probability)}</span></div><div><span class="label">信頼度</span><span class="value">${percent(market.confidence)}</span></div><div><span class="label">リスク</span><span class="value">${risks[market.risk] || market.risk}</span></div></div><p class="range">予想レンジ　${number.format(market.range_low)} ～ ${number.format(market.range_high)}</p>`;
+  button.innerHTML = `<div class="card-top"><div><p class="name">${market.name}${liveDirectionMarkup(market)}</p><p class="current">${number.format(market.current)}</p></div><div class="condition"><span class="icon">${icon}</span><span class="weather-name">${label}</span></div></div><div class="stats"><div><span class="label">上昇確率</span><span class="value">${percent(market.up_probability)}</span></div><div><span class="label">信頼度</span><span class="value">${percent(market.confidence)}</span></div><div><span class="label">リスク</span><span class="value">${risks[market.risk] || market.risk}</span></div></div><p class="range">予想レンジ　${number.format(market.range_low)} ～ ${number.format(market.range_high)}</p>`;
   button.addEventListener("click", () => showDetail(market));
   return button;
 }
@@ -77,7 +93,7 @@ globalThis.updateCurrentValues = updates => {
   }
 };
 function renderCurrentStatus(status) {
-  if (!isAndroidApp || !status || typeof status !== "object") return;
+  if (!showAndroidCurrentDiagnostics || !isAndroidApp || !status || typeof status !== "object") return;
   const line = document.querySelector("#current-status-line");
   const detail = document.querySelector("#current-status-detail");
   const diagnostics = document.querySelector("#current-status-diagnostics");
@@ -143,7 +159,8 @@ function renderCurrentStatus(status) {
 globalThis.updateCurrentStatus = status => {
   renderCurrentStatus(status);
 };
-if (isAndroidApp) {
+// Android current-value diagnostics are intentionally kept available but hidden in normal UI.
+if (showAndroidCurrentDiagnostics && isAndroidApp) {
   const statusSection = document.querySelector("#current-status");
   if (statusSection) statusSection.hidden = false;
   renderCurrentStatus({ attempted: false, total: 0, successCount: 0, failedMarkets: [], manualUpdating: false });
@@ -154,7 +171,10 @@ async function loadForecast() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const forecast = await response.json();
     document.querySelector("#generated").textContent = `生成日時 ${new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium", timeStyle: "short" }).format(new Date(forecast.generated_at))}`;
-    markets = forecast.markets;
+    markets = forecast.markets.map(market => ({
+      ...market,
+      forecast_current: market.current,
+    }));
     globalThis.updateCurrentValues([]);
     renderMarkets();
   } catch (error) {
