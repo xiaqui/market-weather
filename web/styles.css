@@ -11,6 +11,10 @@ h1 { margin: 4px 0; font-size: 1.15rem; }
 .market-card:hover, .market-card:focus-visible { border-color: #60a58f; transform: translateY(-1px); outline: none; }
 .card-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .name { margin: 0; font-size: 1.12rem; font-weight: 750; }
+.live-direction { display: inline-block; margin-left: .38em; font-weight: 900; }
+.live-direction-up { color: #1677ff; }
+.live-direction-flat { color: #c28a00; }
+.live-direction-down { color: #d43f3a; }
 .current { margin: 3px 0 0; font-size: clamp(1.65rem, 8vw, 2rem); font-weight: 850; font-variant-numeric: tabular-nums; }
 .condition { min-width: 88px; text-align: center; }
 .icon { display: block; font-size: 2.6rem; line-height: 1.1; }
