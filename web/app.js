@@ -6,6 +6,15 @@ const risks = { calm: "安定", normal: "通常", caution: "注意", storm: "荒
 const number = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 2 });
 const date = new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium" });
 const percent = value => `${Math.round(value * 100)}%`;
+const livePercent = value => `${Math.abs(value * 100).toFixed(2)}%`;
+const announcementTime = value => new Intl.DateTimeFormat("ja-JP", {
+  timeZone: "Asia/Tokyo",
+  month: "numeric",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: false,
+}).format(new Date(value)).replace("/", "月").replace(" ", "日 ");
 const safeCondition = value => weather[value] || ["❔", value];
 let markets = [];
 let selectedMarket = null;
@@ -33,20 +42,21 @@ function liveDirectionMarkup(market) {
   const current = liveCurrentValues.get(market.id);
   if (!Number.isFinite(base) || base === 0 || !Number.isFinite(current)) return "";
   const changeRatio = (current - base) / Math.abs(base);
+  const amount = livePercent(changeRatio);
   if (Math.abs(changeRatio) <= LIVE_DIRECTION_NEUTRAL_THRESHOLD) {
-    return '<span class="live-direction live-direction-flat" aria-label="予報時終値とほぼ同じ">ー</span>';
+    return `<span class="live-direction live-direction-flat" aria-label="予報時終値比 ${amount}">ー ${amount}</span>`;
   }
   if (changeRatio > 0) {
-    return '<span class="live-direction live-direction-up" aria-label="予報時終値より上">↑</span>';
+    return `<span class="live-direction live-direction-up" aria-label="予報時終値比 上昇 ${amount}">↑ ${amount}</span>`;
   }
-  return '<span class="live-direction live-direction-down" aria-label="予報時終値より下">↓</span>';
+  return `<span class="live-direction live-direction-down" aria-label="予報時終値比 下落 ${amount}">↓ ${amount}</span>`;
 }
 function card(market) {
   const [icon, label] = safeCondition(market.weather);
   const button = document.createElement("button");
   button.type = "button";
   button.className = "market-card";
-  button.innerHTML = `<div class="card-top"><div><p class="name">${market.name}${liveDirectionMarkup(market)}</p><p class="current">${number.format(market.current)}</p></div><div class="condition"><span class="icon">${icon}</span><span class="weather-name">${label}</span></div></div><div class="stats"><div><span class="label">上昇確率</span><span class="value">${percent(market.up_probability)}</span></div><div><span class="label">信頼度</span><span class="value">${percent(market.confidence)}</span></div><div><span class="label">リスク</span><span class="value">${risks[market.risk] || market.risk}</span></div></div><p class="range">予想レンジ　${number.format(market.range_low)} ～ ${number.format(market.range_high)}</p>`;
+  button.innerHTML = `<div class="card-top"><div><p class="name">${market.name}${liveDirectionMarkup(market)}</p><p class="current">${number.format(market.current)}</p></div><div class="condition"><span class="icon">${icon}</span><span class="weather-name">${label}</span></div></div><div class="compact-forecast"><span class="label">上昇確率</span><span class="value">${percent(market.up_probability)}</span></div><p class="range">予想レンジ　${number.format(market.range_low)} ～ ${number.format(market.range_high)}</p>`;
   button.addEventListener("click", () => showDetail(market));
   return button;
 }
@@ -170,7 +180,7 @@ async function loadForecast() {
     const response = await fetch("forecast.json");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const forecast = await response.json();
-    document.querySelector("#generated").textContent = `生成日時 ${new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium", timeStyle: "short" }).format(new Date(forecast.generated_at))}`;
+    document.querySelector("#generated").textContent = `${announcementTime(forecast.generated_at)}発表`;
     markets = forecast.markets.map(market => ({
       ...market,
       forecast_current: market.current,
