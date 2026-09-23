@@ -2,6 +2,7 @@ package jp.xiaqui.marketweather;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -44,7 +45,10 @@ public class MainActivity extends Activity {
     private static final String START_URL = "https://xiaqui.github.io/market-weather/";
     private static final String YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/";
     private static final String UA_APP_SUFFIX = " MarketWeatherApp/1.0";
-    private static final long UPDATE_INTERVAL_MS = 60_000L;
+    private static final long MARKET_REQUEST_SPACING_MS = 1_500L;
+    private static final long RATE_LIMIT_COOLDOWN_MS = 5 * 60_000L;
+    private static final String PREFS_NAME = "market_weather_current";
+    private static final String PREF_COOLDOWN_UNTIL = "yahoo_cooldown_until";
     private static final int NETWORK_TIMEOUT_MS = 10_000;
     private static final float PULL_REFRESH_THRESHOLD_DP = 96f;
     private static final Map<String, String> MARKET_SYMBOLS = createMarketSymbols();
@@ -55,13 +59,14 @@ public class MainActivity extends Activity {
     private final Map<String, MarketQuote> latestQuotes = new LinkedHashMap<>();
     private boolean polling;
     private long pollingGeneration;
-    private Runnable scheduledUpdate;
     private boolean fetchInProgress;
     private boolean lastAttempted;
     private int lastSuccessCount;
     private List<String> lastFailedMarkets = new ArrayList<>();
     private List<MarketStatus> lastDiagnostics = new ArrayList<>();
     private long lastUpdatedAtMillis;
+    private long lastCooldownUntilMillis;
+    private boolean skipNextResumeFetch;
     private float pullStartY;
     private boolean pullEligible;
     private float pullRefreshThresholdPx;
@@ -159,6 +164,7 @@ public class MainActivity extends Activity {
             return false;
         });
 
+        skipNextResumeFetch = savedInstanceState != null;
         if (savedInstanceState == null) {
             webView.loadUrl(START_URL);
         } else {
@@ -195,10 +201,8 @@ public class MainActivity extends Activity {
         if (!polling || fetchInProgress) {
             return;
         }
-        long generation = pollingGeneration;
-        cancelScheduledPolling();
         reportCurrentStatus(true);
-        fetchCurrentValues(generation, true);
+        fetchCurrentValues(pollingGeneration, true);
     }
 
     @Override
@@ -206,28 +210,18 @@ public class MainActivity extends Activity {
         super.onResume();
         polling = true;
         pollingGeneration++;
-        schedulePolling(pollingGeneration, 0);
+        if (skipNextResumeFetch) {
+            skipNextResumeFetch = false;
+            return;
+        }
+        fetchCurrentValues(pollingGeneration, false);
     }
 
     @Override
     protected void onPause() {
         polling = false;
         pollingGeneration++;
-        cancelScheduledPolling();
         super.onPause();
-    }
-
-    private void schedulePolling(long generation, long delayMs) {
-        cancelScheduledPolling();
-        scheduledUpdate = () -> fetchCurrentValues(generation, false);
-        updateHandler.postDelayed(scheduledUpdate, delayMs);
-    }
-
-    private void cancelScheduledPolling() {
-        if (scheduledUpdate != null) {
-            updateHandler.removeCallbacks(scheduledUpdate);
-            scheduledUpdate = null;
-        }
     }
 
     private boolean isActiveGeneration(long generation) {
@@ -238,12 +232,34 @@ public class MainActivity extends Activity {
         if (!isActiveGeneration(generation) || fetchInProgress) {
             return;
         }
+
+        long now = System.currentTimeMillis();
+        long cooldownUntil = getRateLimitCooldownUntil();
+        if (now < cooldownUntil) {
+            reportCooldownStatus(cooldownUntil);
+            return;
+        }
+
         fetchInProgress = true;
         networkExecutor.execute(() -> {
             List<MarketQuote> quotes = new ArrayList<>();
             List<String> failedMarkets = new ArrayList<>();
             List<MarketStatus> diagnostics = new ArrayList<>();
-            for (Map.Entry<String, String> market : MARKET_SYMBOLS.entrySet()) {
+            List<Map.Entry<String, String>> marketsToFetch =
+                    new ArrayList<>(MARKET_SYMBOLS.entrySet());
+            long triggeredCooldownUntil = 0L;
+
+            for (int index = 0; index < marketsToFetch.size(); index++) {
+                if (index > 0) {
+                    try {
+                        Thread.sleep(MARKET_REQUEST_SPACING_MS);
+                    } catch (InterruptedException exception) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+
+                Map.Entry<String, String> market = marketsToFetch.get(index);
                 String marketId = market.getKey();
                 MarketFetchResult result = fetchMarketQuote(marketId, market.getValue());
                 diagnostics.add(result.status);
@@ -252,7 +268,28 @@ public class MainActivity extends Activity {
                 } else {
                     failedMarkets.add(marketId);
                 }
+
+                if (result.rateLimited) {
+                    triggeredCooldownUntil = System.currentTimeMillis() + RATE_LIMIT_COOLDOWN_MS;
+                    setRateLimitCooldownUntil(triggeredCooldownUntil);
+                    for (int skippedIndex = index + 1;
+                            skippedIndex < marketsToFetch.size();
+                            skippedIndex++) {
+                        String skippedMarketId = marketsToFetch.get(skippedIndex).getKey();
+                        failedMarkets.add(skippedMarketId);
+                        diagnostics.add(new MarketStatus(
+                                skippedMarketId,
+                                false,
+                                0,
+                                0,
+                                "HTTP 429 cooldown中（未取得）"
+                        ));
+                    }
+                    break;
+                }
             }
+
+            long finalCooldownUntil = triggeredCooldownUntil;
             runOnUiThread(() -> {
                 fetchInProgress = false;
                 if (!isActiveGeneration(generation)) {
@@ -269,10 +306,38 @@ public class MainActivity extends Activity {
                 lastFailedMarkets = failedMarkets;
                 lastDiagnostics = diagnostics;
                 lastUpdatedAtMillis = System.currentTimeMillis();
+                lastCooldownUntilMillis = finalCooldownUntil;
                 reportCurrentStatus(false);
-                schedulePolling(generation, UPDATE_INTERVAL_MS);
             });
         });
+    }
+
+    private long getRateLimitCooldownUntil() {
+        return getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .getLong(PREF_COOLDOWN_UNTIL, 0L);
+    }
+
+    private void setRateLimitCooldownUntil(long cooldownUntil) {
+        SharedPreferences preferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        preferences.edit().putLong(PREF_COOLDOWN_UNTIL, cooldownUntil).apply();
+    }
+
+    private void reportCooldownStatus(long cooldownUntil) {
+        lastAttempted = true;
+        lastSuccessCount = 0;
+        lastFailedMarkets = new ArrayList<>(MARKET_SYMBOLS.keySet());
+        lastDiagnostics = new ArrayList<>();
+        for (String marketId : MARKET_SYMBOLS.keySet()) {
+            lastDiagnostics.add(new MarketStatus(
+                    marketId,
+                    false,
+                    0,
+                    0,
+                    "HTTP 429 cooldown中（未取得）"
+            ));
+        }
+        lastCooldownUntilMillis = cooldownUntil;
+        reportCurrentStatus(false);
     }
 
     private MarketFetchResult fetchMarketQuote(String marketId, String symbol) {
@@ -289,7 +354,11 @@ public class MainActivity extends Activity {
             connection.setRequestProperty("Accept", "application/json");
             int statusCode = connection.getResponseCode();
             if (statusCode != HttpURLConnection.HTTP_OK) {
-                return MarketFetchResult.failure(marketId, "HTTP " + statusCode);
+                return MarketFetchResult.failure(
+                        marketId,
+                        "HTTP " + statusCode,
+                        statusCode == 429
+                );
             }
             String response = readResponse(connection);
             return parseMarketQuote(marketId, response);
@@ -420,6 +489,10 @@ public class MainActivity extends Activity {
                 quotes.put(item);
             }
             status.put("quotes", quotes);
+            long cooldownUntil = Math.max(lastCooldownUntilMillis, getRateLimitCooldownUntil());
+            boolean cooldownActive = cooldownUntil > System.currentTimeMillis();
+            status.put("cooldownActive", cooldownActive);
+            status.put("cooldownUntil", cooldownActive ? cooldownUntil : JSONObject.NULL);
         } catch (JSONException ignored) {
             return;
         }
@@ -457,23 +530,35 @@ public class MainActivity extends Activity {
     private static final class MarketFetchResult {
         private final MarketQuote quote;
         private final MarketStatus status;
+        private final boolean rateLimited;
 
-        private MarketFetchResult(MarketQuote quote, MarketStatus status) {
+        private MarketFetchResult(MarketQuote quote, MarketStatus status, boolean rateLimited) {
             this.quote = quote;
             this.status = status;
+            this.rateLimited = rateLimited;
         }
 
         private static MarketFetchResult success(MarketQuote quote) {
             return new MarketFetchResult(
                     quote,
-                    new MarketStatus(quote.marketId, true, quote.price, quote.timestamp, null)
+                    new MarketStatus(quote.marketId, true, quote.price, quote.timestamp, null),
+                    false
             );
         }
 
         private static MarketFetchResult failure(String marketId, String reason) {
+            return failure(marketId, reason, false);
+        }
+
+        private static MarketFetchResult failure(
+                String marketId,
+                String reason,
+                boolean rateLimited
+        ) {
             return new MarketFetchResult(
                     null,
-                    new MarketStatus(marketId, false, 0, 0, reason)
+                    new MarketStatus(marketId, false, 0, 0, reason),
+                    rateLimited
             );
         }
     }
@@ -551,7 +636,6 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         polling = false;
         pollingGeneration++;
-        cancelScheduledPolling();
         networkExecutor.shutdownNow();
         if (webView != null) {
             webView.destroy();
