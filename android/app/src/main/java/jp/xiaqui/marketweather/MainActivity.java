@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.MotionEvent;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -19,40 +20,27 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.ConnectException;
-import java.net.SocketTimeoutException;
-import java.net.UnknownHostException;
-import java.net.URL;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
-import javax.net.ssl.SSLException;
 
 public class MainActivity extends Activity {
     private static final String START_URL = "https://xiaqui.github.io/market-weather/";
-    private static final String YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/";
     private static final String UA_APP_SUFFIX = " MarketWeatherApp/1.0";
     private static final long MARKET_REQUEST_SPACING_MS = 1_500L;
     private static final long RATE_LIMIT_COOLDOWN_MS = 5 * 60_000L;
     private static final String PREFS_NAME = "market_weather_current";
     private static final String PREF_COOLDOWN_UNTIL = "yahoo_cooldown_until";
-    private static final int NETWORK_TIMEOUT_MS = 10_000;
+    private static final String PREF_QUOTE_PRICE_PREFIX = "quote_price_";
+    private static final String PREF_QUOTE_TIME_PREFIX = "quote_time_";
     private static final float PULL_REFRESH_THRESHOLD_DP = 96f;
+    private static final String YAHOO_FETCH_PAGE = "file:///android_asset/yahoo_fetch.html";
     private static final Map<String, String> MARKET_SYMBOLS = createMarketSymbols();
 
     private WebView webView;
-    private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
+    private WebView fetchWebView;
     private final Map<String, MarketQuote> latestQuotes = new LinkedHashMap<>();
     private boolean polling;
     private long pollingGeneration;
@@ -64,6 +52,8 @@ public class MainActivity extends Activity {
     private long lastUpdatedAtMillis;
     private long lastCooldownUntilMillis;
     private boolean skipNextResumeFetch;
+    private boolean fetchPageReady;
+    private long pendingFetchGeneration = -1L;
     private float pullStartY;
     private boolean pullEligible;
     private float pullRefreshThresholdPx;
@@ -98,6 +88,9 @@ public class MainActivity extends Activity {
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
+
+        loadPersistedQuotes();
+        setupYahooFetchWebView();
 
         webView.setWebChromeClient(new WebChromeClient());
 
@@ -237,76 +230,156 @@ public class MainActivity extends Activity {
             return;
         }
 
+        if (!fetchPageReady) {
+            pendingFetchGeneration = generation;
+            return;
+        }
+
+        startYahooFetch(generation);
+    }
+
+    private void startYahooFetch(long generation) {
+        if (!isActiveGeneration(generation) || fetchInProgress || !fetchPageReady) {
+            return;
+        }
         fetchInProgress = true;
-        networkExecutor.execute(() -> {
-            List<MarketQuote> quotes = new ArrayList<>();
-            List<String> failedMarkets = new ArrayList<>();
-            List<MarketStatus> diagnostics = new ArrayList<>();
-            List<Map.Entry<String, String>> marketsToFetch =
-                    new ArrayList<>(MARKET_SYMBOLS.entrySet());
-            long triggeredCooldownUntil = 0L;
+        fetchWebView.evaluateJavascript(
+                "window.fetchYahooMarkets(" + generation + "," + MARKET_REQUEST_SPACING_MS + ");",
+                null
+        );
+    }
 
-            for (int index = 0; index < marketsToFetch.size(); index++) {
-                if (index > 0) {
-                    try {
-                        Thread.sleep(MARKET_REQUEST_SPACING_MS);
-                    } catch (InterruptedException exception) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                }
+    private void setupYahooFetchWebView() {
+        fetchWebView = new WebView(this);
+        WebSettings fetchSettings = fetchWebView.getSettings();
+        fetchSettings.setJavaScriptEnabled(true);
+        fetchSettings.setAllowFileAccess(true);
+        fetchSettings.setAllowFileAccessFromFileURLs(true);
+        fetchSettings.setAllowUniversalAccessFromFileURLs(true);
 
-                Map.Entry<String, String> market = marketsToFetch.get(index);
-                String marketId = market.getKey();
-                MarketFetchResult result = fetchMarketQuote(marketId, market.getValue());
-                diagnostics.add(result.status);
-                if (result.quote != null) {
-                    quotes.add(result.quote);
-                } else {
-                    failedMarkets.add(marketId);
-                }
-
-                if (result.rateLimited) {
-                    triggeredCooldownUntil = System.currentTimeMillis() + RATE_LIMIT_COOLDOWN_MS;
-                    setRateLimitCooldownUntil(triggeredCooldownUntil);
-                    for (int skippedIndex = index + 1;
-                            skippedIndex < marketsToFetch.size();
-                            skippedIndex++) {
-                        String skippedMarketId = marketsToFetch.get(skippedIndex).getKey();
-                        failedMarkets.add(skippedMarketId);
-                        diagnostics.add(new MarketStatus(
-                                skippedMarketId,
-                                false,
-                                0,
-                                0,
-                                "HTTP 429 cooldown中（未取得）"
-                        ));
-                    }
-                    break;
+        // This WebView loads only our packaged asset. Universal file access is intentionally
+        // isolated here so the visible GitHub Pages WebView keeps normal browser security.
+        fetchWebView.addJavascriptInterface(new YahooFetchBridge(), "AndroidYahoo");
+        fetchWebView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                fetchPageReady = true;
+                if (pendingFetchGeneration >= 0) {
+                    long generation = pendingFetchGeneration;
+                    pendingFetchGeneration = -1L;
+                    startYahooFetch(generation);
                 }
             }
-
-            long finalCooldownUntil = triggeredCooldownUntil;
-            runOnUiThread(() -> {
-                fetchInProgress = false;
-                if (!isActiveGeneration(generation)) {
-                    return;
-                }
-                for (MarketQuote quote : quotes) {
-                    latestQuotes.put(quote.marketId, quote);
-                }
-                if (!latestQuotes.isEmpty()) {
-                    applyLatestQuotes();
-                }
-                lastAttempted = true;
-                lastSuccessCount = quotes.size();
-                lastFailedMarkets = failedMarkets;
-                lastDiagnostics = diagnostics;
-                lastUpdatedAtMillis = System.currentTimeMillis();
-                lastCooldownUntilMillis = finalCooldownUntil;
-                reportCurrentStatus(false);
-            });
         });
+        fetchWebView.loadUrl(YAHOO_FETCH_PAGE);
+    }
+
+    private final class YahooFetchBridge {
+        @JavascriptInterface
+        public void onResult(long generation, String payload) {
+            runOnUiThread(() -> handleYahooFetchResult(generation, payload));
+        }
+    }
+
+    private void handleYahooFetchResult(long generation, String payload) {
+        fetchInProgress = false;
+        if (!isActiveGeneration(generation)) {
+            return;
+        }
+
+        List<MarketQuote> quotes = new ArrayList<>();
+        List<String> failedMarkets = new ArrayList<>();
+        List<MarketStatus> diagnostics = new ArrayList<>();
+        long triggeredCooldownUntil = 0L;
+
+        try {
+            JSONArray results = new JSONArray(payload);
+            for (int index = 0; index < results.length(); index++) {
+                JSONObject item = results.optJSONObject(index);
+                if (item == null) {
+                    continue;
+                }
+
+                String marketId = item.optString("id", "");
+                boolean ok = item.optBoolean("ok", false);
+                if (ok) {
+                    double price = item.optDouble("price", Double.NaN);
+                    long timestamp = item.optLong("timestamp", -1L);
+                    if (Double.isFinite(price) && price > 0 && timestamp > 0) {
+                        MarketQuote quote = new MarketQuote(marketId, price, timestamp);
+                        quotes.add(quote);
+                        diagnostics.add(new MarketStatus(
+                                marketId, true, price, timestamp, null
+                        ));
+                        continue;
+                    }
+                }
+
+                String reason = item.optString("reason", "原因不明");
+                failedMarkets.add(marketId);
+                diagnostics.add(new MarketStatus(marketId, false, 0, 0, reason));
+                if (item.optBoolean("rateLimited", false)) {
+                    triggeredCooldownUntil =
+                            System.currentTimeMillis() + RATE_LIMIT_COOLDOWN_MS;
+                    setRateLimitCooldownUntil(triggeredCooldownUntil);
+                }
+            }
+        } catch (JSONException exception) {
+            failedMarkets = new ArrayList<>(MARKET_SYMBOLS.keySet());
+            diagnostics.clear();
+            for (String marketId : MARKET_SYMBOLS.keySet()) {
+                diagnostics.add(new MarketStatus(
+                        marketId,
+                        false,
+                        0,
+                        0,
+                        "JS result parse error"
+                ));
+            }
+        }
+
+        for (MarketQuote quote : quotes) {
+            latestQuotes.put(quote.marketId, quote);
+            persistQuote(quote);
+        }
+        if (!latestQuotes.isEmpty()) {
+            applyLatestQuotes();
+        }
+        lastAttempted = true;
+        lastSuccessCount = quotes.size();
+        lastFailedMarkets = failedMarkets;
+        lastDiagnostics = diagnostics;
+        lastUpdatedAtMillis = System.currentTimeMillis();
+        lastCooldownUntilMillis = triggeredCooldownUntil;
+        reportCurrentStatus(false);
+    }
+
+    private void loadPersistedQuotes() {
+        SharedPreferences preferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        for (String marketId : MARKET_SYMBOLS.keySet()) {
+            String priceKey = PREF_QUOTE_PRICE_PREFIX + marketId;
+            String timeKey = PREF_QUOTE_TIME_PREFIX + marketId;
+            if (!preferences.contains(priceKey) || !preferences.contains(timeKey)) {
+                continue;
+            }
+            double price = Double.longBitsToDouble(preferences.getLong(priceKey, 0L));
+            long timestamp = preferences.getLong(timeKey, 0L);
+            if (Double.isFinite(price) && price > 0 && timestamp > 0) {
+                latestQuotes.put(marketId, new MarketQuote(marketId, price, timestamp));
+            }
+        }
+    }
+
+    private void persistQuote(MarketQuote quote) {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit()
+                .putLong(
+                        PREF_QUOTE_PRICE_PREFIX + quote.marketId,
+                        Double.doubleToRawLongBits(quote.price)
+                )
+                .putLong(PREF_QUOTE_TIME_PREFIX + quote.marketId, quote.timestamp)
+                .apply();
     }
 
     private long getRateLimitCooldownUntil() {
@@ -335,106 +408,6 @@ public class MainActivity extends Activity {
         }
         lastCooldownUntilMillis = cooldownUntil;
         reportCurrentStatus(false);
-    }
-
-    private MarketFetchResult fetchMarketQuote(String marketId, String symbol) {
-        String encodedSymbol = URLEncoder.encode(symbol, StandardCharsets.UTF_8);
-        HttpURLConnection connection = null;
-
-        try {
-            connection = (HttpURLConnection) new URL(
-                    YAHOO_CHART_URL + encodedSymbol
-            ).openConnection();
-            connection.setConnectTimeout(NETWORK_TIMEOUT_MS);
-            connection.setReadTimeout(NETWORK_TIMEOUT_MS);
-            connection.setRequestMethod("GET");
-            connection.setRequestProperty("Accept", "application/json");
-            int statusCode = connection.getResponseCode();
-            if (statusCode != HttpURLConnection.HTTP_OK) {
-                return MarketFetchResult.failure(
-                        marketId,
-                        "HTTP " + statusCode,
-                        statusCode == 429
-                );
-            }
-            String response = readResponse(connection);
-            return parseMarketQuote(marketId, response);
-        } catch (UnknownHostException exception) {
-            return MarketFetchResult.failure(marketId, formatException(exception));
-        } catch (SocketTimeoutException exception) {
-            return MarketFetchResult.failure(marketId, formatException(exception));
-        } catch (ConnectException exception) {
-            return MarketFetchResult.failure(marketId, formatException(exception));
-        } catch (SSLException exception) {
-            return MarketFetchResult.failure(marketId, formatException(exception));
-        } catch (JSONException exception) {
-            return MarketFetchResult.failure(
-                    marketId,
-                    "JSON parse error: " + formatException(exception)
-            );
-        } catch (IOException exception) {
-            return MarketFetchResult.failure(marketId, formatException(exception));
-        } finally {
-            if (connection != null) {
-                connection.disconnect();
-            }
-        }
-    }
-
-    private MarketFetchResult parseMarketQuote(String marketId, String response) throws JSONException {
-        JSONObject chart = new JSONObject(response).optJSONObject("chart");
-        JSONArray results = chart == null ? null : chart.optJSONArray("result");
-        if (results == null || results.length() == 0 || results.optJSONObject(0) == null) {
-            return MarketFetchResult.failure(marketId, "chart.result missing");
-        }
-        JSONObject meta = results.optJSONObject(0).optJSONObject("meta");
-        if (meta == null) {
-            return MarketFetchResult.failure(marketId, "meta missing");
-        }
-        Object rawPrice = meta.opt("regularMarketPrice");
-        if (!(rawPrice instanceof Number)) {
-            return MarketFetchResult.failure(marketId, "regularMarketPrice missing or invalid");
-        }
-        double price = ((Number) rawPrice).doubleValue();
-        if (!Double.isFinite(price) || price <= 0) {
-            return MarketFetchResult.failure(marketId, "regularMarketPrice missing or invalid");
-        }
-        Object rawTimestamp = meta.opt("regularMarketTime");
-        if (!(rawTimestamp instanceof Number)) {
-            return MarketFetchResult.failure(marketId, "regularMarketTime missing or invalid");
-        }
-        long timestamp = ((Number) rawTimestamp).longValue();
-        if (timestamp <= 0) {
-            return MarketFetchResult.failure(marketId, "regularMarketTime missing or invalid");
-        }
-        return MarketFetchResult.success(new MarketQuote(marketId, price, timestamp));
-    }
-
-    private String formatException(Exception exception) {
-        String name = exception.getClass().getSimpleName();
-        String message = exception.getMessage();
-        if (message == null || message.trim().isEmpty()) {
-            return name;
-        }
-        String singleLine = message.replace('\r', ' ').replace('\n', ' ').trim();
-        if (singleLine.length() > 120) {
-            singleLine = singleLine.substring(0, 117) + "...";
-        }
-        return name + ": " + singleLine;
-    }
-
-    private String readResponse(HttpURLConnection connection) throws IOException {
-        StringBuilder response = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
-                connection.getInputStream(), StandardCharsets.UTF_8
-        ))) {
-            char[] buffer = new char[4096];
-            int count;
-            while ((count = reader.read(buffer)) != -1) {
-                response.append(buffer, 0, count);
-            }
-        }
-        return response.toString();
     }
 
     private void applyLatestQuotes() {
@@ -524,42 +497,6 @@ public class MainActivity extends Activity {
         }
     }
 
-    private static final class MarketFetchResult {
-        private final MarketQuote quote;
-        private final MarketStatus status;
-        private final boolean rateLimited;
-
-        private MarketFetchResult(MarketQuote quote, MarketStatus status, boolean rateLimited) {
-            this.quote = quote;
-            this.status = status;
-            this.rateLimited = rateLimited;
-        }
-
-        private static MarketFetchResult success(MarketQuote quote) {
-            return new MarketFetchResult(
-                    quote,
-                    new MarketStatus(quote.marketId, true, quote.price, quote.timestamp, null),
-                    false
-            );
-        }
-
-        private static MarketFetchResult failure(String marketId, String reason) {
-            return failure(marketId, reason, false);
-        }
-
-        private static MarketFetchResult failure(
-                String marketId,
-                String reason,
-                boolean rateLimited
-        ) {
-            return new MarketFetchResult(
-                    null,
-                    new MarketStatus(marketId, false, 0, 0, reason),
-                    rateLimited
-            );
-        }
-    }
-
     private boolean handleUrl(String url) {
         Uri uri = Uri.parse(url);
         String host = uri.getHost();
@@ -633,7 +570,10 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         polling = false;
         pollingGeneration++;
-        networkExecutor.shutdownNow();
+        if (fetchWebView != null) {
+            fetchWebView.removeJavascriptInterface("AndroidYahoo");
+            fetchWebView.destroy();
+        }
         if (webView != null) {
             webView.destroy();
         }

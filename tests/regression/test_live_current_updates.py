@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 APP_JS = ROOT / "web/app.js"
 ACTIVITY = ROOT / "android/app/src/main/java/jp/xiaqui/marketweather/MainActivity.java"
+YAHOO_FETCH = ROOT / "android/app/src/main/assets/yahoo_fetch.html"
 
 
 class LiveCurrentUpdatesTest(unittest.TestCase):
@@ -78,8 +79,21 @@ process.stdout.write(JSON.stringify({{
         self.assertEqual(0.7, rendered["probability"])
         self.assertEqual(95, rendered["rangeLow"])
 
-    def test_android_uses_symbols_generation_polling_and_quote_cache(self) -> None:
+    def test_last_successful_quotes_are_persisted_and_failures_do_not_clear_them(self) -> None:
         source = ACTIVITY.read_text(encoding="utf-8")
+        for snippet in (
+            'PREF_QUOTE_PRICE_PREFIX = "quote_price_"',
+            'PREF_QUOTE_TIME_PREFIX = "quote_time_"',
+            "loadPersistedQuotes();",
+            "persistQuote(quote);",
+            "latestQuotes.put(quote.marketId, quote)",
+        ):
+            self.assertIn(snippet, source)
+        self.assertNotIn("latestQuotes.clear()", source)
+
+    def test_android_uses_webview_fetch_generation_and_quote_cache(self) -> None:
+        source = ACTIVITY.read_text(encoding="utf-8")
+        fetch_page = YAHOO_FETCH.read_text(encoding="utf-8")
 
         for market_id, symbol in {
             "nikkei": "^N225",
@@ -88,8 +102,6 @@ process.stdout.write(JSON.stringify({{
             "gold": "GC=F",
         }.items():
             self.assertIn(f'symbols.put("{market_id}", "{symbol}")', source)
-        self.assertIn('meta.opt("regularMarketPrice")', source)
-        self.assertIn('meta.opt("regularMarketTime")', source)
         self.assertIn("protected void onResume()", source)
         self.assertIn("protected void onPause()", source)
         self.assertIn("private long pollingGeneration;", source)
@@ -100,10 +112,14 @@ process.stdout.write(JSON.stringify({{
         self.assertNotIn("UPDATE_INTERVAL_MS", source)
         self.assertIn("MARKET_REQUEST_SPACING_MS", source)
         self.assertIn("RATE_LIMIT_COOLDOWN_MS", source)
+        self.assertIn("setAllowUniversalAccessFromFileURLs(true)", source)
+        self.assertIn("window.fetchYahooMarkets(", source)
         self.assertIn("latestQuotes.put(quote.marketId, quote)", source)
         self.assertNotIn("latestQuotes.clear()", source)
         self.assertIn("latestQuotes.values()", source)
         self.assertIn("window.updateCurrentValues(", source)
+        self.assertIn("meta.regularMarketPrice", fetch_page)
+        self.assertIn("meta.regularMarketTime", fetch_page)
 
 
 if __name__ == "__main__":
