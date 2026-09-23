@@ -11,7 +11,7 @@ class WebHeadingTest(unittest.TestCase):
     def test_web_heading_targets_next_business_day(self) -> None:
         html = (ROOT / "web/index.html").read_text(encoding="utf-8")
 
-        self.assertIn("<h1>次営業日の金融天気予報</h1>", html)
+        self.assertIn('<h1>次営業日の金融天気予報 <span id="generated">読み込み中…</span></h1>', html)
         self.assertNotIn("<h1>本日の金融天気予報</h1>", html)
 
     def test_next_session_is_only_rendered_in_detail_dialog(self) -> None:
