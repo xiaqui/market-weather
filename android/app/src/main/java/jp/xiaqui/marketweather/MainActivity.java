@@ -33,6 +33,8 @@ public class MainActivity extends Activity {
     private static final long RATE_LIMIT_COOLDOWN_MS = 5 * 60_000L;
     private static final String PREFS_NAME = "market_weather_current";
     private static final String PREF_COOLDOWN_UNTIL = "yahoo_cooldown_until";
+    private static final String PREF_QUOTE_PRICE_PREFIX = "quote_price_";
+    private static final String PREF_QUOTE_TIME_PREFIX = "quote_time_";
     private static final float PULL_REFRESH_THRESHOLD_DP = 96f;
     private static final String YAHOO_FETCH_PAGE = "file:///android_asset/yahoo_fetch.html";
     private static final Map<String, String> MARKET_SYMBOLS = createMarketSymbols();
@@ -87,6 +89,7 @@ public class MainActivity extends Activity {
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
 
+        loadPersistedQuotes();
         setupYahooFetchWebView();
 
         webView.setWebChromeClient(new WebChromeClient());
@@ -338,6 +341,7 @@ public class MainActivity extends Activity {
 
         for (MarketQuote quote : quotes) {
             latestQuotes.put(quote.marketId, quote);
+            persistQuote(quote);
         }
         if (!latestQuotes.isEmpty()) {
             applyLatestQuotes();
@@ -349,6 +353,33 @@ public class MainActivity extends Activity {
         lastUpdatedAtMillis = System.currentTimeMillis();
         lastCooldownUntilMillis = triggeredCooldownUntil;
         reportCurrentStatus(false);
+    }
+
+    private void loadPersistedQuotes() {
+        SharedPreferences preferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        for (String marketId : MARKET_SYMBOLS.keySet()) {
+            String priceKey = PREF_QUOTE_PRICE_PREFIX + marketId;
+            String timeKey = PREF_QUOTE_TIME_PREFIX + marketId;
+            if (!preferences.contains(priceKey) || !preferences.contains(timeKey)) {
+                continue;
+            }
+            double price = Double.longBitsToDouble(preferences.getLong(priceKey, 0L));
+            long timestamp = preferences.getLong(timeKey, 0L);
+            if (Double.isFinite(price) && price > 0 && timestamp > 0) {
+                latestQuotes.put(marketId, new MarketQuote(marketId, price, timestamp));
+            }
+        }
+    }
+
+    private void persistQuote(MarketQuote quote) {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit()
+                .putLong(
+                        PREF_QUOTE_PRICE_PREFIX + quote.marketId,
+                        Double.doubleToRawLongBits(quote.price)
+                )
+                .putLong(PREF_QUOTE_TIME_PREFIX + quote.marketId, quote.timestamp)
+                .apply();
     }
 
     private long getRateLimitCooldownUntil() {
