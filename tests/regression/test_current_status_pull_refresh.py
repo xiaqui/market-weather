@@ -164,6 +164,18 @@ class CurrentStatusAndroidOnlyTest(unittest.TestCase):
         )
         self.assertIn("更新中", rendered["line"])
 
+    def test_429_cooldown_is_visible_on_android(self) -> None:
+        rendered = run_status_scenario(
+            "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 MarketWeatherApp/1.0",
+            [{"attempted": True, "total": 4, "successCount": 1,
+              "failedMarkets": ["dow", "usdjpy", "gold"], "manualUpdating": False,
+              "cooldownActive": True, "cooldownUntil": 1700000300000,
+              "lastUpdatedAt": 1700000000000,
+              "quotes": [{"id": "dow", "ok": False, "reason": "HTTP 429"}]}],
+        )
+        self.assertIn("HTTP 429 cooldown中", rendered["line"])
+        self.assertIn("429 cooldown終了予定:", rendered["detail"])
+
 
 class AndroidPullToRefreshImplementationTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -183,17 +195,14 @@ class AndroidPullToRefreshImplementationTest(unittest.TestCase):
     def test_manual_refresh_reuses_native_yahoo_fetch_and_guards_concurrency(self) -> None:
         self.assertIn("private void triggerManualRefresh()", self.source)
         self.assertIn("if (!polling || fetchInProgress)", self.source)
-        self.assertIn("fetchCurrentValues(generation, true)", self.source)
+        self.assertIn("fetchCurrentValues(pollingGeneration, true)", self.source)
         self.assertIn("private boolean fetchInProgress;", self.source)
-        # Manual refresh cancels any pending scheduled poll to avoid a duplicate loop.
-        self.assertIn("cancelScheduledPolling();\n        reportCurrentStatus(true);", self.source)
+        self.assertIn("reportCurrentStatus(true);", self.source)
 
-    def test_single_polling_loop_resumes_after_manual_refresh(self) -> None:
-        self.assertIn("schedulePolling(generation, UPDATE_INTERVAL_MS);", self.source)
-        self.assertEqual(
-            1,
-            self.source.count("schedulePolling(generation, UPDATE_INTERVAL_MS);"),
-        )
+    def test_periodic_polling_is_removed(self) -> None:
+        self.assertNotIn("UPDATE_INTERVAL_MS", self.source)
+        self.assertNotIn("schedulePolling(", self.source)
+        self.assertNotIn("scheduledUpdate", self.source)
 
     def test_manual_refresh_does_not_reload_forecast_or_webpage(self) -> None:
         self.assertNotIn("webView.reload()", self.source)
@@ -236,6 +245,23 @@ class AndroidYahooDiagnosticsImplementationTest(unittest.TestCase):
             "MarketFetchResult.success(new MarketQuote(marketId, price, timestamp))",
         ):
             self.assertIn(snippet, self.source)
+
+    def test_429_stops_cycle_and_persists_cooldown(self) -> None:
+        for snippet in (
+            "MARKET_REQUEST_SPACING_MS = 1_500L",
+            "RATE_LIMIT_COOLDOWN_MS = 5 * 60_000L",
+            "statusCode == 429",
+            "if (result.rateLimited)",
+            "setRateLimitCooldownUntil(triggeredCooldownUntil)",
+            '"HTTP 429 cooldown中（未取得）"',
+            "break;",
+            "getSharedPreferences(PREFS_NAME, MODE_PRIVATE)",
+        ):
+            self.assertIn(snippet, self.source)
+
+    def test_rotation_restore_skips_immediate_refetch(self) -> None:
+        self.assertIn("skipNextResumeFetch = savedInstanceState != null", self.source)
+        self.assertIn("if (skipNextResumeFetch)", self.source)
 
 
 class IndexHtmlCurrentStatusMarkupTest(unittest.TestCase):

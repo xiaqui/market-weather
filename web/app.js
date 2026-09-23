@@ -86,7 +86,11 @@ function renderCurrentStatus(status) {
   const successCount = Number.isFinite(status.successCount) ? status.successCount : 0;
   const failedMarkets = Array.isArray(status.failedMarkets) ? status.failedMarkets : [];
   let headline;
-  if (!status.attempted) {
+  if (status.cooldownActive) {
+    headline = successCount > 0
+      ? `現在値: Yahoo取得 ${successCount}/${total}（HTTP 429 cooldown中）`
+      : "現在値: HTTP 429 cooldown中";
+  } else if (!status.attempted) {
     headline = "現在値: 取得状況を確認中…";
   } else if (successCount === 0) {
     headline = "現在値: Yahoo取得失敗";
@@ -101,6 +105,11 @@ function renderCurrentStatus(status) {
     detailParts.push("前回値を表示中");
   }
   failedMarkets.forEach(id => detailParts.push(`${String(id).toUpperCase()}取得失敗`));
+  if (status.cooldownActive && Number.isFinite(status.cooldownUntil)) {
+    const cooldownTime = new Intl.DateTimeFormat("ja-JP", { timeStyle: "medium" })
+      .format(new Date(status.cooldownUntil));
+    detailParts.push(`429 cooldown終了予定: ${cooldownTime}`);
+  }
   if (status.attempted && Number.isFinite(status.lastUpdatedAt)) {
     const time = new Intl.DateTimeFormat("ja-JP", { timeStyle: "medium" })
       .format(new Date(status.lastUpdatedAt));
