@@ -15,9 +15,10 @@ class DailyForecastWorkflowTest(unittest.TestCase):
         self.assertIn('python-version: "3.12"', workflow)
         self.assertIn("python scripts/fetch_market_data.py", workflow)
         self.assertIn("python scripts/sync_forecast.py", workflow)
+        self.assertIn("python scripts/score_live_forecast.py", workflow)
         self.assertIn("git diff --quiet --", workflow)
         self.assertIn("git push origin HEAD:main", workflow)
-        self.assertNotIn("reports/live-forecast", workflow)
+        self.assertNotIn("reports/live-forecast/", workflow)
 
     def test_successful_daily_update_triggers_pages_deployment(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy-pages.yml").read_text(

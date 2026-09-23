@@ -21,6 +21,8 @@
 4市場の過去10年の日足を取得し、正本である `shared/forecast.json` の現在値と予測値を
 更新します。続けて
 `python scripts/sync_forecast.py` を実行するとAndroid / Webの配布用JSONへ反映されます。
+`python scripts/score_live_forecast.py` は `reports/live-forecast/` に保存した prospective
+forecast を完成済み日足で採点し、`reports/live-forecast-history.json` へ追記します。
 Android側にも互換用コピーは生成されますが、WebView版の表示やビルドはその内容に依存しません。
 
 ## Web版とAndroid APK
