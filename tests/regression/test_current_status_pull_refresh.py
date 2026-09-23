@@ -88,94 +88,24 @@ class CurrentStatusAndroidOnlyTest(unittest.TestCase):
         )
         self.assertTrue(rendered["statusHidden"])
         self.assertEqual("", rendered["line"])
-        # Forecast values are never touched by status updates.
         self.assertEqual("sunny", rendered["weather"])
         self.assertEqual(0.7, rendered["probability"])
         self.assertEqual(95, rendered["rangeLow"])
         self.assertEqual(100, rendered["current"])
 
-    def test_initial_status_shown_immediately_on_android(self) -> None:
-        rendered = run_status_scenario(
-            "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 MarketWeatherApp/1.0",
-            [],
-        )
-        self.assertFalse(rendered["statusHidden"])
-        self.assertIn("確認中", rendered["line"])
-
-    def test_full_success_status_on_android(self) -> None:
-        rendered = run_status_scenario(
-            "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 MarketWeatherApp/1.0",
-            [{"attempted": True, "total": 4, "successCount": 4, "failedMarkets": [],
-              "manualUpdating": False, "lastUpdatedAt": 1700000000000,
-              "quotes": [{"id": "gold", "ok": True, "price": 4366.1, "timestamp": 1700000000}]}],
-        )
-        self.assertFalse(rendered["statusHidden"])
-        self.assertIn("Yahoo取得成功 4/4", rendered["line"])
-        self.assertIn("更新:", rendered["detail"])
-        self.assertEqual(
-            "GOLD: 成功 regularMarketPrice=4,366.1 regularMarketTime=2023/11/14 22:13:20",
-            rendered["diagnostics"][0],
-        )
-
-    def test_partial_failure_status_on_android(self) -> None:
-        rendered = run_status_scenario(
-            "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 MarketWeatherApp/1.0",
-            [{"attempted": True, "total": 4, "successCount": 3, "failedMarkets": ["gold"],
-              "manualUpdating": False, "lastUpdatedAt": 1700000000000,
-              "quotes": [{"id": "gold", "ok": False, "reason": "HTTP 429"}]}],
-        )
-        self.assertIn("Yahoo取得 3/4", rendered["line"])
-        self.assertIn("GOLD取得失敗", rendered["detail"])
-        self.assertFalse(rendered["diagnosticsHidden"])
-        self.assertEqual(1, rendered["diagnosticsCount"])
-        self.assertEqual("GOLD: 失敗 HTTP 429", rendered["diagnostics"][0])
-
-    def test_full_failure_keeps_previous_value_message(self) -> None:
+    def test_diagnostics_stay_hidden_on_android_normal_ui(self) -> None:
         rendered = run_status_scenario(
             "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 MarketWeatherApp/1.0",
             [{"attempted": True, "total": 4, "successCount": 0,
-              "failedMarkets": ["nikkei", "dow", "usdjpy", "gold"],
-              "manualUpdating": False, "lastUpdatedAt": 1700000000000, "quotes": []}],
+              "failedMarkets": ["nikkei"], "manualUpdating": False,
+              "quotes": [{"id": "nikkei", "ok": False, "reason": "HTTP 429"}]}],
         )
-        self.assertIn("Yahoo取得失敗", rendered["line"])
-        self.assertIn("前回値を表示中", rendered["detail"])
-        # The market's current value is untouched by a total failure.
-        self.assertEqual(100, rendered["current"])
+        self.assertTrue(rendered["statusHidden"])
+        self.assertEqual("", rendered["line"])
+        self.assertEqual("", rendered["detail"])
+        self.assertTrue(rendered["diagnosticsHidden"])
+        self.assertEqual(0, rendered["diagnosticsCount"])
 
-    def test_diagnostics_update_on_subsequent_status_calls(self) -> None:
-        rendered = run_status_scenario(
-            "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 MarketWeatherApp/1.0",
-            [
-                {"attempted": True, "total": 4, "successCount": 0,
-                 "failedMarkets": ["nikkei"], "manualUpdating": True,
-                 "quotes": [{"id": "nikkei", "ok": False, "reason": "HTTP 401"}]},
-                {"attempted": True, "total": 4, "successCount": 0,
-                 "failedMarkets": ["nikkei"], "manualUpdating": False,
-                 "quotes": [{"id": "nikkei", "ok": False, "reason": "UnknownHostException: offline"}]},
-            ],
-        )
-        self.assertEqual(["NIKKEI: 失敗 UnknownHostException: offline"], rendered["diagnostics"])
-        self.assertIn("Yahoo取得失敗", rendered["line"])
-
-    def test_manual_updating_flag_is_reflected(self) -> None:
-        rendered = run_status_scenario(
-            "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 MarketWeatherApp/1.0",
-            [{"attempted": True, "total": 4, "successCount": 4, "failedMarkets": [],
-              "manualUpdating": True, "lastUpdatedAt": 1700000000000, "quotes": []}],
-        )
-        self.assertIn("更新中", rendered["line"])
-
-    def test_429_cooldown_is_visible_on_android(self) -> None:
-        rendered = run_status_scenario(
-            "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 MarketWeatherApp/1.0",
-            [{"attempted": True, "total": 4, "successCount": 1,
-              "failedMarkets": ["dow", "usdjpy", "gold"], "manualUpdating": False,
-              "cooldownActive": True, "cooldownUntil": 1700000300000,
-              "lastUpdatedAt": 1700000000000,
-              "quotes": [{"id": "dow", "ok": False, "reason": "HTTP 429"}]}],
-        )
-        self.assertIn("HTTP 429 cooldown中", rendered["line"])
-        self.assertIn("429 cooldown終了予定:", rendered["detail"])
 
 
 class AndroidPullToRefreshImplementationTest(unittest.TestCase):
