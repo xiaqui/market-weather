@@ -147,7 +147,7 @@ Market Weather の開発・検証タスク一覧。
 - [ ] 市場ごとのデータ鮮度差を表示
 
 ### 説明ドキュメント
-- [ ] 各予報値（天気 / 上昇確率 / 予想レンジ / confidence / risk / Trend / Analog / Ensemble）の出し方を、数式だけに寄りすぎず分かりやすく説明するMarkdownを追加
+- [x] 各予報値（天気 / 上昇確率 / 予想レンジ / confidence / risk / Trend / Analog / Ensemble）の出し方を、数式だけに寄りすぎず分かりやすく説明するMarkdownを追加
 
 ### PWA
 - [ ] manifest
