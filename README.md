@@ -48,6 +48,7 @@ GitHub Actions で毎回同じ署名鍵を使う場合は、Repository Secrets �
 
 4項目がそろっているbuildでは、workflowが一時keystoreを復元し、Debug APKを固定鍵で署名します。
 Secretsが未設定のbuildは従来どおりrunnerのdebug署名へフォールバックします。
+Secretsを追加・更新した後は、新しいworkflow runを開始して固定署名APKを生成してください。
 
 固定署名へ切り替える最初の1回だけは、既に端末へ入っている従来署名版をアンインストールしてから
 インストールする必要があります。その後は同じ `applicationId` と固定署名鍵を維持する限り、
