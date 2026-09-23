@@ -1,0 +1,87 @@
+<!doctype html>
+<meta charset="utf-8">
+<script>
+(() => {
+  const markets = [
+    ["nikkei", "https://query1.finance.yahoo.com/v8/finance/chart/%5EN225"],
+    ["dow", "https://query1.finance.yahoo.com/v8/finance/chart/%5EDJI"],
+    ["usdjpy", "https://query1.finance.yahoo.com/v8/finance/chart/USDJPY=X"],
+    ["gold", "https://query1.finance.yahoo.com/v8/finance/chart/GC=F"],
+  ];
+
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  window.fetchYahooMarkets = async (generation, spacingMs) => {
+    const results = [];
+
+    for (let index = 0; index < markets.length; index++) {
+      if (index > 0) {
+        await sleep(spacingMs);
+      }
+
+      const [id, url] = markets[index];
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          const rateLimited = response.status === 429;
+          results.push({ id, ok: false, reason: `HTTP ${response.status}`, rateLimited });
+
+          if (rateLimited) {
+            for (let skipped = index + 1; skipped < markets.length; skipped++) {
+              results.push({
+                id: markets[skipped][0],
+                ok: false,
+                reason: "HTTP 429 cooldown中（未取得）",
+                rateLimited: false,
+              });
+            }
+            break;
+          }
+          continue;
+        }
+
+        const json = await response.json();
+        const meta = json?.chart?.result?.[0]?.meta;
+        if (!meta) {
+          results.push({ id, ok: false, reason: "meta missing", rateLimited: false });
+          continue;
+        }
+
+        const price = Number(meta.regularMarketPrice);
+        const timestamp = Number(meta.regularMarketTime);
+        if (!Number.isFinite(price) || price <= 0) {
+          results.push({
+            id,
+            ok: false,
+            reason: "regularMarketPrice missing or invalid",
+            rateLimited: false,
+          });
+          continue;
+        }
+        if (!Number.isFinite(timestamp) || timestamp <= 0) {
+          results.push({
+            id,
+            ok: false,
+            reason: "regularMarketTime missing or invalid",
+            rateLimited: false,
+          });
+          continue;
+        }
+
+        results.push({ id, ok: true, price, timestamp, rateLimited: false });
+      } catch (error) {
+        const name = error && error.name ? error.name : "Error";
+        const message = error && error.message ? `: ${error.message}` : "";
+        results.push({
+          id,
+          ok: false,
+          reason: `fetch error ${name}${message}`,
+          rateLimited: false,
+        });
+      }
+    }
+
+    AndroidYahoo.onResult(generation, JSON.stringify(results));
+  };
+})();
+</script>
