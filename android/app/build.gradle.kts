@@ -21,7 +21,7 @@ android {
         applicationId = "jp.xiaqui.marketweather"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
+        versionCode = 2
         versionName = "0.1.0"
     }
 
