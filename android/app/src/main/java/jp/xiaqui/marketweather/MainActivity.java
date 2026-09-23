@@ -27,7 +27,6 @@ import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.net.URL;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -41,7 +40,6 @@ import javax.net.ssl.SSLException;
 
 public class MainActivity extends Activity {
     private static final String START_URL = "https://xiaqui.github.io/market-weather/";
-    private static final String YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/";
     private static final String UA_APP_SUFFIX = " MarketWeatherApp/1.0";
     private static final long MARKET_REQUEST_SPACING_MS = 1_500L;
     private static final long RATE_LIMIT_COOLDOWN_MS = 5 * 60_000L;
@@ -49,7 +47,7 @@ public class MainActivity extends Activity {
     private static final String PREF_COOLDOWN_UNTIL = "yahoo_cooldown_until";
     private static final int NETWORK_TIMEOUT_MS = 10_000;
     private static final float PULL_REFRESH_THRESHOLD_DP = 96f;
-    private static final Map<String, String> MARKET_SYMBOLS = createMarketSymbols();
+    private static final Map<String, String> MARKET_URLS = createMarketUrls();
 
     private WebView webView;
     private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
@@ -68,13 +66,15 @@ public class MainActivity extends Activity {
     private boolean pullEligible;
     private float pullRefreshThresholdPx;
 
-    private static Map<String, String> createMarketSymbols() {
-        Map<String, String> symbols = new LinkedHashMap<>();
-        symbols.put("nikkei", "^N225");
-        symbols.put("dow", "^DJI");
-        symbols.put("usdjpy", "JPY=X");
-        symbols.put("gold", "GC=F");
-        return Collections.unmodifiableMap(symbols);
+    private static Map<String, String> createMarketUrls() {
+        Map<String, String> urls = new LinkedHashMap<>();
+        // Match the proven AP37 request shape exactly: Yahoo Chart v8,
+        // path-encoded caret symbols, no query string and no custom headers.
+        urls.put("nikkei", "https://query1.finance.yahoo.com/v8/finance/chart/%5EN225");
+        urls.put("dow", "https://query1.finance.yahoo.com/v8/finance/chart/%5EDJI");
+        urls.put("usdjpy", "https://query1.finance.yahoo.com/v8/finance/chart/USDJPY=X");
+        urls.put("gold", "https://query1.finance.yahoo.com/v8/finance/chart/GC=F");
+        return Collections.unmodifiableMap(urls);
     }
 
     @Override
@@ -243,7 +243,7 @@ public class MainActivity extends Activity {
             List<String> failedMarkets = new ArrayList<>();
             List<MarketStatus> diagnostics = new ArrayList<>();
             List<Map.Entry<String, String>> marketsToFetch =
-                    new ArrayList<>(MARKET_SYMBOLS.entrySet());
+                    new ArrayList<>(MARKET_URLS.entrySet());
             long triggeredCooldownUntil = 0L;
 
             for (int index = 0; index < marketsToFetch.size(); index++) {
@@ -322,9 +322,9 @@ public class MainActivity extends Activity {
     private void reportCooldownStatus(long cooldownUntil) {
         lastAttempted = true;
         lastSuccessCount = 0;
-        lastFailedMarkets = new ArrayList<>(MARKET_SYMBOLS.keySet());
+        lastFailedMarkets = new ArrayList<>(MARKET_URLS.keySet());
         lastDiagnostics = new ArrayList<>();
-        for (String marketId : MARKET_SYMBOLS.keySet()) {
+        for (String marketId : MARKET_URLS.keySet()) {
             lastDiagnostics.add(new MarketStatus(
                     marketId,
                     false,
@@ -337,18 +337,14 @@ public class MainActivity extends Activity {
         reportCurrentStatus(false);
     }
 
-    private MarketFetchResult fetchMarketQuote(String marketId, String symbol) {
-        String encodedSymbol = URLEncoder.encode(symbol, StandardCharsets.UTF_8);
+    private MarketFetchResult fetchMarketQuote(String marketId, String url) {
         HttpURLConnection connection = null;
 
         try {
-            connection = (HttpURLConnection) new URL(
-                    YAHOO_CHART_URL + encodedSymbol
-            ).openConnection();
+            connection = (HttpURLConnection) new URL(url).openConnection();
             connection.setConnectTimeout(NETWORK_TIMEOUT_MS);
             connection.setReadTimeout(NETWORK_TIMEOUT_MS);
             connection.setRequestMethod("GET");
-            connection.setRequestProperty("Accept", "application/json");
             int statusCode = connection.getResponseCode();
             if (statusCode != HttpURLConnection.HTTP_OK) {
                 return MarketFetchResult.failure(
@@ -463,7 +459,7 @@ public class MainActivity extends Activity {
         JSONObject status = new JSONObject();
         try {
             status.put("attempted", lastAttempted);
-            status.put("total", MARKET_SYMBOLS.size());
+            status.put("total", MARKET_URLS.size());
             status.put("successCount", lastSuccessCount);
             status.put("manualUpdating", manualUpdating);
             status.put(
