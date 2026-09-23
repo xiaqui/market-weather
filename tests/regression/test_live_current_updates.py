@@ -81,13 +81,15 @@ process.stdout.write(JSON.stringify({{
     def test_android_uses_symbols_generation_polling_and_quote_cache(self) -> None:
         source = ACTIVITY.read_text(encoding="utf-8")
 
-        for market_id, symbol in {
-            "nikkei": "^N225",
-            "dow": "^DJI",
-            "usdjpy": "JPY=X",
-            "gold": "GC=F",
+        for market_id, url in {
+            "nikkei": "https://query1.finance.yahoo.com/v8/finance/chart/%5EN225",
+            "dow": "https://query1.finance.yahoo.com/v8/finance/chart/%5EDJI",
+            "usdjpy": "https://query1.finance.yahoo.com/v8/finance/chart/USDJPY=X",
+            "gold": "https://query1.finance.yahoo.com/v8/finance/chart/GC=F",
         }.items():
-            self.assertIn(f'symbols.put("{market_id}", "{symbol}")', source)
+            self.assertIn(f'urls.put("{market_id}", "{url}")', source)
+        self.assertNotIn('setRequestProperty("Accept", "application/json")', source)
+        self.assertNotIn("URLEncoder.encode", source)
         self.assertIn('meta.opt("regularMarketPrice")', source)
         self.assertIn('meta.opt("regularMarketTime")', source)
         self.assertIn("protected void onResume()", source)
