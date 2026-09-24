@@ -15,7 +15,7 @@ class DailyForecastWorkflowTest(unittest.TestCase):
         self.assertIn('python-version: "3.12"', workflow)
         self.assertIn("python scripts/fetch_market_data.py", workflow)
         self.assertIn("python scripts/sync_forecast.py", workflow)
-        self.assertIn("python scripts/score_live_forecast.py", workflow)
+        self.assertIn("python -m scripts.score_live_forecast", workflow)
         self.assertIn("git diff --quiet --", workflow)
         self.assertIn("git push origin HEAD:main", workflow)
         self.assertNotIn("reports/live-forecast/", workflow)
