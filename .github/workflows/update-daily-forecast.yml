@@ -34,7 +34,7 @@ jobs:
         run: python scripts/sync_forecast.py
 
       - name: Score prospective forecasts
-        run: python scripts/score_live_forecast.py
+        run: python -m scripts.score_live_forecast
 
       - name: Commit updated forecasts
         run: |
