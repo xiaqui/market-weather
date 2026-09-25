@@ -1,3 +1,4 @@
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -14,7 +15,8 @@ class CompactWebUiTest(unittest.TestCase):
 
         for snippet in (
             'class="current"',
-            'class="condition"',
+            'class="icon"',
+            'class="forecast-copy"',
             'class="forecast-summary"',
             "予想レンジ",
         ):
@@ -33,9 +35,30 @@ class CompactWebUiTest(unittest.TestCase):
             html,
         )
         self.assertIn('timeZone: "Asia/Tokyo"', source)
+        self.assertIn('weekday: "short"', source)
+        self.assertIn('${part("month")}/${part("day")}(${part("weekday")})', source)
         self.assertIn("announcementTime(forecast.generated_at)", source)
         self.assertNotIn('.replace("/", "月")', source)
         self.assertIn("発表", source)
+
+    def test_announcement_time_includes_japanese_weekday(self) -> None:
+        source = APP_JS.read_text(encoding="utf-8")
+        function_source = source.split("const announcementTime =", 1)[1].split(
+            "const safeCondition", 1
+        )[0]
+        result = subprocess.run(
+            [
+                "node",
+                "-e",
+                f"const announcementTime = {function_source} "
+                'process.stdout.write(announcementTime("2026-09-25T02:11:00Z"));',
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual("9/25(金) 11:11", result.stdout)
 
     def test_live_direction_includes_percentage(self) -> None:
         source = APP_JS.read_text(encoding="utf-8")

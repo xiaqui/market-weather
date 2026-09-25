@@ -7,14 +7,19 @@ const number = new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 2 });
 const date = new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium" });
 const percent = value => `${Math.round(value * 100)}%`;
 const livePercent = value => `${Math.abs(value * 100).toFixed(2)}%`;
-const announcementTime = value => new Intl.DateTimeFormat("ja-JP", {
-  timeZone: "Asia/Tokyo",
-  month: "numeric",
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-  hour12: false,
-}).format(new Date(value));
+const announcementTime = value => {
+  const parts = new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    month: "numeric",
+    day: "numeric",
+    weekday: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(value));
+  const part = type => parts.find(item => item.type === type)?.value || "";
+  return `${part("month")}/${part("day")}(${part("weekday")}) ${part("hour")}:${part("minute")}`;
+};
 const safeCondition = value => weather[value] || ["❔", value];
 let markets = [];
 let selectedMarket = null;
@@ -56,7 +61,7 @@ function card(market) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "market-card";
-  button.innerHTML = `<div class="card-top"><p class="name">${market.name}${liveDirectionMarkup(market)}</p><p class="current">${number.format(market.current)}</p></div><div class="forecast-summary"><div class="condition"><span class="icon">${icon}</span><span class="weather-name">${label}</span></div><p class="range"><span class="range-label">予想レンジ</span>${number.format(market.range_low)} ～ ${number.format(market.range_high)}</p></div>`;
+  button.innerHTML = `<div class="card-top"><p class="name">${market.name}${liveDirectionMarkup(market)}</p><p class="current">${number.format(market.current)}</p></div><div class="forecast-summary"><span class="icon" aria-hidden="true">${icon}</span><div class="forecast-copy"><span class="weather-name">${label}</span><p class="range"><span class="range-label">予想レンジ</span>${number.format(market.range_low)} ～ ${number.format(market.range_high)}</p></div></div>`;
   button.addEventListener("click", () => showDetail(market));
   return button;
 }
