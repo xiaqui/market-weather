@@ -4,24 +4,62 @@
 
 ユーザーが「たすけt」と入力したら、以下を実行すること。
 
-1. repo直下の TASK.md を読む。
-2. TASK.md の最新指示を確認する。
-3. TASK.md の「Git運用」に明記された方式へ必ず従う。
-4. Git運用を自分で再判定・上書きしない。
-5. TASK.md の最新指示を実装する。
-6. 必要なテスト・ビルド・lintを実行する。
-7. 指定された Git 運用に従って commit / push する。
-8. branch作業の場合はPull Requestを作成する。
-9. 最後に以下を報告する。
+1. 現在位置と対象repoが一致しているか「repo指定の自動補正」に従って確認する。
+2. repo直下の TASK.md を読む。
+3. TASK.md の最新指示を確認する。
+4. TASK.md の「Git運用」に明記された方式へ必ず従う。
+5. Git運用を自分で再判定・上書きしない。
+6. TASK.md の最新指示を実装する。
+7. 必要なテスト・ビルド・lintを実行する。
+8. 指定された Git 運用に従って commit / push する。
+9. branch作業の場合はPull Requestを作成する。
+10. 最後に以下を報告する。
    - Git運用（main直push / branch）
    - branch名（branch作業の場合）
    - commit SHA
    - PR番号（branch作業の場合）
    - test/build結果
+   - repo補正の有無
    - 残課題
 
 TASK.md が存在しない場合、または TASK.md に Git運用が明記されていない場合は、
 勝手に別作業やGit運用の判断を始めず、その旨だけ報告する。
+
+## repo指定の自動補正
+
+ユーザーの指定repo、現在位置、TASK.md、AGENTS.md、git remote origin が一致しているか、
+作業開始前に確認する。
+
+確認対象:
+- 現在開いているrepo
+- repo直下の TASK.md の存在
+- repo直下の AGENTS.md の存在
+- `git remote get-url origin`
+- TASK.md 内に対象repoの明記がある場合はその記載
+
+明らかな誤指定で、正しいrepoが一意に特定できる場合は自動補正して作業を続行してよい。
+
+自動補正してよい例:
+- TASK.md / AGENTS.md / origin が同じrepoを指している
+- ユーザー指定だけが別repoになっている
+- 正しいrepo候補が1つしかない
+
+補正した場合は、作業開始前に必ず次の形式で簡潔に報告する。
+
+```text
+repo指定を <誤指定repo> から <補正後repo> に補正しました。
+```
+
+以下の場合は自動補正しない。
+- TASK.md と origin が別repoを指している
+- 正しいrepo候補が複数ある
+- TASK.md が複数repoで見つかり、どれが対象か一意に決められない
+- AGENTS.md / TASK.md / origin の証拠が食い違っている
+- 補正すると別プロジェクトの変更を誤って適用する可能性がある
+
+自動補正できない場合は作業を止め、
+どの情報が食い違っているかだけ報告する。
+推測で別repoへ移動して作業しない。
 
 ## Git運用の決定者
 
