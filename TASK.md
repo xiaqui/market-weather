@@ -2,7 +2,7 @@
 
 ## 種別
 
-新規タスク
+既存タスクへの追加修正
 
 # Ensemble最終予報のconfidence設計・実装
 
@@ -350,3 +350,150 @@ confidence以外の予測性能改善を混ぜない。
 - test結果
 - 変更ファイル
 - 残課題
+
+
+## 追加修正指示: PR #29 confidence設計の再検討
+
+PR #29 の現行実装は、そのままmergeしない。
+現行式は候補Aとして残し、診断・比較対象にすること。
+
+### 問題点
+
+現行PRのwalk-forward bucket診断では、confidenceが高いほど方向正解率が高くなる単調な傾向が確認できていない。
+
+特にUSD/JPYでは、confidenceが高いbucketほど方向正解率が低下している。
+
+また、現行252件では analog_count が全件30件であり、
+
+```text
+0.15 × min(1, analog_count / 30)
+```
+
+が実質的に全件固定加点となっている。
+この状態ではAnalog件数成分はconfidenceの識別力に寄与していない。
+
+そのため、現行値を `予報信頼度 xx%` として本番採用するのは見送る。
+
+### 修正方針
+
+1. 現行式を候補Aとして保持する。
+2. confidenceの候補式を複数比較する。
+3. 重みや式の選定に使う期間と、評価に使う期間を分離する。
+4. 同じwalk-forwardデータで重みを選び、その同じデータだけで良し悪しを判断しない。
+5. 時系列順にtrain / validationを分離し、未来情報を使わない。
+6. validation側で「高confidence群ほど実績方向正解率が高いか」を主に確認する。
+7. 単調性、または少なくとも低confidence群より高confidence群が明確に良い傾向を確認できない場合、`予報信頼度` として本番採用しない。
+
+### 候補式で検討するもの
+
+少なくとも以下を比較する。
+
+- Trend confidenceのみ
+- Trend confidence + Trend/Analog agreement
+- Trend confidence + agreement + Analog distance quality
+- 現行候補A
+- analog_count成分を除いた式
+
+analog_countは、実データ上ほぼ常に30で識別力がないなら、
+本番式から外すか、将来不足ケースが実際に現れた時に再導入すること。
+
+「使える特徴量だから入れる」ではなく、
+実際にconfidenceの識別力へ寄与するかで判断する。
+
+### 評価方法
+
+各市場ごとに時系列でDiscovery/TrainとValidationを分ける。
+
+既存の非重複Validation windowが利用可能なら、それを優先的に活用する。
+
+各候補式について最低限:
+
+- bucketごとの件数
+- bucketごとの方向正解率
+- confidence平均
+- confidence分布
+- 低confidence群と高confidence群の方向正解率差
+- 市場別の挙動
+- 全市場統合での挙動
+
+を比較する。
+
+bucketは固定の0.2刻みだけにこだわらず、
+件数が極端に偏る場合は分位bucket等も併用してよい。
+
+### 重要: confidenceと的中確率を混同しない
+
+今回の目的は「的中確率そのもの」を作ることではない。
+
+ただし `予報信頼度` と表示する以上、
+高い値が低い値より実績上も多少は信頼できる方向へ並ぶ必要がある。
+
+その関係が確認できない場合は、
+以下のどちらかにすること。
+
+- confidenceの本番採用を見送る
+- 表示名を `モデル一致度` 等へ変更し、予報の信頼性を直接表す値ではないことを明確化する
+
+表示名だけで問題を隠さないこと。
+
+### PR #29のUI変更について
+
+現行PRの
+
+```text
+予報信頼度（的中確率ではありません）
+```
+
+は、validationで妥当性を確認できるまでは確定仕様にしない。
+
+候補式の検証結果に応じて、
+
+```text
+予報信頼度
+```
+
+または
+
+```text
+モデル一致度
+```
+
+等を選ぶ。
+
+カード表面には引き続きconfidenceを出さない。
+
+### JSON互換
+
+`trend_confidence` の追加自体は維持してよい。
+
+ただし新しい `confidence` を本番採用できない場合は、
+旧Trend confidenceを新定義のconfidenceとして上書きしない。
+
+その場合は、
+- `trend_confidence` のみ追加
+- `confidence` は旧定義維持、または移行を保留
+のどちらが互換性上安全か検討し、PRで説明する。
+
+過去forecastは書き換えない。
+
+### 完了条件の追加
+
+以下を満たすまでPR #29をmerge可能としない。
+
+- 現行候補A以外の候補式も比較済み
+- train / validationを時系列分離
+- validation結果をPR本文に記載
+- analog_count固定加点問題を解消
+- 高confidence群が低confidence群より悪化する市場が残る場合、その理由と扱いを明示
+- `予報信頼度` と呼べる根拠が弱い場合は無理にその名称を採用しない
+- confidence以外の予測ロジックは変更しない
+
+### PR本文で追加報告するもの
+
+- 候補A〜各候補式
+- train / validationの期間
+- 各市場のvalidation bucket結果
+- 高/低confidence群の差
+- analog_count成分を残す/外す理由
+- 最終採用式、または採用見送り判断
+- 最終表示名
