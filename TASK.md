@@ -4,123 +4,218 @@
 
 新規タスク
 
-# 日次予報workflowのprospective採点エラー修正
+# 金融天気予報のコンパクト表示整理
+
+## Git運用
+
+main直push。
+
+理由:
+- Web表示だけの局所変更
+- 予報ロジック・forecast JSON・Android Yahoo現在値取得へ影響しない
+- iPhone 13 mini等の実機確認で良否を判断できる
+- 問題があっても影響範囲を特定しやすくrevert容易
+
+PRは作成しない。
 
 ## 目的
 
-GitHub Actions `Update Daily Forecast` の Run #6 が、
-prospective forecast採点ステップで以下のエラーにより失敗した。
+スマホで4市場をなるべく一画面で見渡せるよう、
+金融天気予報の初期画面をさらにコンパクトにする。
 
-```
-ModuleNotFoundError: No module named 'scripts'
-```
+特に iPhone 13 mini 級の縦画面で、4市場の概要をなるべく少ないスクロールで確認できることを優先する。
 
-このエラーだけを確実に修正し、日次更新workflowが最後まで成功する状態に戻す。
+以前の Issue #25 / PR #26 の仕様はそのまま採用しない。
+PR #26 は未mergeでclose済み。
 
-## 現状
+## 1. 見出し
 
-Run #6 では以下まで成功している。
+現在:
 
-- Fetch completed market data
-- Sync forecast copies
-
-その後、
-
-- Score prospective forecasts
-
-で失敗し、
-
-- Commit updated forecasts
-
-はskippedになった。
-
-失敗箇所は `.github/workflows/update-daily-forecast.yml` から
-`python scripts/score_live_forecast.py` を直接実行した際、
-`scripts/score_live_forecast.py` 内の
-
-```python
-from scripts import fetch_market_data as market_data
+```text
+次営業日の金融天気予報  M月D日 H:MM発表
 ```
 
-が解決できなかったこと。
+変更後:
 
-## 方針
-
-できるだけ小さく直す。
-
-第一候補はworkflow側の呼び出しを
-
-```bash
-python -m scripts.score_live_forecast
+```text
+次営業日の金融予報  M/D H:MM発表
 ```
 
-へ変更すること。
+例:
 
-コード本体に不必要な `sys.path` 細工を入れない。
+```text
+次営業日の金融予報  9/24 7:30発表
+```
 
-ただし、repo内の既存テスト・実行方法との整合を確認し、
-より自然で副作用の少ない修正がある場合はそちらでもよい。
+条件:
+- 見出しと発表時刻は可能な限り同一行
+- 発表時刻は現在と同程度の控えめな文字色・サイズ
+- 13 mini級でも不自然な改行をできるだけ避ける
+- 横画面でも不自然な余白や改行を作らない
+- 発表時刻は forecast.generated_at をJSTで表示する現行仕様を維持
 
-## 触らないもの
+## 2. カード表面
 
-今回の修正では以下を変更しない。
+初期カード表面で残す情報は以下を基本とする。
 
-- Trend / Analog / Ensemble の予報ロジック
+- 市場名
+- Androidの場合の現在値方向マーカー（↑ / ー / ↓ と変動率%）
+- 現在値
+- 天気アイコン + 天気名
+- 予想レンジ
+
+表面から以下を外す。
+
+- 上昇確率
+- confidence
+
+理由:
+- 上昇確率は天気判定の元データであり、初期画面では天気と重複する
+- 現行confidenceはEnsemble最終予報のconfidenceではなくTrend由来なので、天気横へ表示しない
+
+上昇確率は詳細表示に残す。
+
+confidenceも詳細表示には残してよいが、
+今回のタスクでは意味や計算ロジックを変更しない。
+表面へは出さない。
+
+## 3. カードのレイアウト
+
+目標イメージ:
+
+```text
+日経平均       ↑ 1.24%
+45,630
+
+☀ 晴れ
+45,100 ～ 46,200
+```
+
+厳密にこの改行・配置へ固定する必要はない。
+実画面で読みやすく、かつ縦方向を圧縮できる配置を選ぶこと。
+
+条件:
+- iPhone 13 mini級の縦画面で4市場がなるべく一画面に収まる
+- 完全に収まらない場合もスクロール量を最小化
+- 文字を極端に小さくして詰め込まない
+- padding / margin / gap / border-radius等の余白を適度に圧縮
+- 市場名、現在値、天気、レンジは読みやすさを維持
+- 「晴れ時々曇り」でも破綻しない
+- 横画面では現行どおり2カラムを基本とする
+- カードが過度に縦長にならない
+
+## 4. 詳細表示
+
+既存詳細ダイアログは維持する。
+
+最低限、以下が確認できる状態を保つ。
+
+- 現在値
+- 元データ最終日
+- 予測対象セッション
+- 天気
+- Trend予報
+- Analog予報
+- 最終予報（上昇確率）
+- 予想レンジ
+- confidence
+- risk
+
+今回、詳細側のモデル値や意味は変更しない。
+
+## 5. 触らないもの
+
+今回のタスクでは以下を変更しない。
+
+- Trendロジック
+- Analogロジック
+- Ensembleロジック
+- up_probability計算
 - weather分類
-- confidence / risk計算
-- forecast JSONの意味
-- prospective forecastの採点ルール
-- scoring historyのスキーマ
-- Web UI
-- Android UI
-- Android Yahoo現在値取得経路
-- PR #26 のUI作業
+- confidence計算
+- risk計算
+- forecast JSONの構造・意味
+- prospective forecast / scoring
+- 日次更新workflow
+- Android Yahoo現在値取得
+- Android現在値の更新タイミング
+- Android Java/Kotlin側ロジック
 
-## 確認事項
+Webの表示整理だけに限定する。
 
-最低限以下を確認する。
+## 6. 今回やらないもの
 
-1. `score_live_forecast` がrepo rootから正常に起動できる
-2. 既存のprospective採点テストが成功する
-3. daily workflow回帰テストが成功する
-4. その他のPythonテストを壊していない
-5. `git diff --check` が成功する
-6. GitHub Actionsの `Update Daily Forecast` を再実行または新規実行し、
-   Run #6で失敗した採点ステップを通過できることを確認する
-7. forecast更新とscoring history更新が必要な場合、
-   commit/pushステップまで正常に進むことを確認する
+以下は別タスクへ送る。
 
-## GitHub運用
+- 全市場の円建て表示オプション
+- % / 差額 / 両方の表示切替
+- localStorageによる表示設定保存
+- Ensemble用confidenceの新設
+- confidence計算式の変更
+- riskを「風の強さ」としてUI化する作業
+- 雨雲レーダー / セクター天気図
 
-- main最新から新branchを作る
-- mainへ直接pushしない
-- 修正
-- test
-- commit
-- push
-- Pull Request作成
-- mergeはしない
+特に表示オプションは今回混ぜない。
 
-## 完了条件
+## 7. 対象ファイル
 
-- `ModuleNotFoundError: No module named 'scripts'` が再発しない
-- `Score prospective forecasts` が成功する
-- `Update Daily Forecast` workflowが最後まで成功する
-- 予報ロジックやUIに不要な変更を入れていない
-- tests成功
-- `git diff --check` 成功
-- 新PR作成済み
-- mergeしていない
+基本的には以下のみ。
+
+```text
+web/index.html
+web/app.js
+web/styles.css
+```
+
+必要な回帰テストがある場合のみテストファイルも更新してよい。
+
+Android側やPython予測ロジックへ変更が必要になった場合は、
+勝手に範囲を広げず作業を止めて報告する。
+
+## 8. テスト / 確認
+
+最低限:
+
+- 既存のWeb/UI回帰テストを実行
+- 必要なら今回の表示仕様に合わせて回帰テスト更新
+- Python全体テストで今回と無関係な既知failureがある場合は、今回起因かを切り分けて報告
+- git diff --check
+- forecast.jsonの読み込みが壊れていない
+- 詳細ダイアログが開く
+- Android用 live current update hook を壊していない
+
+可能なら静的なviewport確認も行う。
+
+特に確認対象:
+- iPhone 13 mini級の縦画面
+- 狭い横画面
+- 650px以上の2カラム
+
+## 9. 完了条件
+
+- 見出しが「次営業日の金融予報」になっている
+- 発表時刻が `M/D H:MM発表` 形式
+- 上昇確率がカード表面から消えている
+- confidenceがカード表面に出ていない
+- 上昇確率は詳細で確認できる
+- 4市場カードの縦方向が現状より明確にコンパクト
+- 「晴れ時々曇り」でも表示破綻しない
+- 文字を極端に小さくしていない
+- 予報ロジック / JSON / Android Yahoo取得へ変更なし
+- mainへ直接commit/push
+- PRを作成していない
+- tests / git diff --check 成功、または既知無関係failureを明確に切り分け済み
 
 ## 最後の報告
 
-以下だけ報告する。
+以下を報告する。
 
-- branch名
+- Git運用: main直push
+- 選択理由
 - commit SHA
-- PR番号
-- 修正内容
-- test結果
-- Update Daily Forecast Actions結果
 - 変更ファイル
+- 表示上の変更点
+- test結果
+- 実機確認が必要なポイント
 - 残課題
