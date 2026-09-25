@@ -61,7 +61,7 @@ function card(market) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "market-card";
-  button.innerHTML = `<div class="card-top"><p class="name">${market.name}${liveDirectionMarkup(market)}</p><p class="current">${number.format(market.current)}</p></div><div class="forecast-summary"><span class="icon" aria-hidden="true">${icon}</span><div class="forecast-copy"><span class="weather-name">${label}</span><p class="range"><span class="range-label">予想レンジ</span>${number.format(market.range_low)} ～ ${number.format(market.range_high)}</p></div></div>`;
+  button.innerHTML = `<div class="card-top"><p class="name">${market.name}${liveDirectionMarkup(market)}</p><p class="current">${number.format(market.current)}</p></div><div class="forecast-summary"><span class="icon" aria-hidden="true">${icon}</span><div class="forecast-copy"><span class="weather-name">${label}</span><p class="range"><span class="range-label">予想</span>${number.format(market.range_low)} ～ ${number.format(market.range_high)}</p></div></div>`;
   button.addEventListener("click", () => showDetail(market));
   return button;
 }

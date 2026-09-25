@@ -19,10 +19,11 @@ class CompactWebUiTest(unittest.TestCase):
             'class="icon"',
             'class="forecast-copy"',
             'class="forecast-summary"',
-            "予想レンジ",
+            '<span class="range-label">予想</span>',
         ):
             self.assertIn(snippet, card_source)
 
+        self.assertNotIn("予想レンジ", card_source)
         self.assertNotIn("上昇確率", card_source)
         self.assertNotIn("信頼度", card_source)
         self.assertNotIn("リスク", card_source)
