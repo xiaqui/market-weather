@@ -384,29 +384,22 @@ support別成績を評価する余地を残す。
 このアプリは基本的に個人用途なので、
 一般ユーザー向け製品のような過剰な誤解防止UIは不要。
 
-初期UIは見やすさ優先で段階表示を基本とする。
+UIでは、降水確率のように0〜100%の数値としてそのまま表示する。
 
 例:
 
 ```text
-予報根拠度: 高
-予報根拠度: 中
-予報根拠度: 低
+予報根拠度 72%
 ```
 
-内部JSONでは0〜1を保持する。
+内部JSONでは0〜1を保持し、表示時にpercentageへ変換する。
 
-必要なら将来、詳細画面で数値を併記してよい。
-その場合も長い注意書きを毎回表示する必要はない。
+この%は的中確率ではなく、up_probabilityを支える予報材料の強さを0〜100で表したもの。
+個人用途のため、画面上で長い注意書きを毎回併記する必要はない。
+意味の説明はdocsへ置く。
 
-段階閾値は分布診断を見て決める。
-恣意的に 0.33 / 0.66 固定へしない。
-
-候補:
-- historical分布の分位
-- 既存walk-forward分布から説明可能な閾値
-
-ただし本番データで未来情報を使わないよう注意する。
+低 / 中 / 高への段階化は行わない。
+情報量を落とさず、内部値をそのまま直感的に読める表示を優先する。
 
 ## 7. UI
 
@@ -414,10 +407,10 @@ support別成績を評価する余地を残す。
 
 詳細ダイアログへ追加する。
 
-第一候補:
+表示仕様:
 
 ```text
-予報根拠度    高
+予報根拠度    72%
 ```
 
 必要なら補足:
@@ -568,7 +561,7 @@ docs/market-weather-spec.md
 - range/riskが変わらない
 - forecast JSON同期先へ反映
 - 過去JSONにforecast_supportがなくてもscoringが壊れない
-- UI詳細で段階表示
+- UI詳細でforecast_supportを0〜100%表示
 - カード表面へ追加されない
 - leak-safe回帰
 - `python -m unittest discover -s tests -p 'test_*.py'`
@@ -586,7 +579,7 @@ docs/market-weather-spec.md
 - walk-forwardでの市場別分布
 - disagreement局面でのsupport例
 - Analog品質弱/強のsupport例
-- UI段階閾値の決め方
+- UIでのpercentage表示仕様
 - 的中率との関係は参考値としてのみ報告
 - test結果
 - 変更ファイル
@@ -600,7 +593,7 @@ docs/market-weather-spec.md
 - Trend/Analog disagreementを連続的に反映
 - Analogの「質」と「実効サンプル量」を少なくとも検討
 - 的中確率として表示しない
-- UIは初期段階では低/中/高を基本とする
+- UIはforecast_supportを降水確率のように0〜100%で表示する
 - カード表面へ追加しない
 - branchへcommit/push
 - PR作成
