@@ -8,6 +8,7 @@ def record(
     analog: float | None,
     actual_up: bool,
     distance: float | None = 1.0,
+    confidence: float = 0.7,
 ) -> market_data.BacktestRecord:
     ensemble = trend if analog is None else (trend + analog) / 2
     return market_data.BacktestRecord(
@@ -18,6 +19,7 @@ def record(
         actual_up=actual_up,
         analog_count=0 if analog is None else 30,
         analog_mean_distance=None if analog is None else distance,
+        confidence=confidence,
     )
 
 
@@ -84,6 +86,17 @@ class BacktestDiagnosticsTest(unittest.TestCase):
             sum(group["sample_count"] for group in diagnostics["direction_groups"].values()),
             2,
         )
+
+    def test_confidence_buckets_preserve_every_walk_forward_sample(self) -> None:
+        records = [
+            record(0.6, 0.7, True, confidence=value)
+            for value in (0.2, 0.5, 0.7, 0.9)
+        ]
+
+        groups = market_data.build_backtest_diagnostics(records)["confidence_groups"]
+
+        self.assertEqual([group["sample_count"] for group in groups.values()], [1, 1, 1, 1])
+        self.assertTrue(all(group["direction_accuracy"] == 1.0 for group in groups.values()))
 
 
 if __name__ == "__main__":

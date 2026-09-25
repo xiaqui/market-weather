@@ -68,6 +68,8 @@ class FeatureAndPredictionTest(unittest.TestCase):
         self.assertLessEqual(prediction["up_probability"], 1)
         self.assertGreaterEqual(prediction["confidence"], 0)
         self.assertLessEqual(prediction["confidence"], 1)
+        self.assertGreaterEqual(prediction["trend_confidence"], 0)
+        self.assertLessEqual(prediction["trend_confidence"], 1)
         self.assertLess(prediction["range_low"], prediction["current"])
         self.assertLess(prediction["current"], prediction["range_high"])
         self.assertEqual(prediction["weather"], "sunny")
@@ -217,6 +219,25 @@ class WeatherMapTest(unittest.TestCase):
             self.assertEqual(prediction["analog_count"], 0)
             self.assertIsNone(prediction["analog_probability"])
             self.assertEqual(prediction["up_probability"], prediction["trend_probability"])
+            self.assertEqual(prediction["confidence"], prediction["trend_confidence"])
+
+    def test_ensemble_confidence_rewards_agreement_and_analog_support(self) -> None:
+        def analog(probability: float, count: int = market_data.ANALOG_K):
+            return market_data.AnalogResult(
+                probability, count, 1.0, 0.0, (), distance_quality=0.8
+            )
+
+        close = market_data.ensemble_confidence(0.68, 0.7, analog(0.72))
+        disagreement = market_data.ensemble_confidence(0.68, 0.7, analog(0.32))
+        sparse = market_data.ensemble_confidence(0.68, 0.7, analog(0.72, 20))
+
+        self.assertGreaterEqual(close, disagreement)
+        self.assertGreater(close, sparse)
+        self.assertGreaterEqual(disagreement, 0.0)
+        self.assertLessEqual(close, 1.0)
+
+    def test_ensemble_confidence_without_analog_is_trend_confidence(self) -> None:
+        self.assertEqual(market_data.ensemble_confidence(0.7, 0.63, None), 0.63)
 
 
 if __name__ == "__main__":

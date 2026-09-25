@@ -70,6 +70,15 @@ class CompactWebUiTest(unittest.TestCase):
         self.assertIn("ー ${amount}", source)
         self.assertIn("↓ ${amount}", source)
 
+    def test_detail_labels_confidence_as_non_probability(self) -> None:
+        source = APP_JS.read_text(encoding="utf-8")
+        detail_source = source.split("function renderDetail(market) {", 1)[1].split(
+            "globalThis.updateCurrentValues", 1
+        )[0]
+
+        self.assertIn("予報信頼度（的中確率ではありません）", detail_source)
+        self.assertIn("percent(market.confidence)", detail_source)
+
     def test_weather_label_is_left_aligned_but_range_stays_right_aligned(self) -> None:
         styles = STYLES.read_text(encoding="utf-8")
 

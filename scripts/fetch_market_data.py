@@ -136,6 +136,7 @@ class AnalogResult:
     mean_distance: float
     mean_next_return: float
     nearest: tuple[tuple[int, float], ...]
+    distance_quality: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -148,6 +149,8 @@ class BacktestRecord:
     analog_count: int
     analog_mean_distance: float | None
     historical_up_probability: float = 0.5
+    trend_confidence: float = 0.0
+    confidence: float = 0.0
 
 
 def _finite_number(value: Any) -> float | None:
@@ -574,6 +577,8 @@ def build_prediction(
         "up_probability": round(probability, 4),
         "range_low": round(low, 4),
         "range_high": round(high, 4),
+        "trend_confidence": round(max(0.0, min(1.0, confidence)), 4),
+        # Kept equal for callers that intentionally request the Trend-only model.
         "confidence": round(max(0.0, min(1.0, confidence)), 4),
         "weather": weather_for_probability(probability),
         "risk": risk_for_volatility(features.volatility_20d),
@@ -713,7 +718,8 @@ def find_analogs(
         candidates.append((state, next_return))
     if len(candidates) < MIN_ANALOGS:
         return None
-    nearest = _standardized_distances(current.vector, candidates)[:ANALOG_K]
+    all_distances = _standardized_distances(current.vector, candidates)
+    nearest = all_distances[:ANALOG_K]
     weights = [min(MAX_ANALOG_WEIGHT, 1 / (distance + DISTANCE_EPSILON)) for distance, _, _ in nearest]
     weight_sum = sum(weights)
     probability = sum(weight for weight, (_, _, value) in zip(weights, nearest) if value > 0) / weight_sum
@@ -724,7 +730,34 @@ def find_analogs(
         mean_distance=statistics.fmean(item[0] for item in nearest),
         mean_next_return=mean_return,
         nearest=tuple((item[1].timestamp, item[0]) for item in nearest[:3]),
+        # Relative to the query-time candidate distribution, so no absolute
+        # distance threshold (or future observation) is involved.
+        distance_quality=sum(
+            distance >= statistics.fmean(item[0] for item in nearest)
+            for distance, _, _ in all_distances
+        ) / len(candidates),
     )
+
+
+def ensemble_confidence(
+    trend_probability: float,
+    trend_confidence: float,
+    analog: AnalogResult | None,
+) -> float:
+    """Score supporting evidence for the final forecast; not hit probability."""
+    if analog is None:
+        return max(0.0, min(1.0, trend_confidence))
+    difference = abs(trend_probability - analog.probability)
+    same_direction = (trend_probability >= 0.5) == (analog.probability >= 0.5)
+    agreement_quality = 1.0 - difference if same_direction else max(0.0, 0.5 - difference)
+    quantity_quality = min(1.0, analog.count / ANALOG_K)
+    value = (
+        0.40 * trend_confidence
+        + 0.35 * agreement_quality
+        + 0.15 * quantity_quality
+        + 0.10 * analog.distance_quality
+    )
+    return max(0.0, min(1.0, value))
 
 
 def _historical_states(
@@ -769,6 +802,7 @@ def build_cross_asset_predictions(
         state_sets[market] = states
         analog = find_analogs(query, states, snapshot.candles)
         trend = float(prediction["trend_probability"])
+        trend_confidence = float(prediction["trend_confidence"])
         if analog is None:
             final = trend
             prediction.update({
@@ -784,6 +818,9 @@ def build_cross_asset_predictions(
                 "analog_mean_next_return": round(analog.mean_next_return, 6),
             })
         prediction["up_probability"] = round(max(0.0, min(1.0, final)), 4)
+        prediction["confidence"] = round(
+            ensemble_confidence(trend, trend_confidence, analog), 4
+        )
         prediction["weather"] = weather_for_probability(final)
         predictions[market] = prediction
     return predictions, state_sets
@@ -830,7 +867,13 @@ def walk_forward_records(
         current = weather_map_at(histories, clock, market)
         if current is None:
             continue
-        trend = float(build_prediction(history)["trend_probability"])
+        trend_prediction = build_prediction(history)
+        trend = float(trend_prediction["trend_probability"])
+        # The fallback keeps diagnostic callers that stub the legacy minimal
+        # Trend payload working; production build_prediction always supplies it.
+        trend_confidence = float(
+            trend_prediction.get("trend_confidence", trend_prediction.get("confidence", 0.0))
+        )
         analog = find_analogs(current, states, target)
         actual_up = target[next_index].close > target[next_index - 1].close
         historical_up_probability = (
@@ -856,6 +899,8 @@ def walk_forward_records(
             analog_count=analog_count,
             analog_mean_distance=analog_mean_distance,
             historical_up_probability=historical_up_probability,
+            trend_confidence=trend_confidence,
+            confidence=ensemble_confidence(trend, trend_confidence, analog),
         ))
     return records
 
@@ -991,6 +1036,24 @@ def build_backtest_diagnostics(records: list[BacktestRecord]) -> dict[str, Any]:
         )
         distance_groups[name] = metrics
 
+    confidence_groups = {}
+    for name, lower, upper in (
+        ("0.0-0.4", 0.0, 0.4),
+        ("0.4-0.6", 0.4, 0.6),
+        ("0.6-0.8", 0.6, 0.8),
+        ("0.8-1.0", 0.8, 1.0000001),
+    ):
+        group = [record for record in records if lower <= record.confidence < upper]
+        confidence_groups[name] = {
+            "sample_count": len(group),
+            "direction_accuracy": (
+                sum(
+                    (record.ensemble_probability >= 0.5) == record.actual_up
+                    for record in group
+                ) / len(group) if group else 0.0
+            ),
+        }
+
     return {
         "sample_count": len(records),
         "analog_available_count": len(available),
@@ -1001,6 +1064,7 @@ def build_backtest_diagnostics(records: list[BacktestRecord]) -> dict[str, Any]:
         "strength_groups": strength_groups,
         "agreement_strength_groups": agreement_strength_groups,
         "distance_groups": distance_groups,
+        "confidence_groups": confidence_groups,
         "below_k": _diagnostic_metrics([
             record for record in available if record.analog_count < ANALOG_K
         ]),
@@ -1035,6 +1099,9 @@ def print_backtest_diagnostics(market: str, diagnostics: dict[str, Any]) -> None
     for name, metrics in diagnostics["distance_groups"].items():
         print(f"    distance_{name} (mean={metrics['mean_distance']:.4f}): "
               f"{_format_metrics(metrics)}")
+    for name, metrics in diagnostics["confidence_groups"].items():
+        print(f"    confidence_{name}: n={metrics['sample_count']}, "
+              f"direction_accuracy={metrics['direction_accuracy']:.1%}")
     print(f"    analog_count_below_{ANALOG_K}: {_format_metrics(diagnostics['below_k'])}")
     brier = diagnostics["brier"]
     formatted_brier = {
