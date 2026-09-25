@@ -2,377 +2,351 @@
 
 ## 種別
 
-既存タスクへの追加
+新規タスク
 
-# 金融天気予報のコンパクト表示整理
+# Ensemble最終予報のconfidence設計・実装
 
 ## Git運用
 
-main直push。
+branch作業。
 
 理由:
-- Web表示だけの局所変更
-- 予報ロジック・forecast JSON・Android Yahoo現在値取得へ影響しない
-- iPhone 13 mini等の実機確認で良否を判断できる
-- 問題があっても影響範囲を特定しやすくrevert容易
+- 予測ロジックの内部計算に触れる
+- forecast JSONの `confidence` の意味を変更する
+- Trend / Analog / Ensembleの診断値とUI表示へ波及する
+- テスト・ドキュメントを含めてコード検収が必要
 
-PRは作成しない。
+専用branchで作業し、Pull Requestを作成すること。
+mainへ直接pushしない。
+
+推奨branch名:
+
+```text
+feature/ensemble-confidence
+```
+
+## 背景
+
+現在の `confidence` は Ensemble 最終予報の信頼度ではない。
+
+現行 `build_prediction()` では、Trendが使う5本の方向シグナルについて、
+
+- シグナルの方向一致度
+- 履歴量の十分性
+
+から `confidence` を計算している。
+
+その後 `build_cross_asset_predictions()` で Trend と Analog を50:50で合成し、
+`up_probability` と `weather` は最終Ensemble値へ置き換えているが、
+`confidence` はTrend由来の値のまま残っている。
+
+そのため現在のJSONは、
+
+```text
+weather / up_probability = Ensemble最終予報
+confidence              = Trend単独の内部一致度
+```
+
+という意味の不一致がある。
 
 ## 目的
 
-スマホで4市場をなるべく一画面で見渡せるよう、
-金融天気予報の初期画面をさらにコンパクトにする。
+Trend単独の内部一致度と、
+Ensemble最終予報についての「確からしさ」を分離する。
 
-特に iPhone 13 mini 級の縦画面で、4市場の概要をなるべく少ないスクロールで確認できることを優先する。
-
-以前の Issue #25 / PR #26 の仕様はそのまま採用しない。
-PR #26 は未mergeでclose済み。
-
-## 1. 見出し
-
-現在:
+最終的に:
 
 ```text
-次営業日の金融天気予報  M月D日 H:MM発表
+trend_confidence
+= Trend内部のシグナル一致度
+
+confidence
+= Ensemble最終予報のconfidence
 ```
 
-変更後:
+とする。
+
+ただし `confidence` は「的中確率」ではない。
+UI・docsでもその誤解を招かないようにする。
+
+## 1. 既存Trend confidenceを保存する
+
+現行 `build_prediction()` の confidence 計算ロジック自体は捨てない。
+
+既存の意味を `trend_confidence` として明示的に保持する。
+
+基本方針:
 
 ```text
-次営業日の金融予報  M/D H:MM発表
+現行 confidence
+→ trend_confidence
 ```
+
+Trend-only処理・単体テストで必要なら、
+互換性を壊さない範囲で一時的に内部値を扱ってよい。
+
+ただし最終的な `build_cross_asset_predictions()` の出力では、
+`confidence` はEnsemble用の値にする。
+
+## 2. Ensemble confidenceの材料
+
+以下を候補として使う。
+
+### A. Trend confidence
+
+- 既存5シグナルの方向一致度
+- 履歴十分性
+
+これは `trend_confidence` として保持する。
+
+### B. Trend / Analog の一致度
+
+Trend probability と Analog probability が近く、
+かつ同じ方向を示しているほどconfidenceを高くする材料にする。
 
 例:
 
 ```text
-次営業日の金融予報  9/24 7:30発表
+Trend 0.68 / Analog 0.72
+→ 一致度 高
+
+Trend 0.68 / Analog 0.32
+→ 一致度 低
 ```
 
-条件:
-- 見出しと発表時刻は可能な限り同一行
-- 発表時刻は現在と同程度の控えめな文字色・サイズ
-- 13 mini級でも不自然な改行をできるだけ避ける
-- 横画面でも不自然な余白や改行を作らない
-- 発表時刻は forecast.generated_at をJSTで表示する現行仕様を維持
+単に「同じ上下方向か」だけではなく、
+確率差も反映すること。
 
-## 2. カード表面
+### C. Analogの量
 
-初期カード表面で残す情報は以下を基本とする。
+`analog_count` を利用する。
 
-- 市場名
-- Androidの場合の現在値方向マーカー（↑ / ー / ↓ と変動率%）
-- 現在値
-- 天気アイコン + 天気名
-- 予想レンジ
+- 候補不足
+- MIN_ANALOGSぎりぎり
+- ANALOG_Kまで十分
 
-表面から以下を外す。
+を区別できること。
 
-- 上昇確率
-- confidence
+### D. Analogの類似度
 
-理由:
-- 上昇確率は天気判定の元データであり、初期画面では天気と重複する
-- 現行confidenceはEnsemble最終予報のconfidenceではなくTrend由来なので、天気横へ表示しない
+`analog_mean_distance` を利用候補とする。
 
-上昇確率は詳細表示に残す。
+ただし距離の絶対値に根拠のない固定閾値を置かないこと。
 
-confidenceも詳細表示には残してよいが、
-今回のタスクでは意味や計算ロジックを変更しない。
-表面へは出さない。
+可能なら既存のwalk-forward / historical statesを利用し、
+その市場・その時点までに得られる距離分布に対して相対評価するなど、
+leak-safeで説明可能な正規化を検討する。
 
-## 3. カードのレイアウト
+## 3. 重要: いきなり恣意的な式を本番採用しない
 
-目標イメージ:
+最初に候補式を実装または診断コード化し、
+walk-forwardデータで以下を確認する。
+
+- confidenceが高い群ほど実際の方向正解率が高くなる傾向があるか
+- 低confidence群との差があるか
+- 4市場で極端に挙動が違わないか
+- confidenceがほぼ常時高止まり / 低止まりしないか
+- Trend / Analog disagreement時に適切に下がるか
+- Analog不足時の挙動が自然か
+
+最低限、confidenceをいくつかのbucketへ分けて、
+各bucketの件数と方向正解率を診断すること。
+
+例:
 
 ```text
-日経平均       ↑ 1.24%
-45,630
-
-☀ 晴れ
-45,100 ～ 46,200
+0.0-0.4
+0.4-0.6
+0.6-0.8
+0.8-1.0
 ```
 
-厳密にこの改行・配置へ固定する必要はない。
-実画面で読みやすく、かつ縦方向を圧縮できる配置を選ぶこと。
+bucket境界は診断用なので、必要ならより適切な区切りへ変更してよい。
 
-条件:
-- iPhone 13 mini級の縦画面で4市場がなるべく一画面に収まる
-- 完全に収まらない場合もスクロール量を最小化
-- 文字を極端に小さくして詰め込まない
-- padding / margin / gap / border-radius等の余白を適度に圧縮
-- 市場名、現在値、天気、レンジは読みやすさを維持
-- 「晴れ時々曇り」でも破綻しない
-- 横画面では現行どおり2カラムを基本とする
-- カードが過度に縦長にならない
+診断結果をPR本文へ記載する。
 
-## 4. 詳細表示
+## 4. Analogなしの場合
 
-既存詳細ダイアログは維持する。
+Analogが `None` の場合は最終予報がTrendのみになる。
 
-最低限、以下が確認できる状態を保つ。
+この場合:
 
-- 現在値
-- 元データ最終日
-- 予測対象セッション
-- 天気
-- Trend予報
-- Analog予報
-- 最終予報（上昇確率）
-- 予想レンジ
-- confidence
+- `trend_confidence` はそのまま利用可能
+- Ensemble confidenceはTrend-only fallbackであることを明確に扱う
+- Analogが存在するケースと同じ式へ無理に0埋めしない
+
+挙動をテストで固定すること。
+
+## 5. JSON
+
+最終forecast JSONでは最低限:
+
+```json
+{
+  "trend_confidence": 0.00,
+  "confidence": 0.00
+}
+```
+
+を持つ。
+
+既存の:
+
+- trend_probability
+- analog_probability
+- analog_count
+- analog_mean_distance
+- up_probability
+- weather
+- range_low / range_high
 - risk
 
-今回、詳細側のモデル値や意味は変更しない。
+の意味は変更しない。
 
-## 5. 触らないもの
+必要ならconfidence診断用の内部値をPython内部に追加してよいが、
+説明価値の低い中間値をforecast JSONへ大量に露出させない。
 
-今回のタスクでは以下を変更しない。
+## 6. UI
 
-- Trendロジック
-- Analogロジック
-- Ensembleロジック
-- up_probability計算
-- weather分類
-- confidence計算
-- risk計算
-- forecast JSONの構造・意味
-- prospective forecast / scoring
-- 日次更新workflow
-- Android Yahoo現在値取得
-- Android現在値の更新タイミング
-- Android Java/Kotlin側ロジック
-
-Webの表示整理だけに限定する。
-
-## 6. 今回やらないもの
-
-以下は別タスクへ送る。
-
-- 全市場の円建て表示オプション
-- % / 差額 / 両方の表示切替
-- localStorageによる表示設定保存
-- Ensemble用confidenceの新設
-- confidence計算式の変更
-- riskを「風の強さ」としてUI化する作業
-- 雨雲レーダー / セクター天気図
-
-特に表示オプションは今回混ぜない。
-
-## 7. 対象ファイル
-
-基本的には以下のみ。
+詳細ダイアログの現行:
 
 ```text
-web/index.html
-web/app.js
-web/styles.css
+信頼度 xx%
 ```
 
-必要な回帰テストがある場合のみテストファイルも更新してよい。
+は、新しいEnsemble confidenceを表示する。
 
-Android側やPython予測ロジックへ変更が必要になった場合は、
-勝手に範囲を広げず作業を止めて報告する。
+ただし「的中確率」と誤解しにくい名称を検討する。
 
-## 8. テスト / 確認
+第一候補:
+
+```text
+予報信頼度
+```
+
+または、より正確で短い名称があればPRで提案してよい。
+
+Trend confidenceは通常の詳細画面へ必ずしも追加しなくてよい。
+診断値としてJSONに保持する。
+
+カード表面にはconfidenceを戻さない。
+
+## 7. docs
+
+最低限以下を更新する。
+
+```text
+docs/forecast-values-guide.md
+docs/forecast-algorithm.md
+docs/TODO.md
+```
+
+説明では、
+
+- confidenceは的中確率ではない
+- Trend confidenceとEnsemble confidenceを分離した
+- Ensemble confidenceが何を材料にしているか
+- 高confidenceでも結果を保証しない
+
+を明記する。
+
+TODOでは、完了した項目のみ[x]にする。
+
+## 8. prospective / scoringとの関係
+
+既存prospective forecastや保存済みJSONには旧confidenceが残っている。
+
+過去保存済みファイルを一括書き換えしない。
+
+新旧confidenceの意味が途中で変わることを、
+必要ならdocsまたはscoring側の説明へ明記する。
+
+履歴比較でconfidenceを使う場合、
+旧値と新値を同一指標として無条件に比較しないこと。
+
+## 9. バックテスト上の注意
+
+未来情報をconfidence計算へ使わない。
+
+Analog distanceの基準化やconfidence calibrationに実績を使う場合も、
+各walk-forward時点より未来の結果・分布を参照しないこと。
+
+現在のleak-safe制約を維持する。
+
+## 10. 触らないもの
+
+今回変更しない:
+
+- Trend probabilityの計算式
+- Analog probabilityの計算式
+- Trend / Analogの50:50 weight
+- weather閾値
+- range計算
+- risk計算
+- Yahoo取得処理
+- Android Yahoo現在値取得
+- Android refresh挙動
+- 表示オプション
+- 円換算
+- riskの風表現
+- セクター雨雲レーダー
+
+confidence以外の予測性能改善を混ぜない。
+
+## 11. テスト
 
 最低限:
 
-- 既存のWeb/UI回帰テストを実行
-- 必要なら今回の表示仕様に合わせて回帰テスト更新
-- Python全体テストで今回と無関係な既知failureがある場合は、今回起因かを切り分けて報告
-- git diff --check
-- forecast.jsonの読み込みが壊れていない
-- 詳細ダイアログが開く
-- Android用 live current update hook を壊していない
+- `trend_confidence` が0〜1
+- 新しい `confidence` が0〜1
+- Trend / Analogが近い場合は、他条件同一なら disagreementケースより低くならない
+- Trend / Analogが大きく対立する場合にconfidenceが下がる
+- Analog件数が少ないケースを適切に扱う
+- Analogなしfallback
+- forecast JSON同期先に新フィールドが反映される
+- UI詳細が新confidenceを読む
+- 既存weather / up_probability / range / riskが意図せず変化しない
+- leak-safe回帰テスト
+- `python -m unittest discover -s tests -p 'test_*.py'`
+- `git diff --check`
 
-可能なら静的なviewport確認も行う。
+既知の無関係failureがある場合は切り分けて報告する。
 
-特に確認対象:
-- iPhone 13 mini級の縦画面
-- 狭い横画面
-- 650px以上の2カラム
+## 12. PRで必ず報告するもの
 
-## 9. 完了条件
+- 採用したconfidence式
+- 各構成要素と重み
+- その式を選んだ理由
+- 4市場のwalk-forward confidence bucket診断
+- Trend / Analog disagreement時の挙動
+- Analogなし時の挙動
+- 旧confidenceとの意味の違い
+- 変更ファイル
+- test結果
+- 今後calibrationが必要な点
 
-- 見出しが「次営業日の金融予報」になっている
-- 発表時刻が `M/D H:MM発表` 形式
-- 上昇確率がカード表面から消えている
-- confidenceがカード表面に出ていない
-- 上昇確率は詳細で確認できる
-- 4市場カードの縦方向が現状より明確にコンパクト
-- 「晴れ時々曇り」でも表示破綻しない
-- 文字を極端に小さくしていない
-- 予報ロジック / JSON / Android Yahoo取得へ変更なし
-- mainへ直接commit/push
-- PRを作成していない
-- tests / git diff --check 成功、または既知無関係failureを明確に切り分け済み
+## 完了条件
+
+- 旧Trend confidenceが `trend_confidence` として保存される
+- `confidence` がEnsemble最終予報用の値になる
+- 根拠のない固定値だけでconfidenceを作らない
+- walk-forward診断で挙動を確認済み
+- confidenceが的中確率ではないことをUI/docsで明示
+- 予報ロジックのうちconfidence以外を意図せず変更していない
+- branchへcommit/push
+- PR作成
+- mainへはmergeしない
 
 ## 最後の報告
 
 以下を報告する。
 
-- Git運用: main直push
-- 選択理由
+- Git運用: branch
+- branch名
 - commit SHA
-- 変更ファイル
-- 表示上の変更点
+- PR番号
+- confidence式
+- walk-forward診断結果
 - test結果
-- 実機確認が必要なポイント
+- 変更ファイル
 - 残課題
-
-
-## 追加指示: 実機確認後のカード下段レイアウト調整
-
-実機確認で、カード全体のサイズ感・高さは現在のままで良好だった。
-カードサイズはこれ以上大きくしないこと。
-
-### 発表日の曜日表示
-
-見出しの発表日へ曜日を追加する。
-
-例:
-
-```text
-次営業日の金融予報  9/25(金) 11:11発表
-```
-
-条件:
-- forecast.generated_at を Asia/Tokyo で表示する現行仕様を維持
-- 曜日は日本語の短縮表記（日 / 月 / 火 / 水 / 木 / 金 / 土）
-- 見出しと発表時刻は引き続き可能な限り1行を維持
-- 13 mini級で不自然な折返しを増やさない
-
-### lineより下の構成
-
-カード上段の
-
-```text
-市場名                     現在値
-------------------------------
-```
-
-は現在のサイズ感・高さを基本的に維持する。
-
-区切りlineより下を2カラム構成に変更する。
-
-目標イメージ:
-
-```text
-市場名                     現在値
-------------------------------
-[  大きい  ]       晴れ時々曇り
-[ 天気icon ]    予想レンジ 65,360.6 ～ 67,279.36
-```
-
-構造:
-- 左列: 天気アイコン
-- 右列上段: 天気説明（晴れ / 晴れ時々曇り / 曇り / 雨 / 荒天）
-- 右列下段: 予想レンジ
-
-### 天気アイコン
-
-- 現在より明確に大きくする
-- lineより下の左側スペースを有効に使い、下段領域の高さに対して大きく見せる
-- カード全体の高さを増やして実現しない
-- 絵文字の上下が切れないこと
-- 晴れ時々曇り等でもレイアウトが破綻しないこと
-
-### 天気説明
-
-- 大きいアイコンの右側・上段に配置
-- アイコンとの関係が自然に見えること
-- 文言を略さない
-- 「晴れ時々曇り」でも収まること
-
-### 予想レンジ
-
-- 右列下段へ配置
-- 行全体として右寄せする
-- `予想レンジ` ラベルも値も残す
-- 数値は現行の桁・精度を維持
-- 長い数値でもカードからはみ出さないこと
-- 必要なら右列内の文字サイズ・gapを微調整してよいが、可読性を落としすぎない
-
-### 最重要
-
-- 現在のカード外形サイズ・高さをキープする
-- 4市場が現在と同程度に一画面へ収まる状態を維持する
-- カードを縦に伸ばして解決しない
-- 上昇確率 / confidence は引き続き表面へ戻さない
-- 予報ロジック / JSON / Android Yahoo現在値取得には触らない
-
-### 追加完了条件
-
-- 発表日が `M/D(曜) H:MM発表` 形式
-- カード全体の高さが実質増えていない
-- line下が左:大きい天気アイコン / 右上:天気説明 / 右下:右寄せ予想レンジの2カラム
-- 「晴れ時々曇り」でも破綻しない
-- 4市場の一覧性を維持
-
-
-## 追加指示: 実機確認後の微調整 2
-
-最新の実機確認では、カード全体サイズと2カラム方針は良好。
-以下の2点だけ追加で調整する。
-
-### 天気説明の位置
-
-現状は天気説明が右列の右端へ寄りすぎている。
-
-変更:
-- 天気説明（晴れ / 晴れ時々曇り / 曇り / 雨 / 荒天）は右寄せしない
-- 大きな天気アイコンの「すぐ右」に配置する
-- 左寄せで、アイコンとの間だけ自然なgapを取る
-- 予想レンジは引き続き右寄せを維持する
-
-目標イメージ:
-
-```text
-[ 大きい天気icon ] 晴れ時々曇り
-
-                    予想レンジ 65,360.6 ～ 67,279.36
-```
-
-つまり、
-- 右上の天気説明 = 左寄せ
-- 右下の予想レンジ = 右寄せ
-とする。
-
-### 天気アイコンをさらに大きく
-
-- 現在よりもう一段大きくする
-- line下の左側スペースをより大胆に使う
-- カード全体の高さは増やさない
-- アイコンが上下で切れないこと
-- 日経平均の「晴れ時々曇り」アイコンでも窮屈に見えないこと
-- 雨 / 晴れなど単独アイコンもバランスよく見えること
-
-目安として、現状の見た目から明確に「大きくなった」と分かるサイズまで上げる。
-ただしカード外形サイズ維持を最優先とする。
-
-### 追加完了条件
-
-- 天気説明がアイコン直後に左寄せで表示される
-- 予想レンジは右寄せのまま
-- 天気アイコンが現状よりさらに大きい
-- カード全体の高さ・一覧性は維持
-- 「晴れ時々曇り」でも崩れない
-
-
-## 追加指示: 実機確認後の微調整 3
-
-カード表面のラベルをさらに短縮する。
-
-変更:
-- カード表面の `予想レンジ` を `予想` に変更する
-- 数値レンジ自体はそのまま維持する
-- 例: `予想 65,360.6 ～ 67,279.36`
-- 右寄せ配置は維持する
-- 詳細ダイアログ側は正式表記の `予想レンジ` のままでよい
-- 予報ロジック、数値、JSONには触らない
-
-### 追加完了条件
-
-- カード表面では `予想` 表記
-- 詳細画面では `予想レンジ` 表記を維持
-- 右寄せとカード高さを維持
