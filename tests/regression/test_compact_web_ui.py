@@ -76,7 +76,7 @@ class CompactWebUiTest(unittest.TestCase):
             "globalThis.updateCurrentValues", 1
         )[0]
 
-        self.assertIn("予報信頼度（的中確率ではありません）", detail_source)
+        self.assertIn("Trend信頼度（シグナル一致度・的中確率ではありません）", detail_source)
         self.assertIn("percent(market.confidence)", detail_source)
 
     def test_weather_label_is_left_aligned_but_range_stays_right_aligned(self) -> None:

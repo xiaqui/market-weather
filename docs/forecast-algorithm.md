@@ -194,7 +194,7 @@ trend_confidence
 「データ量が十分で、5本の方向シグナルがすべて同方向」
 という意味。
 
-最終出力ではこの値とは別に、次節のEnsemble用`confidence`を持つ。
+現時点の最終出力では`confidence`も同じ旧定義を維持する。
 
 ## 9. 天気分類
 
@@ -369,7 +369,12 @@ up_probability = 0.5 × trend_probability + 0.5 × analog_probability
 
 JSONには `trend_probability`、`analog_probability`、`analog_count`、
 `analog_mean_distance`、`analog_mean_next_return`、最終値の `up_probability` を分けて残す。
-`trend_confidence`にはTrend内部の方向一致度を残す。最終予報の`confidence`は次式とする。
+`trend_confidence`にはTrend内部の方向一致度を明示的に残す。Ensemble用confidenceは
+時系列分離したvalidationで有効性を確認できなかったため、本番採用を保留し、既存の
+`confidence`も互換性を優先してTrend内部一致度のまま維持する。
+
+診断では、Trend単独、TrendとAnalogの連続的一致度、相対距離品質、および次の旧候補Aを
+組み合わせた5候補を比較した。
 
 ```text
 confidence = 0.40 × trend_confidence
@@ -378,14 +383,16 @@ confidence = 0.40 × trend_confidence
            + 0.10 × Analog相対距離品質
 ```
 
-一致品質は同方向なら`1 - abs(Trend - Analog)`、逆方向なら
-`max(0, 0.5 - abs(Trend - Analog))`。相対距離品質は、その予測時点までに結果が確定した
+候補Aの一致品質は同方向なら`1 - abs(Trend - Analog)`、逆方向なら
+`max(0, 0.5 - abs(Trend - Analog))`。比較用の新候補では0.5付近の不連続を避けるため、
+確率差から連続的に算出する。相対距離品質は、その予測時点までに結果が確定した
 候補だけの距離分布で、採用Analog平均距離以上に遠い候補の割合である。絶対距離の固定閾値や
-未来情報は使わない。AnalogなしではTrend-only fallbackとして
-`confidence = trend_confidence`とする。これは材料の支持度であって的中確率・結果保証ではない。
+未来情報は使わない。候補値はいずれも的中確率ではない。
 
-保存済みforecastは書き換えない。`trend_confidence`を持たない旧JSONの`confidence`は旧来の
-Trend内部一致度なので、新定義と同一系列として無条件には比較しない。
+古い252セッションをtrain、新しい252セッションをvalidationとして市場別・全市場統合で
+評価したが、高群が低群より良い傾向は市場間で再現しなかった。Analog件数もvalidation全件で
+30だったため識別力がなく、本番候補から除外した。詳細結果は
+`reports/confidence-validation.json`に保存する。保存済みforecastは書き換えない。
 
 ### walk-forward検証
 

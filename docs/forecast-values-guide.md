@@ -248,17 +248,14 @@ Ensemble
 `trend_confidence = 100%` でも、
 「次の営業日が100%その方向へ動く」という意味ではありません。
 
-## confidence（予報信頼度）
+## confidence（Trend信頼度／シグナル一致度）
 
-`confidence` は最終Ensemble予報を支える材料の揃い具合であり、的中確率ではありません。
-Trend内部一致度（40%）、TrendとAnalogの確率差および方向一致（35%）、Analog件数の
-`k = 30` に対する充足度（15%）、その時点までの候補距離分布に対するAnalogの相対的な
-近さ（10%）を組み合わせます。Analogが作れない場合はTrend-only fallbackとなり、
-`confidence = trend_confidence` です。
+`confidence` は互換性のため旧定義を維持しており、現在は`trend_confidence`と同じ
+Trend内部一致度です。最終Ensemble予報の的中確率や信頼性を直接表す値ではありません。
 
-高い値でも結果を保証しません。特に保存済みの過去forecastは旧定義（Trend内部一致度）を
-保持しているため、`trend_confidence` がない旧JSONと新しい`confidence`を同一指標として
-無条件に比較しないでください。
+Trend・Analogの一致度、Analog件数、相対距離を使う複数候補も検証しましたが、時系列分離した
+validationで高い群ほど方向正解率が高い関係を市場横断で確認できなかったため、Ensemble用
+confidenceへの移行は見送りました。高い値でも結果を保証しません。
 
 ---
 

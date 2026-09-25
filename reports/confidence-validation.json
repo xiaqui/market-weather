@@ -1,0 +1,1595 @@
+{
+  "markets": {
+    "nikkei": {
+      "train": {
+        "count": 252,
+        "start_date_utc": "2024-08-29",
+        "end_date_utc": "2025-09-09"
+      },
+      "validation": {
+        "count": 252,
+        "start_date_utc": "2025-09-10",
+        "end_date_utc": "2026-09-25"
+      },
+      "analog_count_distribution": {
+        "min": 30,
+        "max": 30,
+        "mean": 30.0
+      },
+      "candidates": {
+        "trend_only": {
+          "train_quartile_boundaries": [
+            0.6,
+            0.8,
+            1.0
+          ],
+          "validation_distribution": {
+            "mean": 0.8198412698412698,
+            "min": 0.6,
+            "max": 1.0,
+            "p10": 0.6,
+            "p50": 0.8,
+            "p90": 1.0
+          },
+          "fixed_buckets": {
+            "0.0-0.4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.4-0.6": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.6-0.8": {
+              "count": 74,
+              "direction_accuracy": 0.6216216216216216,
+              "confidence_mean": 0.6
+            },
+            "0.8-1.0": {
+              "count": 178,
+              "direction_accuracy": 0.5,
+              "confidence_mean": 0.9112359550561798
+            }
+          },
+          "train_quantile_buckets": {
+            "q1": {
+              "count": 74,
+              "direction_accuracy": 0.6216216216216216,
+              "confidence_mean": 0.6
+            },
+            "q2": {
+              "count": 79,
+              "direction_accuracy": 0.5189873417721519,
+              "confidence_mean": 0.8
+            },
+            "q3": {
+              "count": 99,
+              "direction_accuracy": 0.48484848484848486,
+              "confidence_mean": 1.0
+            },
+            "q4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            }
+          },
+          "high_minus_low_accuracy": null
+        },
+        "trend_agreement": {
+          "train_quartile_boundaries": [
+            0.7138660619852839,
+            0.7671118777294712,
+            0.8762717113901514
+          ],
+          "validation_distribution": {
+            "mean": 0.7829013011163198,
+            "min": 0.395062524250131,
+            "max": 0.9983261341649338,
+            "p10": 0.6499876703039486,
+            "p50": 0.7683098194566638,
+            "p90": 0.929877224057436
+          },
+          "fixed_buckets": {
+            "0.0-0.4": {
+              "count": 1,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.395062524250131
+            },
+            "0.4-0.6": {
+              "count": 10,
+              "direction_accuracy": 0.7,
+              "confidence_mean": 0.5628770128197903
+            },
+            "0.6-0.8": {
+              "count": 131,
+              "direction_accuracy": 0.5267175572519084,
+              "confidence_mean": 0.7174317331268245
+            },
+            "0.8-1.0": {
+              "count": 110,
+              "direction_accuracy": 0.5363636363636364,
+              "confidence_mean": 0.8843976199022778
+            }
+          },
+          "train_quantile_buckets": {
+            "q1": {
+              "count": 68,
+              "direction_accuracy": 0.5,
+              "confidence_mean": 0.6514193969131499
+            },
+            "q2": {
+              "count": 57,
+              "direction_accuracy": 0.5789473684210527,
+              "confidence_mean": 0.7429027260120528
+            },
+            "q3": {
+              "count": 67,
+              "direction_accuracy": 0.5522388059701493,
+              "confidence_mean": 0.8218462527929143
+            },
+            "q4": {
+              "count": 60,
+              "direction_accuracy": 0.5166666666666667,
+              "confidence_mean": 0.926424242856769
+            }
+          },
+          "high_minus_low_accuracy": 0.01666666666666672
+        },
+        "trend_agreement_distance": {
+          "train_quartile_boundaries": [
+            0.7581173827742026,
+            0.8004207762340676,
+            0.8920445172067666
+          ],
+          "validation_distribution": {
+            "mean": 0.813773598692804,
+            "min": 0.4799237238385622,
+            "max": 0.9977217612502776,
+            "p10": 0.702885165224916,
+            "p50": 0.8016280225888234,
+            "p90": 0.9378588716556835
+          },
+          "fixed_buckets": {
+            "0.0-0.4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.4-0.6": {
+              "count": 3,
+              "direction_accuracy": 0.6666666666666666,
+              "confidence_mean": 0.5485005875484316
+            },
+            "0.6-0.8": {
+              "count": 122,
+              "direction_accuracy": 0.5327868852459017,
+              "confidence_mean": 0.742698884502018
+            },
+            "0.8-1.0": {
+              "count": 127,
+              "direction_accuracy": 0.5354330708661418,
+              "confidence_mean": 0.8883163873912999
+            }
+          },
+          "train_quantile_buckets": {
+            "q1": {
+              "count": 73,
+              "direction_accuracy": 0.4931506849315068,
+              "confidence_mean": 0.7057814839596639
+            },
+            "q2": {
+              "count": 52,
+              "direction_accuracy": 0.5961538461538461,
+              "confidence_mean": 0.7833214873622313
+            },
+            "q3": {
+              "count": 65,
+              "direction_accuracy": 0.5538461538461539,
+              "confidence_mean": 0.8449472577996366
+            },
+            "q4": {
+              "count": 62,
+              "direction_accuracy": 0.5161290322580645,
+              "confidence_mean": 0.9337840232535275
+            }
+          },
+          "high_minus_low_accuracy": 0.02297834732655768
+        },
+        "candidate_a": {
+          "train_quartile_boundaries": [
+            0.6480278172261144,
+            0.798828768340089,
+            0.9005898666728689
+          ],
+          "validation_distribution": {
+            "mean": 0.7629945984299905,
+            "min": 0.4894960100797984,
+            "max": 0.9979180834436999,
+            "p10": 0.5890264611914376,
+            "p50": 0.7783091144338087,
+            "p90": 0.9345665647871664
+          },
+          "fixed_buckets": {
+            "0.0-0.4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.4-0.6": {
+              "count": 36,
+              "direction_accuracy": 0.5833333333333334,
+              "confidence_mean": 0.5697154016345566
+            },
+            "0.6-0.8": {
+              "count": 99,
+              "direction_accuracy": 0.47474747474747475,
+              "confidence_mean": 0.683443891260658
+            },
+            "0.8-1.0": {
+              "count": 117,
+              "direction_accuracy": 0.5726495726495726,
+              "confidence_mean": 0.8897772573564825
+            }
+          },
+          "train_quantile_buckets": {
+            "q1": {
+              "count": 61,
+              "direction_accuracy": 0.47540983606557374,
+              "confidence_mean": 0.5919978050024178
+            },
+            "q2": {
+              "count": 74,
+              "direction_accuracy": 0.527027027027027,
+              "confidence_mean": 0.7034977511959687
+            },
+            "q3": {
+              "count": 63,
+              "direction_accuracy": 0.6507936507936508,
+              "confidence_mean": 0.8478462554414709
+            },
+            "q4": {
+              "count": 54,
+              "direction_accuracy": 0.48148148148148145,
+              "confidence_mean": 0.9386967595906627
+            }
+          },
+          "high_minus_low_accuracy": 0.0060716454159077116
+        },
+        "candidate_a_without_count": {
+          "train_quartile_boundaries": [
+            0.5859150790895463,
+            0.7633279627530458,
+            0.883046901968081
+          ],
+          "validation_distribution": {
+            "mean": 0.7211701157999888,
+            "min": 0.3994070706821158,
+            "max": 0.9975506864043528,
+            "p10": 0.51650171904875,
+            "p50": 0.7391871934515396,
+            "p90": 0.9230194879849017
+          },
+          "fixed_buckets": {
+            "0.0-0.4": {
+              "count": 1,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.3994070706821158
+            },
+            "0.4-0.6": {
+              "count": 76,
+              "direction_accuracy": 0.5131578947368421,
+              "confidence_mean": 0.5368808773335425
+            },
+            "0.6-0.8": {
+              "count": 79,
+              "direction_accuracy": 0.5822784810126582,
+              "confidence_mean": 0.6994314199052887
+            },
+            "0.8-1.0": {
+              "count": 96,
+              "direction_accuracy": 0.5208333333333334,
+              "confidence_mean": 0.8883065964692505
+            }
+          },
+          "train_quantile_buckets": {
+            "q1": {
+              "count": 61,
+              "direction_accuracy": 0.47540983606557374,
+              "confidence_mean": 0.5199974176499033
+            },
+            "q2": {
+              "count": 74,
+              "direction_accuracy": 0.527027027027027,
+              "confidence_mean": 0.6511738249364338
+            },
+            "q3": {
+              "count": 63,
+              "direction_accuracy": 0.6507936507936508,
+              "confidence_mean": 0.8209955946370245
+            },
+            "q4": {
+              "count": 54,
+              "direction_accuracy": 0.48148148148148145,
+              "confidence_mean": 0.9278785406948972
+            }
+          },
+          "high_minus_low_accuracy": 0.0060716454159077116
+        }
+      }
+    },
+    "dow": {
+      "train": {
+        "count": 252,
+        "start_date_utc": "2024-09-19",
+        "end_date_utc": "2025-09-22"
+      },
+      "validation": {
+        "count": 252,
+        "start_date_utc": "2025-09-23",
+        "end_date_utc": "2026-09-24"
+      },
+      "analog_count_distribution": {
+        "min": 30,
+        "max": 30,
+        "mean": 30.0
+      },
+      "candidates": {
+        "trend_only": {
+          "train_quartile_boundaries": [
+            0.6,
+            0.8,
+            1.0
+          ],
+          "validation_distribution": {
+            "mean": 0.819047619047619,
+            "min": 0.6,
+            "max": 1.0,
+            "p10": 0.6,
+            "p50": 0.8,
+            "p90": 1.0
+          },
+          "fixed_buckets": {
+            "0.0-0.4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.4-0.6": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.6-0.8": {
+              "count": 82,
+              "direction_accuracy": 0.4634146341463415,
+              "confidence_mean": 0.6
+            },
+            "0.8-1.0": {
+              "count": 170,
+              "direction_accuracy": 0.4823529411764706,
+              "confidence_mean": 0.9247058823529412
+            }
+          },
+          "train_quantile_buckets": {
+            "q1": {
+              "count": 82,
+              "direction_accuracy": 0.4634146341463415,
+              "confidence_mean": 0.6
+            },
+            "q2": {
+              "count": 64,
+              "direction_accuracy": 0.5,
+              "confidence_mean": 0.8
+            },
+            "q3": {
+              "count": 106,
+              "direction_accuracy": 0.4716981132075472,
+              "confidence_mean": 1.0
+            },
+            "q4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            }
+          },
+          "high_minus_low_accuracy": null
+        },
+        "trend_agreement": {
+          "train_quartile_boundaries": [
+            0.7225474180496043,
+            0.7887038801047437,
+            0.8927653172890193
+          ],
+          "validation_distribution": {
+            "mean": 0.8015794368685605,
+            "min": 0.5489749271817782,
+            "max": 0.9990494676419283,
+            "p10": 0.6759552659313597,
+            "p50": 0.8031570702663257,
+            "p90": 0.9324445190497591
+          },
+          "fixed_buckets": {
+            "0.0-0.4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.4-0.6": {
+              "count": 10,
+              "direction_accuracy": 0.5,
+              "confidence_mean": 0.5774998867712733
+            },
+            "0.6-0.8": {
+              "count": 115,
+              "direction_accuracy": 0.43478260869565216,
+              "confidence_mean": 0.7252877754302216
+            },
+            "0.8-1.0": {
+              "count": 127,
+              "direction_accuracy": 0.5118110236220472,
+              "confidence_mean": 0.8883064964463705
+            }
+          },
+          "train_quantile_buckets": {
+            "q1": {
+              "count": 61,
+              "direction_accuracy": 0.47540983606557374,
+              "confidence_mean": 0.6695600049148548
+            },
+            "q2": {
+              "count": 58,
+              "direction_accuracy": 0.41379310344827586,
+              "confidence_mean": 0.7512461172905485
+            },
+            "q3": {
+              "count": 72,
+              "direction_accuracy": 0.5138888888888888,
+              "confidence_mean": 0.844242012448003
+            },
+            "q4": {
+              "count": 61,
+              "direction_accuracy": 0.4918032786885246,
+              "confidence_mean": 0.9311009523272638
+            }
+          },
+          "high_minus_low_accuracy": 0.016393442622950838
+        },
+        "trend_agreement_distance": {
+          "train_quartile_boundaries": [
+            0.7648682576634547,
+            0.8185127853548413,
+            0.9052532374669509
+          ],
+          "validation_distribution": {
+            "mean": 0.8301786703474154,
+            "min": 0.6146553868654512,
+            "max": 0.9984610402947026,
+            "p10": 0.7255692557023592,
+            "p50": 0.8318449565460523,
+            "p90": 0.9401140173481102
+          },
+          "fixed_buckets": {
+            "0.0-0.4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.4-0.6": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.6-0.8": {
+              "count": 110,
+              "direction_accuracy": 0.45454545454545453,
+              "confidence_mean": 0.7484439135460017
+            },
+            "0.8-1.0": {
+              "count": 142,
+              "direction_accuracy": 0.49295774647887325,
+              "confidence_mean": 0.893494327024567
+            }
+          },
+          "train_quantile_buckets": {
+            "q1": {
+              "count": 59,
+              "direction_accuracy": 0.4915254237288136,
+              "confidence_mean": 0.7177592499103287
+            },
+            "q2": {
+              "count": 60,
+              "direction_accuracy": 0.4,
+              "confidence_mean": 0.7876639846058647
+            },
+            "q3": {
+              "count": 72,
+              "direction_accuracy": 0.5138888888888888,
+              "confidence_mean": 0.8655438489845549
+            },
+            "q4": {
+              "count": 61,
+              "direction_accuracy": 0.4918032786885246,
+              "confidence_mean": 0.9389874258950731
+            }
+          },
+          "high_minus_low_accuracy": 0.00027785495971099916
+        },
+        "candidate_a": {
+          "train_quartile_boundaries": [
+            0.651872746146946,
+            0.8010232774009802,
+            0.9055587091872647
+          ],
+          "validation_distribution": {
+            "mean": 0.7773836597351781,
+            "min": 0.5274128336476176,
+            "max": 0.9986967882586976,
+            "p10": 0.6071864207488484,
+            "p50": 0.797788744660017,
+            "p90": 0.9403503001396041
+          },
+          "fixed_buckets": {
+            "0.0-0.4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.4-0.6": {
+              "count": 21,
+              "direction_accuracy": 0.5238095238095238,
+              "confidence_mean": 0.5623035936581813
+            },
+            "0.6-0.8": {
+              "count": 106,
+              "direction_accuracy": 0.41509433962264153,
+              "confidence_mean": 0.6825972984242625
+            },
+            "0.8-1.0": {
+              "count": 125,
+              "direction_accuracy": 0.52,
+              "confidence_mean": 0.8938959452277698
+            }
+          },
+          "train_quantile_buckets": {
+            "q1": {
+              "count": 61,
+              "direction_accuracy": 0.47540983606557374,
+              "confidence_mean": 0.6049855796285749
+            },
+            "q2": {
+              "count": 67,
+              "direction_accuracy": 0.3880597014925373,
+              "confidence_mean": 0.717308199435089
+            },
+            "q3": {
+              "count": 58,
+              "direction_accuracy": 0.5517241379310345,
+              "confidence_mean": 0.8474415225127988
+            },
+            "q4": {
+              "count": 66,
+              "direction_accuracy": 0.5,
+              "confidence_mean": 0.9361409731519474
+            }
+          },
+          "high_minus_low_accuracy": 0.024590163934426257
+        },
+        "candidate_a_without_count": {
+          "train_quartile_boundaries": [
+            0.59043852487876,
+            0.7659097381188003,
+            0.8888925990438408
+          ],
+          "validation_distribution": {
+            "mean": 0.7380984232178566,
+            "min": 0.4440150984089618,
+            "max": 0.9984668097161148,
+            "p10": 0.5378663773515865,
+            "p50": 0.7621044054823729,
+            "p90": 0.9298238825171813
+          },
+          "fixed_buckets": {
+            "0.0-0.4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.4-0.6": {
+              "count": 64,
+              "direction_accuracy": 0.453125,
+              "confidence_mean": 0.5382092343783743
+            },
+            "0.6-0.8": {
+              "count": 85,
+              "direction_accuracy": 0.4117647058823529,
+              "confidence_mean": 0.6993145038136442
+            },
+            "0.8-1.0": {
+              "count": 103,
+              "direction_accuracy": 0.5436893203883495,
+              "confidence_mean": 0.8943075614225644
+            }
+          },
+          "train_quantile_buckets": {
+            "q1": {
+              "count": 61,
+              "direction_accuracy": 0.47540983606557374,
+              "confidence_mean": 0.5352771525042057
+            },
+            "q2": {
+              "count": 67,
+              "direction_accuracy": 0.3880597014925373,
+              "confidence_mean": 0.6674214111001046
+            },
+            "q3": {
+              "count": 58,
+              "direction_accuracy": 0.5517241379310345,
+              "confidence_mean": 0.8205194382503516
+            },
+            "q4": {
+              "count": 66,
+              "direction_accuracy": 0.5,
+              "confidence_mean": 0.9248717331199381
+            }
+          },
+          "high_minus_low_accuracy": 0.024590163934426257
+        }
+      }
+    },
+    "usdjpy": {
+      "train": {
+        "count": 252,
+        "start_date_utc": "2024-08-25",
+        "end_date_utc": "2025-09-09"
+      },
+      "validation": {
+        "count": 252,
+        "start_date_utc": "2025-09-10",
+        "end_date_utc": "2026-09-23"
+      },
+      "analog_count_distribution": {
+        "min": 30,
+        "max": 30,
+        "mean": 30.0
+      },
+      "candidates": {
+        "trend_only": {
+          "train_quartile_boundaries": [
+            0.6,
+            0.8,
+            1.0
+          ],
+          "validation_distribution": {
+            "mean": 0.8214285714285714,
+            "min": 0.6,
+            "max": 1.0,
+            "p10": 0.6,
+            "p50": 0.8,
+            "p90": 1.0
+          },
+          "fixed_buckets": {
+            "0.0-0.4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.4-0.6": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.6-0.8": {
+              "count": 72,
+              "direction_accuracy": 0.625,
+              "confidence_mean": 0.6
+            },
+            "0.8-1.0": {
+              "count": 180,
+              "direction_accuracy": 0.5222222222222223,
+              "confidence_mean": 0.91
+            }
+          },
+          "train_quantile_buckets": {
+            "q1": {
+              "count": 72,
+              "direction_accuracy": 0.625,
+              "confidence_mean": 0.6
+            },
+            "q2": {
+              "count": 81,
+              "direction_accuracy": 0.5555555555555556,
+              "confidence_mean": 0.7999999999999999
+            },
+            "q3": {
+              "count": 99,
+              "direction_accuracy": 0.494949494949495,
+              "confidence_mean": 1.0
+            },
+            "q4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            }
+          },
+          "high_minus_low_accuracy": null
+        },
+        "trend_agreement": {
+          "train_quartile_boundaries": [
+            0.7143253095331769,
+            0.8001386411214826,
+            0.8810858143565661
+          ],
+          "validation_distribution": {
+            "mean": 0.8012874591432588,
+            "min": 0.4730869674038459,
+            "max": 0.9886096401878637,
+            "p10": 0.6708725699202632,
+            "p50": 0.7996041011069168,
+            "p90": 0.9301500269437286
+          },
+          "fixed_buckets": {
+            "0.0-0.4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.4-0.6": {
+              "count": 4,
+              "direction_accuracy": 0.5,
+              "confidence_mean": 0.5372969447133368
+            },
+            "0.6-0.8": {
+              "count": 122,
+              "direction_accuracy": 0.5901639344262295,
+              "confidence_mean": 0.7206549349247633
+            },
+            "0.8-1.0": {
+              "count": 126,
+              "direction_accuracy": 0.5158730158730159,
+              "confidence_mean": 0.8877408719398949
+            }
+          },
+          "train_quantile_buckets": {
+            "q1": {
+              "count": 52,
+              "direction_accuracy": 0.6153846153846154,
+              "confidence_mean": 0.6593079162234928
+            },
+            "q2": {
+              "count": 74,
+              "direction_accuracy": 0.5675675675675675,
+              "confidence_mean": 0.7538524080547679
+            },
+            "q3": {
+              "count": 57,
+              "direction_accuracy": 0.543859649122807,
+              "confidence_mean": 0.8441910911174493
+            },
+            "q4": {
+              "count": 69,
+              "direction_accuracy": 0.4927536231884058,
+              "confidence_mean": 0.9237167778366978
+            }
+          },
+          "high_minus_low_accuracy": -0.1226309921962096
+        },
+        "trend_agreement_distance": {
+          "train_quartile_boundaries": [
+            0.7581855382440977,
+            0.8269006531380405,
+            0.895180569433167
+          ],
+          "validation_distribution": {
+            "mean": 0.829813298321539,
+            "min": 0.5482658520745278,
+            "max": 0.9893081604391061,
+            "p10": 0.7191799871974802,
+            "p50": 0.8273246158561985,
+            "p90": 0.938128504891497
+          },
+          "fixed_buckets": {
+            "0.0-0.4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.4-0.6": {
+              "count": 1,
+              "direction_accuracy": 1.0,
+              "confidence_mean": 0.5482658520745278
+            },
+            "0.6-0.8": {
+              "count": 104,
+              "direction_accuracy": 0.5769230769230769,
+              "confidence_mean": 0.7473348026874067
+            },
+            "0.8-1.0": {
+              "count": 147,
+              "direction_accuracy": 0.5306122448979592,
+              "confidence_mean": 0.8900807200371634
+            }
+          },
+          "train_quantile_buckets": {
+            "q1": {
+              "count": 54,
+              "direction_accuracy": 0.6111111111111112,
+              "confidence_mean": 0.7112295044954108
+            },
+            "q2": {
+              "count": 72,
+              "direction_accuracy": 0.5555555555555556,
+              "confidence_mean": 0.7916446742052002
+            },
+            "q3": {
+              "count": 55,
+              "direction_accuracy": 0.5818181818181818,
+              "confidence_mean": 0.8649160161784156
+            },
+            "q4": {
+              "count": 71,
+              "direction_accuracy": 0.4788732394366197,
+              "confidence_mean": 0.931517753544907
+            }
+          },
+          "high_minus_low_accuracy": -0.13223787167449147
+        },
+        "candidate_a": {
+          "train_quartile_boundaries": [
+            0.6572901905757709,
+            0.7956486859487345,
+            0.9028071774960504
+          ],
+          "validation_distribution": {
+            "mean": 0.7828727124723004,
+            "min": 0.49474821588439266,
+            "max": 0.9895499186808643,
+            "p10": 0.6017290799777725,
+            "p50": 0.8215077986209026,
+            "p90": 0.9380165562518703
+          },
+          "fixed_buckets": {
+            "0.0-0.4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.4-0.6": {
+              "count": 21,
+              "direction_accuracy": 0.6666666666666666,
+              "confidence_mean": 0.5658646323131005
+            },
+            "0.6-0.8": {
+              "count": 91,
+              "direction_accuracy": 0.5604395604395604,
+              "confidence_mean": 0.6660434062225558
+            },
+            "0.8-1.0": {
+              "count": 140,
+              "direction_accuracy": 0.5285714285714286,
+              "confidence_mean": 0.8913629735585145
+            }
+          },
+          "train_quantile_buckets": {
+            "q1": {
+              "count": 68,
+              "direction_accuracy": 0.6176470588235294,
+              "confidence_mean": 0.6078301355657175
+            },
+            "q2": {
+              "count": 44,
+              "direction_accuracy": 0.5227272727272727,
+              "confidence_mean": 0.7081967733263386
+            },
+            "q3": {
+              "count": 72,
+              "direction_accuracy": 0.5416666666666666,
+              "confidence_mean": 0.8517918385960725
+            },
+            "q4": {
+              "count": 68,
+              "direction_accuracy": 0.5147058823529411,
+              "confidence_mean": 0.9332618223422765
+            }
+          },
+          "high_minus_low_accuracy": -0.10294117647058831
+        },
+        "candidate_a_without_count": {
+          "train_quartile_boundaries": [
+            0.5968119889126715,
+            0.7595866893514523,
+            0.88565550293653
+          ],
+          "validation_distribution": {
+            "mean": 0.7445561323203536,
+            "min": 0.4055861363345796,
+            "max": 0.9877057866833696,
+            "p10": 0.5314459764444381,
+            "p50": 0.7900091748481208,
+            "p90": 0.9270783014727887
+          },
+          "fixed_buckets": {
+            "0.0-0.4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.4-0.6": {
+              "count": 68,
+              "direction_accuracy": 0.6176470588235294,
+              "confidence_mean": 0.5386236889008442
+            },
+            "0.6-0.8": {
+              "count": 63,
+              "direction_accuracy": 0.5238095238095238,
+              "confidence_mean": 0.6944423669725616
+            },
+            "0.8-1.0": {
+              "count": 121,
+              "direction_accuracy": 0.5289256198347108,
+              "confidence_mean": 0.8863790527289281
+            }
+          },
+          "train_quantile_buckets": {
+            "q1": {
+              "count": 68,
+              "direction_accuracy": 0.6176470588235294,
+              "confidence_mean": 0.5386236889008442
+            },
+            "q2": {
+              "count": 44,
+              "direction_accuracy": 0.5227272727272727,
+              "confidence_mean": 0.6567020862662807
+            },
+            "q3": {
+              "count": 72,
+              "direction_accuracy": 0.5416666666666666,
+              "confidence_mean": 0.8256374571718501
+            },
+            "q4": {
+              "count": 68,
+              "direction_accuracy": 0.5147058823529411,
+              "confidence_mean": 0.9214844968732665
+            }
+          },
+          "high_minus_low_accuracy": -0.10294117647058831
+        }
+      }
+    },
+    "gold": {
+      "train": {
+        "count": 252,
+        "start_date_utc": "2024-09-24",
+        "end_date_utc": "2025-09-23"
+      },
+      "validation": {
+        "count": 252,
+        "start_date_utc": "2025-09-24",
+        "end_date_utc": "2026-09-24"
+      },
+      "analog_count_distribution": {
+        "min": 30,
+        "max": 30,
+        "mean": 30.0
+      },
+      "candidates": {
+        "trend_only": {
+          "train_quartile_boundaries": [
+            0.6,
+            0.8,
+            1.0
+          ],
+          "validation_distribution": {
+            "mean": 0.821031746031746,
+            "min": 0.6,
+            "max": 1.0,
+            "p10": 0.6,
+            "p50": 0.8,
+            "p90": 1.0
+          },
+          "fixed_buckets": {
+            "0.0-0.4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.4-0.6": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.6-0.8": {
+              "count": 79,
+              "direction_accuracy": 0.5189873417721519,
+              "confidence_mean": 0.6037974683544304
+            },
+            "0.8-1.0": {
+              "count": 173,
+              "direction_accuracy": 0.5375722543352601,
+              "confidence_mean": 0.9202312138728325
+            }
+          },
+          "train_quantile_buckets": {
+            "q1": {
+              "count": 77,
+              "direction_accuracy": 0.5194805194805194,
+              "confidence_mean": 0.6
+            },
+            "q2": {
+              "count": 71,
+              "direction_accuracy": 0.49295774647887325,
+              "confidence_mean": 0.7985915492957747
+            },
+            "q3": {
+              "count": 104,
+              "direction_accuracy": 0.5673076923076923,
+              "confidence_mean": 1.0
+            },
+            "q4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            }
+          },
+          "high_minus_low_accuracy": null
+        },
+        "trend_agreement": {
+          "train_quartile_boundaries": [
+            0.7314455073162657,
+            0.7960450391978369,
+            0.8866357296615863
+          ],
+          "validation_distribution": {
+            "mean": 0.8017244548673221,
+            "min": 0.538618719520102,
+            "max": 0.9934872248548432,
+            "p10": 0.6681594162985444,
+            "p50": 0.8040720095018842,
+            "p90": 0.9350148024412273
+          },
+          "fixed_buckets": {
+            "0.0-0.4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.4-0.6": {
+              "count": 4,
+              "direction_accuracy": 0.75,
+              "confidence_mean": 0.5720927543847838
+            },
+            "0.6-0.8": {
+              "count": 119,
+              "direction_accuracy": 0.5378151260504201,
+              "confidence_mean": 0.719091934665327
+            },
+            "0.8-1.0": {
+              "count": 129,
+              "direction_accuracy": 0.5193798449612403,
+              "confidence_mean": 0.8850717161538926
+            }
+          },
+          "train_quantile_buckets": {
+            "q1": {
+              "count": 66,
+              "direction_accuracy": 0.5,
+              "confidence_mean": 0.6751920255588254
+            },
+            "q2": {
+              "count": 55,
+              "direction_accuracy": 0.6,
+              "confidence_mean": 0.7581502619126561
+            },
+            "q3": {
+              "count": 67,
+              "direction_accuracy": 0.44776119402985076,
+              "confidence_mean": 0.8378469379917491
+            },
+            "q4": {
+              "count": 64,
+              "direction_accuracy": 0.59375,
+              "confidence_mean": 0.9318418701412411
+            }
+          },
+          "high_minus_low_accuracy": 0.09375
+        },
+        "trend_agreement_distance": {
+          "train_quartile_boundaries": [
+            0.7739556776401297,
+            0.8256069302408717,
+            0.8999321167977195
+          ],
+          "validation_distribution": {
+            "mean": 0.8302215234729075,
+            "min": 0.6054996621623061,
+            "max": 0.9937158924331568,
+            "p10": 0.7184377911509205,
+            "p50": 0.830197896100052,
+            "p90": 0.9423611599880446
+          },
+          "fixed_buckets": {
+            "0.0-0.4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.4-0.6": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.6-0.8": {
+              "count": 104,
+              "direction_accuracy": 0.5480769230769231,
+              "confidence_mean": 0.7467018363285249
+            },
+            "0.8-1.0": {
+              "count": 148,
+              "direction_accuracy": 0.5202702702702703,
+              "confidence_mean": 0.8889110333581492
+            }
+          },
+          "train_quantile_buckets": {
+            "q1": {
+              "count": 69,
+              "direction_accuracy": 0.5217391304347826,
+              "confidence_mean": 0.7259566271962905
+            },
+            "q2": {
+              "count": 53,
+              "direction_accuracy": 0.5660377358490566,
+              "confidence_mean": 0.7957738049500456
+            },
+            "q3": {
+              "count": 66,
+              "direction_accuracy": 0.45454545454545453,
+              "confidence_mean": 0.8607925324521882
+            },
+            "q4": {
+              "count": 64,
+              "direction_accuracy": 0.59375,
+              "confidence_mean": 0.939632778662997
+            }
+          },
+          "high_minus_low_accuracy": 0.0720108695652174
+        },
+        "candidate_a": {
+          "train_quartile_boundaries": [
+            0.6772544674284848,
+            0.8206068657794753,
+            0.9049285385205728
+          ],
+          "validation_distribution": {
+            "mean": 0.7741520880825644,
+            "min": 0.5205204421907148,
+            "max": 0.9939110355381005,
+            "p10": 0.6052170773194723,
+            "p50": 0.780738311008617,
+            "p90": 0.941968108494311
+          },
+          "fixed_buckets": {
+            "0.0-0.4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.4-0.6": {
+              "count": 24,
+              "direction_accuracy": 0.5416666666666666,
+              "confidence_mean": 0.571696400071341
+            },
+            "0.6-0.8": {
+              "count": 108,
+              "direction_accuracy": 0.5,
+              "confidence_mean": 0.6818917710073611
+            },
+            "0.8-1.0": {
+              "count": 120,
+              "direction_accuracy": 0.5583333333333333,
+              "confidence_mean": 0.8976775110524922
+            }
+          },
+          "train_quantile_buckets": {
+            "q1": {
+              "count": 76,
+              "direction_accuracy": 0.5263157894736842,
+              "confidence_mean": 0.6179555022293216
+            },
+            "q2": {
+              "count": 63,
+              "direction_accuracy": 0.5079365079365079,
+              "confidence_mean": 0.7313670048709796
+            },
+            "q3": {
+              "count": 52,
+              "direction_accuracy": 0.5576923076923077,
+              "confidence_mean": 0.8593051615640218
+            },
+            "q4": {
+              "count": 61,
+              "direction_accuracy": 0.5409836065573771,
+              "confidence_mean": 0.940356038019294
+            }
+          },
+          "high_minus_low_accuracy": 0.014667817083692913
+        },
+        "candidate_a_without_count": {
+          "train_quartile_boundaries": [
+            0.6202993734452764,
+            0.7889492538582062,
+            0.8881512217889092
+          ],
+          "validation_distribution": {
+            "mean": 0.7342965742147817,
+            "min": 0.43590640257731156,
+            "max": 0.9928365123977653,
+            "p10": 0.5355495027287909,
+            "p50": 0.7420450717748437,
+            "p90": 0.9317271864638953
+          },
+          "fixed_buckets": {
+            "0.0-0.4": {
+              "count": 0,
+              "direction_accuracy": 0.0,
+              "confidence_mean": 0.0
+            },
+            "0.4-0.6": {
+              "count": 65,
+              "direction_accuracy": 0.49230769230769234,
+              "confidence_mean": 0.5407760659803766
+            },
+            "0.6-0.8": {
+              "count": 86,
+              "direction_accuracy": 0.5232558139534884,
+              "confidence_mean": 0.6898376764811927
+            },
+            "0.8-1.0": {
+              "count": 101,
+              "direction_accuracy": 0.5643564356435643,
+              "confidence_mean": 0.8966955666932468
+            }
+          },
+          "train_quantile_buckets": {
+            "q1": {
+              "count": 76,
+              "direction_accuracy": 0.5263157894736842,
+              "confidence_mean": 0.5505358849756724
+            },
+            "q2": {
+              "count": 63,
+              "direction_accuracy": 0.5079365079365079,
+              "confidence_mean": 0.6839611822011524
+            },
+            "q3": {
+              "count": 52,
+              "direction_accuracy": 0.5576923076923077,
+              "confidence_mean": 0.8344766606635551
+            },
+            "q4": {
+              "count": 61,
+              "direction_accuracy": 0.5409836065573771,
+              "confidence_mean": 0.9298306329638754
+            }
+          },
+          "high_minus_low_accuracy": 0.014667817083692913
+        }
+      }
+    }
+  },
+  "combined_validation": {
+    "train_count": 1008,
+    "validation_count": 1008,
+    "candidates": {
+      "trend_only": {
+        "train_quartile_boundaries": [
+          0.6,
+          0.8,
+          1.0
+        ],
+        "validation_distribution": {
+          "mean": 0.8203373015873016,
+          "min": 0.6,
+          "max": 1.0,
+          "p10": 0.6,
+          "p50": 0.8,
+          "p90": 1.0
+        },
+        "fixed_buckets": {
+          "0.0-0.4": {
+            "count": 0,
+            "direction_accuracy": 0.0,
+            "confidence_mean": 0.0
+          },
+          "0.4-0.6": {
+            "count": 0,
+            "direction_accuracy": 0.0,
+            "confidence_mean": 0.0
+          },
+          "0.6-0.8": {
+            "count": 307,
+            "direction_accuracy": 0.5537459283387622,
+            "confidence_mean": 0.6009771986970684
+          },
+          "0.8-1.0": {
+            "count": 701,
+            "direction_accuracy": 0.5106990014265336,
+            "confidence_mean": 0.9164051355206847
+          }
+        },
+        "train_quantile_buckets": {
+          "q1": {
+            "count": 305,
+            "direction_accuracy": 0.5540983606557377,
+            "confidence_mean": 0.6
+          },
+          "q2": {
+            "count": 295,
+            "direction_accuracy": 0.5186440677966102,
+            "confidence_mean": 0.7996610169491526
+          },
+          "q3": {
+            "count": 408,
+            "direction_accuracy": 0.5049019607843137,
+            "confidence_mean": 1.0
+          },
+          "q4": {
+            "count": 0,
+            "direction_accuracy": 0.0,
+            "confidence_mean": 0.0
+          }
+        },
+        "high_minus_low_accuracy": null
+      },
+      "trend_agreement": {
+        "train_quartile_boundaries": [
+          0.7216479383569921,
+          0.7929064445724322,
+          0.884758348615061
+        ],
+        "validation_distribution": {
+          "mean": 0.7968731629988653,
+          "min": 0.395062524250131,
+          "max": 0.9990494676419283,
+          "p10": 0.6658921356960487,
+          "p50": 0.7954617141830299,
+          "p90": 0.9323903439049737
+        },
+        "fixed_buckets": {
+          "0.0-0.4": {
+            "count": 1,
+            "direction_accuracy": 0.0,
+            "confidence_mean": 0.395062524250131
+          },
+          "0.4-0.6": {
+            "count": 28,
+            "direction_accuracy": 0.6071428571428571,
+            "confidence_mean": 0.5657617068679686
+          },
+          "0.6-0.8": {
+            "count": 487,
+            "direction_accuracy": 0.5236139630390144,
+            "confidence_mean": 0.720499986653151
+          },
+          "0.8-1.0": {
+            "count": 492,
+            "direction_accuracy": 0.5203252032520326,
+            "confidence_mean": 0.8864395619638588
+          }
+        },
+        "train_quantile_buckets": {
+          "q1": {
+            "count": 253,
+            "direction_accuracy": 0.5375494071146245,
+            "confidence_mean": 0.6649225595071362
+          },
+          "q2": {
+            "count": 243,
+            "direction_accuracy": 0.51440329218107,
+            "confidence_mean": 0.7529391761555229
+          },
+          "q3": {
+            "count": 261,
+            "direction_accuracy": 0.5172413793103449,
+            "confidence_mean": 0.8386998144038506
+          },
+          "q4": {
+            "count": 251,
+            "direction_accuracy": 0.5258964143426295,
+            "confidence_mean": 0.9289158142723257
+          }
+        },
+        "high_minus_low_accuracy": -0.011652992771995052
+      },
+      "trend_agreement_distance": {
+        "train_quartile_boundaries": [
+          0.7633676405264364,
+          0.8216881312502782,
+          0.8990233067053507
+        ],
+        "validation_distribution": {
+          "mean": 0.8259967727086664,
+          "min": 0.4799237238385622,
+          "max": 0.9984610402947026,
+          "p10": 0.716721463272968,
+          "p50": 0.823227897734078,
+          "p90": 0.9401109745398261
+        },
+        "fixed_buckets": {
+          "0.0-0.4": {
+            "count": 0,
+            "direction_accuracy": 0.0,
+            "confidence_mean": 0.0
+          },
+          "0.4-0.6": {
+            "count": 4,
+            "direction_accuracy": 0.75,
+            "confidence_mean": 0.5484419036799557
+          },
+          "0.6-0.8": {
+            "count": 440,
+            "direction_accuracy": 0.5272727272727272,
+            "confidence_mean": 0.7461770564930983
+          },
+          "0.8-1.0": {
+            "count": 564,
+            "direction_accuracy": 0.5195035460992907,
+            "confidence_mean": 0.8902359475508026
+          }
+        },
+        "train_quantile_buckets": {
+          "q1": {
+            "count": 252,
+            "direction_accuracy": 0.5158730158730159,
+            "confidence_mean": 0.7142723378774233
+          },
+          "q2": {
+            "count": 248,
+            "direction_accuracy": 0.5362903225806451,
+            "confidence_mean": 0.7901566085504788
+          },
+          "q3": {
+            "count": 259,
+            "direction_accuracy": 0.5173745173745173,
+            "confidence_mean": 0.8619504406318759
+          },
+          "q4": {
+            "count": 249,
+            "direction_accuracy": 0.5261044176706827,
+            "confidence_mean": 0.9373659224941789
+          }
+        },
+        "high_minus_low_accuracy": 0.010231401797666795
+      },
+      "candidate_a": {
+        "train_quartile_boundaries": [
+          0.6571582931932605,
+          0.8069115723058284,
+          0.9034616988459416
+        ],
+        "validation_distribution": {
+          "mean": 0.7743507646800084,
+          "min": 0.4894960100797984,
+          "max": 0.9986967882586976,
+          "p10": 0.5989097952779058,
+          "p50": 0.7975889132739993,
+          "p90": 0.9396454248684805
+        },
+        "fixed_buckets": {
+          "0.0-0.4": {
+            "count": 0,
+            "direction_accuracy": 0.0,
+            "confidence_mean": 0.0
+          },
+          "0.4-0.6": {
+            "count": 102,
+            "direction_accuracy": 0.5784313725490197,
+            "confidence_mean": 0.5678627529995406
+          },
+          "0.6-0.8": {
+            "count": 404,
+            "direction_accuracy": 0.48514851485148514,
+            "confidence_mean": 0.6788874259970905
+          },
+          "0.8-1.0": {
+            "count": 502,
+            "direction_accuracy": 0.5438247011952191,
+            "confidence_mean": 0.8931335655152803
+          }
+        },
+        "train_quantile_buckets": {
+          "q1": {
+            "count": 267,
+            "direction_accuracy": 0.5280898876404494,
+            "confidence_mean": 0.6059938246818225
+          },
+          "q2": {
+            "count": 253,
+            "direction_accuracy": 0.48616600790513836,
+            "confidence_mean": 0.7179759346602305
+          },
+          "q3": {
+            "count": 242,
+            "direction_accuracy": 0.5743801652892562,
+            "confidence_mean": 0.853321818691984
+          },
+          "q4": {
+            "count": 246,
+            "direction_accuracy": 0.508130081300813,
+            "confidence_mean": 0.9373716585971682
+          }
+        },
+        "high_minus_low_accuracy": -0.019959806339636343
+      },
+      "candidate_a_without_count": {
+        "train_quartile_boundaries": [
+          0.5966568155214829,
+          0.7728371438892099,
+          0.8864255280540492
+        ],
+        "validation_distribution": {
+          "mean": 0.7345303113882452,
+          "min": 0.3994070706821158,
+          "max": 0.9984668097161148,
+          "p10": 0.5281291709151833,
+          "p50": 0.7618693097341168,
+          "p90": 0.9289946174923299
+        },
+        "fixed_buckets": {
+          "0.0-0.4": {
+            "count": 1,
+            "direction_accuracy": 0.0,
+            "confidence_mean": 0.3994070706821158
+          },
+          "0.4-0.6": {
+            "count": 273,
+            "direction_accuracy": 0.5201465201465202,
+            "confidence_mean": 0.5385538198225167
+          },
+          "0.6-0.8": {
+            "count": 313,
+            "direction_accuracy": 0.5079872204472844,
+            "confidence_mean": 0.6957595025346055
+          },
+          "0.8-1.0": {
+            "count": 421,
+            "direction_accuracy": 0.5391923990498813,
+            "confidence_mean": 0.8912333247120913
+          }
+        },
+        "train_quantile_buckets": {
+          "q1": {
+            "count": 267,
+            "direction_accuracy": 0.5280898876404494,
+            "confidence_mean": 0.5364633231550853
+          },
+          "q2": {
+            "count": 253,
+            "direction_accuracy": 0.48616600790513836,
+            "confidence_mean": 0.6682069819532125
+          },
+          "q3": {
+            "count": 242,
+            "direction_accuracy": 0.5743801652892562,
+            "confidence_mean": 0.8274374337552753
+          },
+          "q4": {
+            "count": 246,
+            "direction_accuracy": 0.508130081300813,
+            "confidence_mean": 0.9263195983496096
+          }
+        },
+        "high_minus_low_accuracy": -0.019959806339636343
+      }
+    }
+  },
+  "method": {
+    "split": "older 252 sessions train, newest 252 sessions validation per market",
+    "validation_used_for_weight_selection": false,
+    "candidate_scores_are_hit_probabilities": false,
+    "production_decision": "deferred",
+    "production_confidence_definition": "legacy Trend internal agreement",
+    "display_label": "Trend信頼度（シグナル一致度・的中確率ではありません）",
+    "reason": "No candidate showed a consistently better high than low validation group across markets"
+  }
+}
