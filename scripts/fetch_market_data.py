@@ -137,6 +137,7 @@ class AnalogResult:
     mean_next_return: float
     nearest: tuple[tuple[int, float], ...]
     distance_quality: float = 0.0
+    effective_sample_size: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -152,6 +153,8 @@ class BacktestRecord:
     trend_confidence: float = 0.0
     confidence: float = 0.0
     analog_distance_quality: float = 0.0
+    analog_effective_sample_size: float = 0.0
+    forecast_support: float = 0.0
 
 
 def _finite_number(value: Any) -> float | None:
@@ -723,21 +726,71 @@ def find_analogs(
     nearest = all_distances[:ANALOG_K]
     weights = [min(MAX_ANALOG_WEIGHT, 1 / (distance + DISTANCE_EPSILON)) for distance, _, _ in nearest]
     weight_sum = sum(weights)
+    effective_sample_size = weight_sum ** 2 / sum(weight ** 2 for weight in weights)
     probability = sum(weight for weight, (_, _, value) in zip(weights, nearest) if value > 0) / weight_sum
     mean_return = sum(weight * value for weight, (_, _, value) in zip(weights, nearest)) / weight_sum
+    nearest_mean_distance = statistics.fmean(item[0] for item in nearest)
+    candidate_mean_distance = statistics.fmean(item[0] for item in all_distances)
+    distance_quality = (
+        1.0 if candidate_mean_distance <= 1e-12
+        else max(0.0, min(1.0, 1.0 - nearest_mean_distance / candidate_mean_distance))
+    )
     return AnalogResult(
         probability=max(0.0, min(1.0, probability)),
         count=len(nearest),
-        mean_distance=statistics.fmean(item[0] for item in nearest),
+        mean_distance=nearest_mean_distance,
         mean_next_return=mean_return,
         nearest=tuple((item[1].timestamp, item[0]) for item in nearest[:3]),
         # Relative to the query-time candidate distribution, so no absolute
         # distance threshold (or future observation) is involved.
-        distance_quality=sum(
-            distance >= statistics.fmean(item[0] for item in nearest)
-            for distance, _, _ in all_distances
-        ) / len(candidates),
+        distance_quality=distance_quality,
+        effective_sample_size=effective_sample_size,
     )
+
+
+def forecast_support_candidates(
+    trend_probability: float,
+    trend_confidence: float,
+    analog: AnalogResult | None,
+) -> dict[str, float]:
+    """Compare structural support formulas; values are not hit probabilities."""
+    trend_quality = max(0.0, min(1.0, trend_confidence))
+    if analog is None:
+        # Missing Analog evidence contributes zero rather than an arbitrary
+        # fallback penalty. Candidate C therefore reflects only its available
+        # Trend component.
+        return {
+            "candidate_a": 0.55 * trend_quality,
+            "candidate_b": 0.40 * trend_quality,
+            "candidate_c": 0.35 * trend_quality,
+        }
+    agreement = continuous_agreement(trend_probability, analog.probability)
+    distance_quality = max(0.0, min(1.0, analog.distance_quality))
+    effective_sample_quality = max(
+        0.0, min(1.0, analog.effective_sample_size / ANALOG_K)
+    )
+    return {
+        "candidate_a": 0.55 * trend_quality + 0.45 * agreement,
+        "candidate_b": (
+            0.40 * trend_quality + 0.35 * agreement + 0.25 * distance_quality
+        ),
+        "candidate_c": (
+            0.35 * trend_quality + 0.30 * agreement
+            + 0.20 * distance_quality + 0.15 * effective_sample_quality
+        ),
+    }
+
+
+def calculate_forecast_support(
+    trend_probability: float,
+    trend_confidence: float,
+    analog: AnalogResult | None,
+) -> float:
+    """Return material sufficiency/consistency for the Ensemble forecast."""
+    value = forecast_support_candidates(
+        trend_probability, trend_confidence, analog
+    )["candidate_c"]
+    return max(0.0, min(1.0, value))
 
 
 def candidate_a_confidence(
@@ -860,6 +913,7 @@ def build_cross_asset_predictions(
             prediction.update({
                 "analog_probability": None, "analog_count": 0,
                 "analog_mean_distance": None, "analog_mean_next_return": None,
+                "analog_effective_sample_size": None,
             })
         else:
             final = (1 - ANALOG_WEIGHT) * trend + ANALOG_WEIGHT * analog.probability
@@ -868,7 +922,11 @@ def build_cross_asset_predictions(
                 "analog_count": analog.count,
                 "analog_mean_distance": round(analog.mean_distance, 4),
                 "analog_mean_next_return": round(analog.mean_next_return, 6),
+                "analog_effective_sample_size": round(analog.effective_sample_size, 4),
             })
+        prediction["forecast_support"] = round(
+            calculate_forecast_support(trend, trend_confidence, analog), 4
+        )
         prediction["up_probability"] = round(max(0.0, min(1.0, final)), 4)
         # Until a time-separated validation supports an Ensemble score,
         # confidence retains its legacy Trend meaning for JSON compatibility.
@@ -953,6 +1011,12 @@ def walk_forward_records(
             trend_confidence=trend_confidence,
             confidence=trend_confidence,
             analog_distance_quality=0.0 if analog is None else analog.distance_quality,
+            analog_effective_sample_size=(
+                0.0 if analog is None else analog.effective_sample_size
+            ),
+            forecast_support=calculate_forecast_support(
+                trend, trend_confidence, analog
+            ),
         ))
     return records
 

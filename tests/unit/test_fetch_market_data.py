@@ -247,6 +247,47 @@ class WeatherMapTest(unittest.TestCase):
         self.assertAlmostEqual(same_side, opposite_sides, places=3)
         self.assertGreater(opposite_sides, material_opposition)
 
+    def test_forecast_support_reflects_each_material_without_changing_forecast(self) -> None:
+        def analog(
+            probability: float = 0.72,
+            distance_quality: float = 0.8,
+            effective_sample_size: float = 27.0,
+        ) -> market_data.AnalogResult:
+            return market_data.AnalogResult(
+                probability, market_data.ANALOG_K, 1.0, 0.0, (),
+                distance_quality, effective_sample_size,
+            )
+
+        baseline = market_data.calculate_forecast_support(0.68, 0.8, analog())
+        self.assertGreater(baseline, market_data.calculate_forecast_support(
+            0.68, 0.8, analog(probability=0.32)
+        ))
+        self.assertGreater(baseline, market_data.calculate_forecast_support(
+            0.68, 0.8, analog(distance_quality=0.2)
+        ))
+        self.assertGreater(baseline, market_data.calculate_forecast_support(
+            0.68, 0.8, analog(effective_sample_size=6.0)
+        ))
+        self.assertGreater(baseline, market_data.calculate_forecast_support(
+            0.68, 0.2, analog()
+        ))
+        self.assertGreaterEqual(baseline, 0.0)
+        self.assertLessEqual(baseline, 1.0)
+
+    def test_forecast_support_is_continuous_at_neutral_boundary(self) -> None:
+        above = market_data.AnalogResult(0.5001, 30, 1.0, 0.0, (), 0.8, 25)
+        below = market_data.AnalogResult(0.4999, 30, 1.0, 0.0, (), 0.8, 25)
+
+        same_side = market_data.calculate_forecast_support(0.5001, 0.8, above)
+        crossed = market_data.calculate_forecast_support(0.5001, 0.8, below)
+
+        self.assertAlmostEqual(same_side, crossed, places=3)
+
+    def test_forecast_support_without_analog_uses_only_trend_component(self) -> None:
+        self.assertAlmostEqual(
+            market_data.calculate_forecast_support(0.7, 0.8, None), 0.28
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

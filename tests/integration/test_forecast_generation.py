@@ -78,11 +78,14 @@ class ForecastGenerationTest(unittest.TestCase):
             "analog_mean_distance", "analog_mean_next_return", "up_probability",
             "range_low", "range_high", "trend_confidence", "confidence", "weather", "risk",
             "last_data_date", "next_session_date",
+            "forecast_support", "analog_effective_sample_size",
         }
         for item in result["markets"]:
             self.assertTrue(expected_fields <= item.keys())
             self.assertGreaterEqual(item["up_probability"], 0)
             self.assertLessEqual(item["up_probability"], 1)
+            self.assertGreaterEqual(item["forecast_support"], 0)
+            self.assertLessEqual(item["forecast_support"], 1)
             self.assertEqual(item["last_data_date"], expected_dates[item["id"]])
             self.assertEqual(
                 item["next_session_date"], expected_next_sessions[item["id"]]

@@ -1,0 +1,206 @@
+{
+  "definition": {
+    "selected": "candidate_c",
+    "formula": "0.35 trend + 0.30 agreement + 0.20 relative distance quality + 0.15 ESS/30",
+    "trend_only": "0.35 * trend confidence; unavailable Analog components contribute zero",
+    "is_hit_probability": false
+  },
+  "markets": {
+    "nikkei": {
+      "forecast_support": {
+        "count": 252,
+        "min": 0.4769925990484443,
+        "p10": 0.6522354946976419,
+        "median": 0.7374413559713882,
+        "p90": 0.8342846047404135,
+        "max": 0.8932216577995957,
+        "mean": 0.7407260003715266
+      },
+      "candidate_distributions": {
+        "candidate_a": {
+          "count": 252,
+          "min": 0.3694453397813974,
+          "p10": 0.6547140805700842,
+          "median": 0.7709673180082965,
+          "p90": 0.9216420041535016,
+          "max": 0.9981169009355506,
+          "mean": 0.7782823653005552
+        },
+        "candidate_b": {
+          "count": 252,
+          "min": 0.3844675304891838,
+          "p10": 0.5848985886494777,
+          "median": 0.6871682873471479,
+          "p90": 0.7990697886601883,
+          "max": 0.8672320884375189,
+          "mean": 0.6902218111265412
+        },
+        "candidate_c": {
+          "count": 252,
+          "min": 0.4769925990484443,
+          "p10": 0.6522354946976419,
+          "median": 0.7374413559713882,
+          "p90": 0.8342846047404135,
+          "max": 0.8932216577995957,
+          "mean": 0.7407260003715266
+        }
+      },
+      "structure_checks": {
+        "close_probability_difference_mean": 0.778336912167803,
+        "large_probability_difference_mean": 0.6705659936066136,
+        "weak_analog_quality_mean": 0.7200683717238193,
+        "strong_analog_quality_mean": 0.7678449919561016
+      },
+      "reference_only": {
+        "direction_accuracy": 0.5357142857142857
+      }
+    },
+    "dow": {
+      "forecast_support": {
+        "count": 252,
+        "min": 0.5738772817270806,
+        "p10": 0.6736110349078909,
+        "median": 0.7512536046504814,
+        "p90": 0.8346955536435817,
+        "max": 0.889989838246618,
+        "mean": 0.7528192609473107
+      },
+      "candidate_distributions": {
+        "candidate_a": {
+          "count": 252,
+          "min": 0.5425967930795005,
+          "p10": 0.674141247340577,
+          "median": 0.7973575316974029,
+          "p90": 0.9239086633741536,
+          "max": 0.9989306510971694,
+          "mean": 0.7982566193737308
+        },
+        "candidate_b": {
+          "count": 252,
+          "min": 0.49648332349649216,
+          "p10": 0.6130283893454753,
+          "median": 0.7021018887514672,
+          "p90": 0.797846191309711,
+          "max": 0.8634280103073658,
+          "mean": 0.704252763999742
+        },
+        "candidate_c": {
+          "count": 252,
+          "min": 0.5738772817270806,
+          "p10": 0.6736110349078909,
+          "median": 0.7512536046504814,
+          "p90": 0.8346955536435817,
+          "max": 0.889989838246618,
+          "mean": 0.7528192609473107
+        }
+      },
+      "structure_checks": {
+        "close_probability_difference_mean": 0.7667332674465975,
+        "large_probability_difference_mean": 0.6857267511622334,
+        "weak_analog_quality_mean": 0.741520518091457,
+        "strong_analog_quality_mean": 0.7668026886742151
+      },
+      "reference_only": {
+        "direction_accuracy": 0.4801587301587302
+      }
+    },
+    "usdjpy": {
+      "forecast_support": {
+        "count": 252,
+        "min": 0.5005612596625397,
+        "p10": 0.6687577568658152,
+        "median": 0.7520441755924029,
+        "p90": 0.841370230538619,
+        "max": 0.8883365785946324,
+        "mean": 0.7538876967423205
+      },
+      "candidate_distributions": {
+        "candidate_a": {
+          "count": 252,
+          "min": 0.45722283832932675,
+          "p10": 0.6675284756940364,
+          "median": 0.7935172725299309,
+          "p90": 0.921478777073863,
+          "max": 0.9871858452113467,
+          "mean": 0.7990023343626201
+        },
+        "candidate_b": {
+          "count": 252,
+          "min": 0.4090249782819465,
+          "p10": 0.6053924694431627,
+          "median": 0.7043059757339682,
+          "p90": 0.8070425233171632,
+          "max": 0.8623901122065851,
+          "mean": 0.7056076575547574
+        },
+        "candidate_c": {
+          "count": 252,
+          "min": 0.5005612596625397,
+          "p10": 0.6687577568658152,
+          "median": 0.7520441755924029,
+          "p90": 0.841370230538619,
+          "max": 0.8883365785946324,
+          "mean": 0.7538876967423205
+        }
+      },
+      "structure_checks": {
+        "close_probability_difference_mean": 0.7767521708212923,
+        "large_probability_difference_mean": 0.6809430824516272,
+        "weak_analog_quality_mean": 0.7252475194925859,
+        "strong_analog_quality_mean": 0.7860816060608796
+      },
+      "reference_only": {
+        "direction_accuracy": 0.5515873015873016
+      }
+    },
+    "gold": {
+      "forecast_support": {
+        "count": 252,
+        "min": 0.5799785067118589,
+        "p10": 0.6691990189704125,
+        "median": 0.7529396807812108,
+        "p90": 0.8398221383791452,
+        "max": 0.8808388157495242,
+        "mean": 0.7549257404197245
+      },
+      "candidate_distributions": {
+        "candidate_a": {
+          "count": 252,
+          "min": 0.5309460594601147,
+          "p10": 0.6726102286623916,
+          "median": 0.7953606058279209,
+          "p90": 0.9269965066647876,
+          "max": 0.9926731279616986,
+          "mean": 0.798926179010856
+        },
+        "candidate_b": {
+          "count": 252,
+          "min": 0.5047624969606732,
+          "p10": 0.6070359429070933,
+          "median": 0.7039679538278936,
+          "p90": 0.8050009113446246,
+          "max": 0.8530801723435503,
+          "mean": 0.70685574688944
+        },
+        "candidate_c": {
+          "count": 252,
+          "min": 0.5799785067118589,
+          "p10": 0.6691990189704125,
+          "median": 0.7529396807812108,
+          "p90": 0.8398221383791452,
+          "max": 0.8808388157495242,
+          "mean": 0.7549257404197245
+        }
+      },
+      "structure_checks": {
+        "close_probability_difference_mean": 0.7743436952305937,
+        "large_probability_difference_mean": 0.7069511289809542,
+        "weak_analog_quality_mean": 0.7425904523081248,
+        "strong_analog_quality_mean": 0.76506676316425
+      },
+      "reference_only": {
+        "direction_accuracy": 0.5317460317460317
+      }
+    }
+  }
+}
