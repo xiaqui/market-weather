@@ -17,9 +17,9 @@ h1 { display: flex; align-items: baseline; gap: .35em; margin: 2px 0; font-size:
 .live-direction-down { color: #d43f3a; }
 .current { margin: 0; flex: none; font-size: clamp(1.35rem, 6vw, 1.7rem); font-weight: 850; font-variant-numeric: tabular-nums; }
 .forecast-summary { display: grid; grid-template-columns: 2.8rem minmax(0, 1fr); align-items: center; gap: 8px; margin-top: 5px; padding-top: 5px; border-top: 1px solid #e3eae7; }
-.icon { display: flex; align-items: center; justify-content: center; align-self: stretch; font-size: 2.25rem; line-height: 1.15; }
+.icon { display: flex; align-items: center; justify-content: center; align-self: stretch; font-size: 2.75rem; line-height: .95; }
 .forecast-copy { display: grid; min-width: 0; gap: 1px; justify-items: end; }
-.weather-name { font-size: .82rem; font-weight: 650; white-space: nowrap; }
+.weather-name { justify-self: start; font-size: .82rem; font-weight: 650; white-space: nowrap; }
 .range { max-width: 100%; margin: 0; font-size: clamp(.68rem, 3.1vw, .78rem); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .range-label { margin-right: .55em; color: #68756f; font-size: .68rem; }
 .error { padding: 18px; border-radius: 14px; color: #762a2a; background: #fff0ef; }
@@ -39,7 +39,7 @@ dialog button { width: 100%; border: 0; border-radius: 12px; padding: 12px; colo
 @media (max-width: 359px) {
   h1 { white-space: normal; }
   .forecast-summary { grid-template-columns: 2.5rem minmax(0, 1fr); gap: 5px; }
-  .icon { font-size: 2rem; }
+  .icon { font-size: 2.4rem; }
   .range-label { margin-right: .35em; }
 }
 @media (min-width: 650px) { .markets { grid-template-columns: repeat(2, 1fr); } main { padding-top: 40px; } }

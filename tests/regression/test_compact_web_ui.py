@@ -6,6 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 APP_JS = ROOT / "web/app.js"
 INDEX = ROOT / "web/index.html"
+STYLES = ROOT / "web/styles.css"
 
 
 class CompactWebUiTest(unittest.TestCase):
@@ -67,6 +68,15 @@ class CompactWebUiTest(unittest.TestCase):
         self.assertIn("↑ ${amount}", source)
         self.assertIn("ー ${amount}", source)
         self.assertIn("↓ ${amount}", source)
+
+    def test_weather_label_is_left_aligned_but_range_stays_right_aligned(self) -> None:
+        styles = STYLES.read_text(encoding="utf-8")
+
+        self.assertIn(".icon {", styles)
+        self.assertIn("font-size: 2.75rem", styles)
+        self.assertIn(".weather-name { justify-self: start;", styles)
+        self.assertIn(".range {", styles)
+        self.assertIn("text-align: right", styles)
 
 
 if __name__ == "__main__":
