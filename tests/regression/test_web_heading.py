@@ -11,7 +11,7 @@ class WebHeadingTest(unittest.TestCase):
     def test_web_heading_targets_next_business_day(self) -> None:
         html = (ROOT / "web/index.html").read_text(encoding="utf-8")
 
-        self.assertIn('<h1>次営業日の金融天気予報 <span id="generated">読み込み中…</span></h1>', html)
+        self.assertIn('<h1>次営業日の金融予報 <span id="generated">読み込み中…</span></h1>', html)
         self.assertNotIn("<h1>本日の金融天気予報</h1>", html)
 
     def test_next_session_is_only_rendered_in_detail_dialog(self) -> None:
@@ -89,7 +89,11 @@ process.stdout.write(JSON.stringify({{
         rendered = json.loads(output.stdout)
 
         self.assertNotIn("予測対象セッション", rendered["cardHtml"])
+        self.assertNotIn("上昇確率", rendered["cardHtml"])
+        self.assertNotIn("信頼度", rendered["cardHtml"])
         self.assertIn("予測対象セッション（次回営業日）", rendered["detailHtml"])
+        self.assertIn("最終予報", rendered["detailHtml"])
+        self.assertIn("信頼度", rendered["detailHtml"])
         self.assertIn('datetime="2026-09-24"', rendered["detailHtml"])
         self.assertIn("2026/09/24", rendered["detailHtml"])
 

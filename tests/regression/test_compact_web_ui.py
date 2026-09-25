@@ -15,12 +15,12 @@ class CompactWebUiTest(unittest.TestCase):
         for snippet in (
             'class="current"',
             'class="condition"',
-            'class="compact-forecast"',
-            "上昇確率",
+            'class="forecast-summary"',
             "予想レンジ",
         ):
             self.assertIn(snippet, card_source)
 
+        self.assertNotIn("上昇確率", card_source)
         self.assertNotIn("信頼度", card_source)
         self.assertNotIn("リスク", card_source)
 
@@ -29,11 +29,12 @@ class CompactWebUiTest(unittest.TestCase):
         source = APP_JS.read_text(encoding="utf-8")
 
         self.assertIn(
-            '<h1>次営業日の金融天気予報 <span id="generated">読み込み中…</span></h1>',
+            '<h1>次営業日の金融予報 <span id="generated">読み込み中…</span></h1>',
             html,
         )
         self.assertIn('timeZone: "Asia/Tokyo"', source)
         self.assertIn("announcementTime(forecast.generated_at)", source)
+        self.assertNotIn('.replace("/", "月")', source)
         self.assertIn("発表", source)
 
     def test_live_direction_includes_percentage(self) -> None:
