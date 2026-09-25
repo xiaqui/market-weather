@@ -126,6 +126,7 @@ def _score_market(
         "analog_probability": analog_probability,
         "analog_direction": _direction_from_probability(analog_probability),
         "ensemble_probability": ensemble_probability,
+        "forecast_support": _coerce_probability(market.get("forecast_support")),
         "ensemble_direction": ensemble_direction,
         "actual_direction": actual_direction,
         "ensemble_correct": (

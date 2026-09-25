@@ -435,7 +435,30 @@ expanding historical up-rate baselineとの比較と、Validation window間の�
 単一期間の好成績を「発見」と「再現性」に
 分けて扱い、結果を見て同じPR内で30次元金融天気図、閾値、重み、予測ルールを変更しない。
 
-## 13. 現在の位置付け
+## 13. 予報根拠度
+
+最終Ensembleとは独立に、予報材料の十分さと整合性を次式で0〜1へまとめる。
+
+```text
+forecast_support = 0.35 × trend_confidence
+                 + 0.30 × continuous_agreement
+                 + 0.20 × analog_distance_quality
+                 + 0.15 × min(1, analog_effective_sample_size / 30)
+```
+
+`continuous_agreement` は確率差を連続的に減点し、0.5を挟んで十分に反対方向へ離れた場合は
+反対の強さも追加で減点する。`analog_distance_quality` は
+`1 - 採用30件の平均距離 / 利用可能な全候補の平均距離` とし、予測時点までの候補距離分布に
+対する相対的な近さを見る。未来情報や固定距離閾値は使わない。
+実効サンプルサイズは距離重み `w` から `(sum(w)^2) / sum(w^2)` とする。
+
+Analogなしでは、利用不能な3成分を0とし `0.35 × trend_confidence` とする。
+これは根拠のない固定penaltyではなく、観測できた材料だけの寄与である。比較したCandidate Aは
+Trendと一致度、Candidate Bはそれらと相対距離品質、採用したCandidate CはさらにESSを含む。
+この値は上昇確率や的中確率ではなく、天気・Trend/Analogの50:50比率・レンジ・riskを変更しない。
+walk-forward構造診断は `reports/forecast-support-validation.json` に保存する。
+
+## 14. 現在の位置付け
 
 現在の baseline は以下を満たすための最小構成。
 
@@ -447,7 +470,7 @@ expanding historical up-rate baselineとの比較と、Validation window間の�
 
 今後もBrier Score、Calibration、レンジ包含率などを、baselineと比較しながら検証する。
 
-## 14. 実装ファイル
+## 15. 実装ファイル
 
 現在の主実装:
 

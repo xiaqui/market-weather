@@ -93,7 +93,8 @@ process.stdout.write(JSON.stringify({{
         self.assertNotIn("信頼度", rendered["cardHtml"])
         self.assertIn("予測対象セッション（次回営業日）", rendered["detailHtml"])
         self.assertIn("最終予報", rendered["detailHtml"])
-        self.assertIn("信頼度", rendered["detailHtml"])
+        self.assertIn("Trend一致度", rendered["detailHtml"])
+        self.assertIn("予報根拠度", rendered["detailHtml"])
         self.assertIn('datetime="2026-09-24"', rendered["detailHtml"])
         self.assertIn("2026/09/24", rendered["detailHtml"])
 

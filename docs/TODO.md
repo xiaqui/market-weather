@@ -138,12 +138,12 @@ Market Weather の開発・検証タスク一覧。
 - [ ] 晴れ / 晴れ時々曇り / 曇り / 雨 / 荒天の表示定義を整理
 - [ ] 初期画面では天気の元になる上昇確率を重複表示せず、必要なら詳細表示へ置く
 - [x] Trend単独のconfidenceを「予報信頼度」として表示しない
-- [ ] Trend confidence / TrendとAnalogの一致度 / Analog件数・距離などから、validationで識別力を確認できるEnsemble confidenceを設計する
+- [x] Trend一致度・Trend/Analog整合性・Analog相対距離品質・ESSから、的中確率とは別の予報根拠度を表示する
 - [ ] 「方向」と「荒れやすさ」を別表示
 - [ ] risk（ボラティリティ）を風向きではなく「風の強さ」として表現する
 - [ ] 色だけに依存しない
 - [ ] 数値を見なくても5秒で市場の雰囲気が分かるUI
-- [x] 現行confidenceを「Trend信頼度（シグナル一致度・的中確率ではありません）」と表示する
+- [x] 現行confidenceの詳細表示を短い「Trend一致度」にする
 
 ### 更新情報
 - [x] forecast生成日時を表示
