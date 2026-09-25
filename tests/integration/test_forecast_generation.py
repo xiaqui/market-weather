@@ -76,7 +76,7 @@ class ForecastGenerationTest(unittest.TestCase):
         expected_fields = {
             "current", "trend_probability", "analog_probability", "analog_count",
             "analog_mean_distance", "analog_mean_next_return", "up_probability",
-            "range_low", "range_high", "confidence", "weather", "risk",
+            "range_low", "range_high", "trend_confidence", "confidence", "weather", "risk",
             "last_data_date", "next_session_date",
         }
         for item in result["markets"]:

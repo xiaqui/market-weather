@@ -156,9 +156,9 @@ range_high = current × exp(+range_factor)
 これは保証区間ではなく、
 最近の荒れ具合から見た翌営業日の目安レンジ。
 
-## 8. 信頼度
+## 8. Trend内部一致度
 
-現在の `confidence` は「予報が当たる確率」ではない。
+`trend_confidence` は「予報が当たる確率」ではない。
 
 5本の方向シグナルがどれだけ同じ向きを向いているかと、
 履歴データが十分にあるかを組み合わせた内部一致度。
@@ -182,20 +182,19 @@ sufficiency
 = min(1.0, number_of_candles / 60)
 ```
 
-### confidence
+### trend_confidence
 
 ```text
-confidence
+trend_confidence
 = sufficiency × (0.5 + 0.5 × agreement)
 ```
 
-したがって `confidence = 1.0` は
+したがって `trend_confidence = 1.0` は
 「絶対に当たる」という意味ではなく、
 「データ量が十分で、5本の方向シグナルがすべて同方向」
 という意味。
 
-UI上の名称は将来、
-「信頼度」より「シグナル一致度」等へ変更する余地がある。
+現時点の最終出力では`confidence`も同じ旧定義を維持する。
 
 ## 9. 天気分類
 
@@ -370,7 +369,30 @@ up_probability = 0.5 × trend_probability + 0.5 × analog_probability
 
 JSONには `trend_probability`、`analog_probability`、`analog_count`、
 `analog_mean_distance`、`analog_mean_next_return`、最終値の `up_probability` を分けて残す。
-既存の `confidence` は引き続きTrend内部の方向一致度であり、的中確率ではない。
+`trend_confidence`にはTrend内部の方向一致度を明示的に残す。Ensemble用confidenceは
+時系列分離したvalidationで有効性を確認できなかったため、本番採用を保留し、既存の
+`confidence`も互換性を優先してTrend内部一致度のまま維持する。
+
+診断では、Trend単独、TrendとAnalogの連続的一致度、相対距離品質、および次の旧候補Aを
+組み合わせた5候補を比較した。
+
+```text
+confidence = 0.40 × trend_confidence
+           + 0.35 × Trend/Analog一致品質
+           + 0.15 × min(1, analog_count / 30)
+           + 0.10 × Analog相対距離品質
+```
+
+候補Aの一致品質は同方向なら`1 - abs(Trend - Analog)`、逆方向なら
+`max(0, 0.5 - abs(Trend - Analog))`。比較用の新候補では0.5付近の不連続を避けるため、
+確率差から連続的に算出する。相対距離品質は、その予測時点までに結果が確定した
+候補だけの距離分布で、採用Analog平均距離以上に遠い候補の割合である。絶対距離の固定閾値や
+未来情報は使わない。候補値はいずれも的中確率ではない。
+
+古い252セッションをtrain、新しい252セッションをvalidationとして市場別・全市場統合で
+評価したが、高群が低群より良い傾向は市場間で再現しなかった。Analog件数もvalidation全件で
+30だったため識別力がなく、本番候補から除外した。詳細結果は
+`reports/confidence-validation.json`に保存する。保存済みforecastは書き換えない。
 
 ### walk-forward検証
 

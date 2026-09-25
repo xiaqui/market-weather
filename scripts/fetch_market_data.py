@@ -136,6 +136,7 @@ class AnalogResult:
     mean_distance: float
     mean_next_return: float
     nearest: tuple[tuple[int, float], ...]
+    distance_quality: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -148,6 +149,9 @@ class BacktestRecord:
     analog_count: int
     analog_mean_distance: float | None
     historical_up_probability: float = 0.5
+    trend_confidence: float = 0.0
+    confidence: float = 0.0
+    analog_distance_quality: float = 0.0
 
 
 def _finite_number(value: Any) -> float | None:
@@ -574,6 +578,8 @@ def build_prediction(
         "up_probability": round(probability, 4),
         "range_low": round(low, 4),
         "range_high": round(high, 4),
+        "trend_confidence": round(max(0.0, min(1.0, confidence)), 4),
+        # Kept equal for callers that intentionally request the Trend-only model.
         "confidence": round(max(0.0, min(1.0, confidence)), 4),
         "weather": weather_for_probability(probability),
         "risk": risk_for_volatility(features.volatility_20d),
@@ -713,7 +719,8 @@ def find_analogs(
         candidates.append((state, next_return))
     if len(candidates) < MIN_ANALOGS:
         return None
-    nearest = _standardized_distances(current.vector, candidates)[:ANALOG_K]
+    all_distances = _standardized_distances(current.vector, candidates)
+    nearest = all_distances[:ANALOG_K]
     weights = [min(MAX_ANALOG_WEIGHT, 1 / (distance + DISTANCE_EPSILON)) for distance, _, _ in nearest]
     weight_sum = sum(weights)
     probability = sum(weight for weight, (_, _, value) in zip(weights, nearest) if value > 0) / weight_sum
@@ -724,7 +731,85 @@ def find_analogs(
         mean_distance=statistics.fmean(item[0] for item in nearest),
         mean_next_return=mean_return,
         nearest=tuple((item[1].timestamp, item[0]) for item in nearest[:3]),
+        # Relative to the query-time candidate distribution, so no absolute
+        # distance threshold (or future observation) is involved.
+        distance_quality=sum(
+            distance >= statistics.fmean(item[0] for item in nearest)
+            for distance, _, _ in all_distances
+        ) / len(candidates),
     )
+
+
+def candidate_a_confidence(
+    trend_probability: float,
+    trend_confidence: float,
+    analog: AnalogResult | None,
+) -> float:
+    """Score supporting evidence for the final forecast; not hit probability."""
+    if analog is None:
+        return max(0.0, min(1.0, trend_confidence))
+    agreement_quality = candidate_a_agreement(trend_probability, analog.probability)
+    quantity_quality = min(1.0, analog.count / ANALOG_K)
+    value = (
+        0.40 * trend_confidence
+        + 0.35 * agreement_quality
+        + 0.15 * quantity_quality
+        + 0.10 * analog.distance_quality
+    )
+    return max(0.0, min(1.0, value))
+
+
+def candidate_a_agreement(trend_probability: float, analog_probability: float) -> float:
+    """Original candidate A agreement, retained only for comparison."""
+    difference = abs(trend_probability - analog_probability)
+    same_direction = (trend_probability >= 0.5) == (analog_probability >= 0.5)
+    return 1.0 - difference if same_direction else max(0.0, 0.5 - difference)
+
+
+def continuous_agreement(trend_probability: float, analog_probability: float) -> float:
+    """Continuous closeness score with an extra penalty for material opposition."""
+    difference = abs(trend_probability - analog_probability)
+    opposition = 0.0
+    if (trend_probability - 0.5) * (analog_probability - 0.5) < 0:
+        opposition = min(1.0, 2 * abs(trend_probability - 0.5)) * min(
+            1.0, 2 * abs(analog_probability - 0.5)
+        )
+    return max(0.0, min(1.0, 1.0 - difference - opposition))
+
+
+def confidence_candidates(record: BacktestRecord) -> dict[str, float]:
+    """Candidate scores for time-split diagnostics; none is a hit probability."""
+    if record.analog_probability is None:
+        return {name: record.trend_confidence for name in (
+            "trend_only", "trend_agreement", "trend_agreement_distance",
+            "candidate_a", "candidate_a_without_count",
+        )}
+    agreement = continuous_agreement(
+        record.trend_probability, record.analog_probability
+    )
+    candidate_a_quality = candidate_a_agreement(
+        record.trend_probability, record.analog_probability
+    )
+    analog = AnalogResult(
+        record.analog_probability, record.analog_count,
+        record.analog_mean_distance or 0.0, 0.0, (),
+        distance_quality=record.analog_distance_quality,
+    )
+    return {
+        "trend_only": record.trend_confidence,
+        "trend_agreement": 0.60 * record.trend_confidence + 0.40 * agreement,
+        "trend_agreement_distance": (
+            0.50 * record.trend_confidence + 0.35 * agreement
+            + 0.15 * record.analog_distance_quality
+        ),
+        "candidate_a": candidate_a_confidence(
+            record.trend_probability, record.trend_confidence, analog
+        ),
+        "candidate_a_without_count": (
+            0.40 * record.trend_confidence
+            + 0.35 * candidate_a_quality + 0.10 * record.analog_distance_quality
+        ) / 0.85,
+    }
 
 
 def _historical_states(
@@ -769,6 +854,7 @@ def build_cross_asset_predictions(
         state_sets[market] = states
         analog = find_analogs(query, states, snapshot.candles)
         trend = float(prediction["trend_probability"])
+        trend_confidence = float(prediction["trend_confidence"])
         if analog is None:
             final = trend
             prediction.update({
@@ -784,6 +870,8 @@ def build_cross_asset_predictions(
                 "analog_mean_next_return": round(analog.mean_next_return, 6),
             })
         prediction["up_probability"] = round(max(0.0, min(1.0, final)), 4)
+        # Until a time-separated validation supports an Ensemble score,
+        # confidence retains its legacy Trend meaning for JSON compatibility.
         prediction["weather"] = weather_for_probability(final)
         predictions[market] = prediction
     return predictions, state_sets
@@ -830,7 +918,13 @@ def walk_forward_records(
         current = weather_map_at(histories, clock, market)
         if current is None:
             continue
-        trend = float(build_prediction(history)["trend_probability"])
+        trend_prediction = build_prediction(history)
+        trend = float(trend_prediction["trend_probability"])
+        # The fallback keeps diagnostic callers that stub the legacy minimal
+        # Trend payload working; production build_prediction always supplies it.
+        trend_confidence = float(
+            trend_prediction.get("trend_confidence", trend_prediction.get("confidence", 0.0))
+        )
         analog = find_analogs(current, states, target)
         actual_up = target[next_index].close > target[next_index - 1].close
         historical_up_probability = (
@@ -856,6 +950,9 @@ def walk_forward_records(
             analog_count=analog_count,
             analog_mean_distance=analog_mean_distance,
             historical_up_probability=historical_up_probability,
+            trend_confidence=trend_confidence,
+            confidence=trend_confidence,
+            analog_distance_quality=0.0 if analog is None else analog.distance_quality,
         ))
     return records
 
