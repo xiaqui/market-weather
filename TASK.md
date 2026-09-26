@@ -4,613 +4,453 @@
 
 新規タスク
 
-# 上昇確率の「予報根拠度」設計・実装
+# 天気アイコン最優先カードUI再設計
 
 ## Git運用
 
-branch作業。
+main直接push。
 
 理由:
-- 予測JSONへ新しい意味の指標を追加する
-- Trend / Analog / Ensembleの内部診断値を組み合わせる
-- UI・docs・testsへ波及する
-- 数式と意味のレビューが必要
+- 予測ロジックやデータ構造は変更しない
+- Webカードのレイアウト・サイズ・表示優先順位のみを変更する
+- 実機確認しやすく、問題があれば戻しやすい
+- 変更範囲を web/app.js / web/styles.css / 必要最小限の回帰テストに限定する
 
-mainへ直接pushしない。
-専用branchで作業し、Pull Requestを作成すること。
-
-推奨branch名:
-
-```text
-feature/forecast-support
-```
+PRは作らない。
+mainへcommit/pushし、実機で確認する。
 
 ## 背景
 
-現在の金融天気予報では、
+現在のMarket Weatherは4市場をコンパクトに一覧表示できているが、
+カード内の情報優先順位がまだ「数値中心」に見える。
+
+このアプリの主役は金融数値そのものではなく、
+最終予報を天気として一目で把握できること。
+
+したがってカード内では、
 
 ```text
-Trend probability
-        \
-         + 50:50 Ensemble
-        /
-Analog probability
-        ↓
-up_probability
-        ↓
-weather
+天気アイコン
 ```
 
-という流れで最終予報を作っている。
+を最も大きく、最も視線を集める要素にする。
 
-`up_probability` は次営業日の終値が上がる方向のモデル出力であり、
-weather はそれを人間向けに段階化した表示である。
-
-一方、ユーザーが知りたい別軸として、
-
-```text
-「この up_probability は、
- どれだけ十分で整合した材料から出ているのか」
-```
-
-がある。
-
-これは、
-
-- 的中確率
-- 上昇確率そのもの
-- Trend単独のconfidence
-
-のどれとも異なる。
-
-前タスク/PR #29ではEnsemble confidenceを
-「高いほど実績正解率が高い指標」として設計しようとしたが、
-時系列分離validationで市場横断の再現性を確認できず、本番採用を見送った。
-
-今回の目的はそこを再挑戦することではない。
+旧レイアウトでは天気アイコンの存在感が大きく、
+「日経は晴れ」「Dowは雨」が数値を読む前に入ってきた。
+現在のコンパクト一覧性は維持しつつ、
+その「天気が主役」という思想を戻す。
 
 ## 目的
 
-`up_probability` を支える材料の
+各市場カードを左右2カラムへ再構成する。
 
-- 十分さ
-- 一致度
-- 類似局面の質
-- 予報構成の安定性
-
-を表す新しい指標を設計する。
-
-内部名称:
+基本構造:
 
 ```text
-forecast_support
+左: 数値情報
+右: 天気情報
 ```
 
-UI第一候補:
+### 左カラム
+
+上から:
+
+```text
+(小) 市場名 + ↑↓ー %
+(中) 基準値 / 現在値
+(最小) 予想レンジ
+```
+
+### 右カラム
+
+上から:
+
+```text
+(大) 天気アイコン
+天気説明 + 予報根拠度
+```
+
+最優先は天気アイコン。
+
+## 1. カード全体レイアウト
+
+カードは左右2カラム構成にする。
+
+概念:
+
+```text
+┌──────────────────────────────┐
+│ 左                         右 │
+│                              │
+│ 日経平均 ↑0.27%        ☀️☁️  │
+│ 66,313.04              ☀️☁️  │
+│ 予想 65,360〜67,279  晴れ時々曇り 76%
+└──────────────────────────────┘
+```
+
+これは概念図であり、文字位置をそのまま固定しなくてよい。
+
+重要なのは:
+
+- 左 = 数値
+- 右 = 天気
+- 天気アイコン = 最大
+- カード高は増やさない
+- 4カードの一覧性を維持
+
+とすること。
+
+## 2. 左カラム
+
+### 2.1 市場名 + live方向表示
+
+現在の:
+
+```text
+日経平均 ー0.08%
+NYダウ ↑0.27%
+USD/JPY ↓0.64%
+```
+
+を左カラム最上段へ置く。
+
+市場名は小〜中サイズ。
+live方向表示は市場名と同じ行に置く。
+
+優先順位は現在値より低い。
+
+### 2.2 基準値 / 現在値
+
+市場名の下に置く。
+
+例:
+
+```text
+66,313.04
+51,349.98
+158.45
+4,324.4
+```
+
+現在より少し小さくしてもよい。
+
+ただし可読性は保ち、
+左カラムの主役として十分目立つサイズにする。
+
+天気アイコンよりは小さく見えること。
+
+### 2.3 予想レンジ
+
+左カラム最下段。
+
+例:
+
+```text
+予想 65,360.6 ～ 67,279.36
+```
+
+カード内で最小サイズの情報とする。
+
+- 一行で収めることを優先
+- 必要ならfont-sizeを端末幅に応じて縮小
+- 数字が潰れない
+- はみ出さない
+- 不要な改行をしない
+
+## 3. 右カラム
+
+### 3.1 天気アイコン
+
+カード内で最大要素。
+
+方針:
+
+```text
+カード高いっぱいを使う
+```
+
+ここでいう「いっぱい」は、
+右カラム内の余白を極力アイコンへ使うという意味。
+
+- 天気アイコンはカード高を最大限利用
+- 上下に不必要な余白を残さない
+- 天気説明や根拠度を潰さない範囲で最大化
+- 現在のアイコンより明確に大きくする
+- 端末幅に応じてclamp等で拡縮
+- カード高そのものは増やさない
+
+目安として、
+右カラム面積の大半をアイコンへ渡す。
+
+### 3.2 天気説明
+
+アイコンの下、または下寄りに配置。
+
+例:
+
+```text
+晴れ
+晴れ時々曇り
+雨
+```
+
+アイコンよりは小さいが、
+予想レンジよりは目立つ。
+
+長い `晴れ時々曇り` が狭い端末でも破綻しないようにする。
+
+### 3.3 予報根拠度
+
+天気説明の横、または直下へ置く。
+
+例:
+
+```text
+晴れ時々曇り 76%
+雨 82%
+```
+
+表示名をカード上で毎回
 
 ```text
 予報根拠度
 ```
 
-とする。
+とフル表示する必要はない。
 
-### 意味
+個人用途なので、
+天気説明に隣接して単に
+
+```text
+76%
+```
+
+としてもよい。
+
+ただし意味が分からなくなる場合は、
+
+```text
+根拠 76%
+```
+
+程度の短いラベルを使ってよい。
+
+最終表記は実際の収まりを見て選ぶ。
+
+## 4. 横幅配分
+
+基本案:
+
+```text
+左 45%
+右 55%
+```
+
+ただし固定比率に固執しない。
+
+狭い端末では、
+
+- 市場名
+- 現在値
+- 予想レンジ
+
+が左側で破綻しないことを優先。
+
+右側は `晴れ時々曇り` が入るため、
+可能なら右を少し広めに取る。
+
+## 5. レスポンシブ
+
+端末差を前提にする。
+
+同一ピクセル配置の再現を目的としない。
+
+### 狭い端末
+
+例:
+- iPhone 13 mini相当
+- CSS viewport幅が狭いAndroid
+
+方針:
+
+- 左右2カラムを維持
+- 天気アイコンは大きく
+- 右側の天気説明と根拠度は詰める
+- 予想レンジは最小サイズ
+- 4カードが縦に無理なく一覧できる
+
+### 広い端末
+
+例:
+- Androidでviewport幅に余裕がある場合
+
+方針:
+
+- 余った横幅を無駄な空白にしない
+- 天気アイコンをさらに大きくしてよい
+- 右カラムの天気情報をゆったり配置
+- カード高は狭い端末と大きく変えない
+
+## 6. 視覚優先順位
+
+カード内の視線誘導は以下を狙う。
+
+```text
+1. 天気アイコン
+2. 基準値 / 現在値
+3. 天気説明 + 予報根拠度
+4. 市場名 + live方向%
+5. 予想レンジ
+```
+
+MARKET WEATHERというアプリ名に対して、
+数字より天気が主役に見えること。
+
+## 7. live方向表示
+
+現在の:
+
+```text
+↑ 0.27%
+↓ 0.64%
+ー 0.08%
+```
+
+の意味・閾値・色は変更しない。
+
+今回のタスクでは配置のみ変更する。
+
+市場休場時の `ー 0.0%` 非表示対応は今回混ぜない。
+別タスクとする。
+
+## 8. 予報根拠度
+
+PR #30で追加済みの `forecast_support` を利用する。
+
+カード上では0〜100%表示。
 
 例:
 
 ```text
-up_probability = 0.68
-forecast_support = 高
-
-→ 上昇方向68%という予報で、
-  その68%を支える材料も比較的よく揃っている
-```
-
-```text
-up_probability = 0.68
-forecast_support = 低
-
-→ 数値上は68%だが、
-  Trend/Analogの食い違い、Analog品質不足などがあり、
-  68%という値の根拠は弱い
-```
-
-## 重要な非目的
-
-`forecast_support` は以下ではない。
-
-- 的中確率
-- 「68%の予報が実際に68%当たる」ことを保証するcalibration値
-- up_probabilityの置き換え
-- Trend / Analogの重み最適化
-- 予測精度改善そのもの
-
-「高supportほど必ず当たる」ことを本指標の定義条件にしない。
-
-ただし、将来prospective validationで
-supportと実績成績の関係を見ることは可能。
-今回はそれを本指標の成立条件にはしない。
-
-## 1. 既存値との役割分離
-
-### up_probability
-
-最終Ensembleの上昇方向確率出力。
-
-```text
-Trend 50% + Analog 50%
-```
-
-現行仕様を変更しない。
-
-### weather
-
-`up_probability` から決める人間向けカテゴリ。
-
-現行閾値を変更しない。
-
-### trend_confidence
-
-Trend内部の5シグナル一致度 + 履歴十分性。
-
-PR #29で明示化済み。
-現行計算を変更しない。
-
-### confidence
-
-互換性のため現時点では旧Trend内部一致度の意味を維持している。
-
-今回、`confidence` の意味を再び変更しない。
-新指標は別フィールド `forecast_support` として追加する。
-
-## 2. forecast_support の材料
-
-候補材料は以下。
-
-### A. Trend内部の根拠
-
-`trend_confidence` を使う。
-
-意味:
-
-- Trendを構成する5シグナルがどの程度同方向か
-- 履歴量が十分か
-
-### B. Trend / Analog の整合性
-
-`trend_probability` と `analog_probability` の差を見る。
-
-基本原則:
-
-- 近いほどsupportを高くする
-- 大きく反対するほどsupportを下げる
-- 0.5境界を跨いだ瞬間に大きく不連続になる式を避ける
-- 確率差が連続的に反映されること
-
-例:
-
-```text
-Trend 0.68 / Analog 0.72
-→ 高い整合性
-
-Trend 0.68 / Analog 0.52
-→ 中程度
-
-Trend 0.68 / Analog 0.32
-→ 低い整合性
-```
-
-### C. Analogの質
-
-raw `analog_count` は現状ほぼ常に `ANALOG_K = 30` であり、
-PR #29のvalidationでも全件30だった。
-
-したがって raw count を固定加点として使わない。
-
-代わりに、Analogの質を表せる材料を検討する。
-
-優先候補:
-
-- `analog_mean_distance`
-- query時点までの候補距離分布に対する相対的な近さ
-- nearest weightsの集中度 / effective sample size
-- Analog 30件の距離ばらつき
-
-### D. Analogの有効サンプル量
-
-単なる件数30ではなく、
-重み付きAnalogが実質何件で支えられているかを見る。
-
-可能なら effective sample size を使う。
-
-例:
-
-```text
-ESS = (sum(weights)^2) / sum(weights^2)
-```
-
-30件すべてが似た重みならESSは高い。
-1〜2件に重みが極端に集中しているならESSは低い。
-
-これにより、
-
-```text
-analog_count = 30
-```
-
-でも実質的な根拠量を区別できる。
-
-### E. データ不足 / Analogなし
-
-Analogが作れない場合は、
-Trend-only予報になる。
-
-この場合に `forecast_support = trend_confidence` と単純コピーするかは
-自動決定しない。
-
-Trend-onlyであること自体をsupport低下要因として扱う案も比較する。
-
-例:
-
-```text
-Trend-only support
-= trend_confidence × fallback_penalty
-```
-
-ただし根拠のない penalty 固定値を決め打ちしない。
-意味・テスト可能性を優先する。
-
-## 3. weather境界との関係
-
-`forecast_support` は本質的には
-`up_probability` の根拠の強さを表す。
-
-weatherカテゴリ境界からの距離そのものは、
-根拠の質とは別概念なので、基本式へ無条件に混ぜない。
-
-例:
-
-```text
-62.1% → 晴れ
-79.0% → 晴れ
-```
-
-この2つは「晴れカテゴリの安定性」は違うが、
-材料の十分さが同じならforecast_supportまで違う必要はない。
-
-必要なら別診断値として、
-
-```text
-weather_margin
+76%
 ```
 
 または
 
 ```text
-weather_stability
+根拠 76%
 ```
 
-を内部計算してもよい。
+詳細画面の `予報根拠度 76%` 表示は維持する。
 
-ただし今回の主指標 `forecast_support` と混同しない。
+計算式・JSON・意味は変更しない。
 
-## 4. 候補式の比較
-
-いきなり1本の式へ固定しない。
-
-少なくとも以下を比較する。
-
-### Candidate A
-
-```text
-Trend confidence
-+ Trend/Analog agreement
-```
-
-### Candidate B
-
-```text
-Trend confidence
-+ agreement
-+ Analog relative distance quality
-```
-
-### Candidate C
-
-```text
-Trend confidence
-+ agreement
-+ Analog relative distance quality
-+ Analog effective sample size
-```
-
-重みは説明可能な少数の値に限定する。
-
-PR #29の旧候補式をそのまま再利用しない。
-特に `analog_count / 30` 固定加点は使用しない。
-
-## 5. 評価方法
-
-今回の評価目的は「的中率の単調性」ではなく、
-指標が意図した構造を正しく表すかを見ること。
-
-### 必須の構造テスト
-
-他条件が同じなら:
-
-- Trend/Analogが近いほどsupportが高い
-- Trend/Analogが大きく食い違うほどsupportが低い
-- Analog距離品質が悪いほどsupportが低い
-- ESSが低いほどsupportが低い
-- Trend confidenceが低いほどsupportが低い
-- 0.5境界の微小な跨ぎでsupportが不自然にジャンプしない
-
-### 分布診断
-
-walk-forwardデータで:
-
-- 0〜1の範囲に収まる
-- ほぼ全件0.8〜1.0等に高止まりしない
-- ほぼ全件同値にならない
-- 市場ごとの分布が極端に破綻しない
-- disagreement局面で実際に低下する
-- Analog品質が弱い局面で低下する
-
-を確認する。
-
-### 実績との関係
-
-方向正解率との関係は参考診断として出してよい。
-
-ただし、
-
-```text
-高support群ほど高正解率でなければ失敗
-```
-
-とはしない。
-
-理由:
-本指標は「材料の強さ」を表すものであり、
-「的中確率」を直接推定するものではないため。
-
-将来、prospectiveデータが十分蓄積した後に
-support別成績を評価する余地を残す。
-
-## 6. 値のスケール
-
-内部値は原則0〜1。
-
-このアプリは基本的に個人用途なので、
-一般ユーザー向け製品のような過剰な誤解防止UIは不要。
-
-UIでは、降水確率のように0〜100%の数値としてそのまま表示する。
-
-例:
-
-```text
-予報根拠度 72%
-```
-
-内部JSONでは0〜1を保持し、表示時にpercentageへ変換する。
-
-この%は的中確率ではなく、up_probabilityを支える予報材料の強さを0〜100で表したもの。
-個人用途のため、画面上で長い注意書きを毎回併記する必要はない。
-意味の説明はdocsへ置く。
-
-低 / 中 / 高への段階化は行わない。
-情報量を落とさず、内部値をそのまま直感的に読める表示を優先する。
-
-## 7. UI
-
-カード表面には追加しない。
-
-詳細ダイアログへ追加する。
-
-表示仕様:
-
-```text
-予報根拠度    72%
-```
-
-必要なら補足:
-
-```text
-Trend・類似局面など予報材料の揃い具合
-```
-
-をdocs側へ置けばよい。
-個人用途のため、画面内に長い注意書きを常時表示しない。
-
-現行:
-
-```text
-Trend信頼度（シグナル一致度・的中確率ではありません）
-```
-
-は、詳細画面では原則として
-
-```text
-Trend一致度
-```
-
-程度へ短縮してよい。
-
-意味の厳密な説明はdocsへ寄せる。
-値の意味自体は変えない。
-
-## 8. JSON
-
-個人用途のため、過剰な後方互換レイヤーや移行コードは増やさない。
-ただし既存のdaily workflow / scoring / Web / Androidを壊さない範囲で、
-現在使っているJSON構造との互換性は維持する。
-
-新規フィールド:
-
-```json
-{
-  "forecast_support": 0.00
-}
-```
-
-必要に応じて診断用に内部値を持つ。
-
-JSONへ追加を検討してよい値:
-
-```text
-analog_effective_sample_size
-```
-
-ただし説明価値の低い中間値を大量に公開JSONへ追加しない。
-
-既存:
-
-- up_probability
-- weather
-- trend_probability
-- analog_probability
-- trend_confidence
-- confidence
-- analog_count
-- analog_mean_distance
-- range
-- risk
-
-の意味は変更しない。
-
-## 9. prospective / 過去JSON
-
-保存済みprospective forecastは書き換えない。
-
-`forecast_support` が存在しない過去JSONはそのまま許容する。
-
-個人用途なので、過去全バージョンを永久に完全互換へするための複雑な処理は作らない。
-現行scoringが新フィールド未存在で壊れない程度の互換性で十分とする。
-
-将来、prospective蓄積後に
-
-```text
-forecast_support別の実績
-```
-
-を調べられる構造にしておく。
-
-## 10. docs
-
-最低限更新:
-
-```text
-docs/forecast-values-guide.md
-docs/forecast-algorithm.md
-docs/TODO.md
-```
-
-必要なら:
-
-```text
-docs/market-weather-spec.md
-```
-
-を更新する。
-
-説明では最低限:
-
-- forecast_supportはup_probabilityを支える材料の強さ
-- 上昇確率そのものではない
-- weatherはup_probabilityから決まる
-- forecast_supportはその元になる予報材料の質・整合性を見る
-
-を明記する。
-
-「的中確率ではない」ことはdocsには明記するが、
-個人用途なのでUI上で毎回注意書きとして繰り返す必要はない。
-
-## 11. 触らないもの
+## 9. 触らないもの
 
 今回変更しない:
 
-- Trend probabilityの式
-- Analog probabilityの式
-- Trend / Analogの50:50 weight
+- forecast計算
+- up_probability
+- forecast_support計算
 - weather閾値
+- Trend / Analog
 - range計算
 - risk計算
 - Yahoo取得
-- Android Yahoo現在値取得
-- live current更新
-- 円換算
-- 表示オプション
-- riskの風表現
-- セクター雨雲レーダー
+- Android live current取得
+- refresh処理
+- forecast JSON
+- docsの予測ロジック説明
+- 詳細ダイアログの内容
+- 見出し日時
+- ページ全体の背景/ブランドカラー
+- 休場時live方向表示
 
-本タスクは「上昇確率の根拠度」の追加に限定する。
+UIカードだけに集中する。
 
-## 12. テスト
+## 10. 実装方針
+
+主に:
+
+```text
+web/app.js
+web/styles.css
+tests/regression/test_compact_web_ui.py
+必要なら tests/regression/test_web_heading.py
+```
+
+を変更する。
+
+HTML文字列を必要以上に複雑化しない。
+
+CSS GridまたはFlexboxで、
+左数値ブロック / 右天気ブロックを明確に分ける。
+
+viewport幅による差はCSSで吸収し、
+JSで端末判定してレイアウト分岐しない。
+
+## 11. テスト
 
 最低限:
 
-- forecast_supportが0〜1
-- Trend/Analog一致時 > disagreement時
-- Analog距離品質良 > 悪
-- ESS高 > 低
-- trend_confidence高 > 低
-- 0.5境界跨ぎで不連続ジャンプしない
-- Analogなしfallback
-- forecast_support追加でup_probabilityが変わらない
-- weatherが変わらない
-- range/riskが変わらない
-- forecast JSON同期先へ反映
-- 過去JSONにforecast_supportがなくてもscoringが壊れない
-- UI詳細でforecast_supportを0〜100%表示
-- カード表面へ追加されない
-- leak-safe回帰
+- カードに市場名が存在
+- live方向表示が左ブロック内に存在
+- current値が表示される
+- 予想レンジが表示される
+- weather iconが存在
+- weather labelが存在
+- forecast_supportがカード上に表示される
+- 詳細ダイアログの予報根拠度も維持
+- 既存4市場が表示される
+- 予測ロジック/JSONを変更していない
+- 主要レイアウトclassを回帰テストで固定
+- `node --check web/app.js`
 - `python -m unittest discover -s tests -p 'test_*.py'`
 - `git diff --check`
 
-既知の無関係failureがある場合は切り分ける。
+既知の無関係failureは切り分けて報告する。
 
-## 13. PRで必ず報告するもの
+## 12. 実機確認ポイント
 
-- 採用したforecast_support式
-- 各構成要素と重み
-- Analog qualityの定義
-- ESSを採用したか
-- Analogなし時の扱い
-- walk-forwardでの市場別分布
-- disagreement局面でのsupport例
-- Analog品質弱/強のsupport例
-- UIでのpercentage表示仕様
-- 的中率との関係は参考値としてのみ報告
-- test結果
-- 変更ファイル
-- 残課題
+main push後に実機で確認する。
+
+最低限:
+
+- iPhone 13 mini相当の狭い画面
+- Android WebViewの広め画面
+
+確認事項:
+
+- 天気アイコンがカード内で最も大きく見える
+- カード高が増えていない
+- 4カード一覧性が維持される
+- 晴れ時々曇りが崩れない
+- 予想レンジがはみ出さない
+- live方向%が市場名と干渉しない
+- 右カラムが窮屈すぎない
+- Androidで余白が不自然に余らない
 
 ## 完了条件
 
-- `forecast_support` が新しい独立指標として追加される
-- up_probability / weather / trend_confidence / confidenceの意味を変更しない
-- raw analog_count=30固定加点を使わない
-- Trend/Analog disagreementを連続的に反映
-- Analogの「質」と「実効サンプル量」を少なくとも検討
-- 的中確率として表示しない
-- UIはforecast_supportを降水確率のように0〜100%で表示する
-- カード表面へ追加しない
-- branchへcommit/push
-- PR作成
-- mainへmergeしない
+- 左: 市場名+live%、現在値、予想レンジ
+- 右: 大きな天気アイコン、天気説明、予報根拠度
+- 天気アイコンがカード内最大要素
+- カード高は増やさない
+- 狭い/広い端末で破綻しない
+- forecast関連ロジックは変更しない
+- mainへcommit/push
+- PRなし
+- 実機検収待ちで完了報告
 
 ## 最後の報告
 
 以下を報告する。
 
-- Git運用: branch
-- branch名
+- Git運用: main直接push
 - commit SHA
-- PR番号
-- forecast_support式
-- 各材料の意味
-- walk-forward分布診断
-- UI表示仕様
-- test結果
 - 変更ファイル
-- 残課題
+- カード左右比率
+- 天気アイコンsize指定
+- 狭い画面でのfallback
+- test結果
+- 実機確認が必要な点
