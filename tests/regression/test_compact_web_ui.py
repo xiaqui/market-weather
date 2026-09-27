@@ -107,19 +107,23 @@ class CompactWebUiTest(unittest.TestCase):
         )[0]
         self.assertIn("grid-template-columns: minmax(0, 52fr) minmax(0, 48fr)", narrow_styles)
 
-    def test_weather_icon_is_right_aligned_without_column_divider(self) -> None:
+    def test_weather_block_is_right_aligned_without_column_divider(self) -> None:
         styles = STYLES.read_text(encoding="utf-8")
-        weather_styles = styles.split(".card-weather {", 1)[1].split(".weather-meta {", 1)[0]
+        weather_styles = styles.split(".card-weather {", 1)[1].split("}", 1)[0]
 
         self.assertIn("justify-self: end", weather_styles)
+        self.assertIn("width: max-content", weather_styles)
+        self.assertIn("max-width: 100%", weather_styles)
         self.assertNotIn("border-left", weather_styles)
 
-    def test_weather_meta_follows_right_aligned_icon(self) -> None:
+    def test_icon_and_weather_meta_are_centered_within_weather_block(self) -> None:
         styles = STYLES.read_text(encoding="utf-8")
+        icon_styles = styles.split(".icon {", 1)[1].split("}", 1)[0]
         meta_styles = styles.split(".weather-meta {", 1)[1].split("}", 1)[0]
 
-        self.assertIn("justify-content: flex-end", meta_styles)
-        self.assertIn("justify-self: end", meta_styles)
+        self.assertIn("justify-self: center", icon_styles)
+        self.assertIn("justify-content: center", meta_styles)
+        self.assertIn("justify-self: center", meta_styles)
 
 
 if __name__ == "__main__":
