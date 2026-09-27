@@ -107,6 +107,13 @@ class CompactWebUiTest(unittest.TestCase):
         )[0]
         self.assertIn("grid-template-columns: minmax(0, 52fr) minmax(0, 48fr)", narrow_styles)
 
+    def test_weather_icon_is_right_aligned_without_column_divider(self) -> None:
+        styles = STYLES.read_text(encoding="utf-8")
+        weather_styles = styles.split(".card-weather {", 1)[1].split(".weather-meta {", 1)[0]
+
+        self.assertIn("justify-self: end", weather_styles)
+        self.assertNotIn("border-left", weather_styles)
+
 
 if __name__ == "__main__":
     unittest.main()
