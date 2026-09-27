@@ -114,6 +114,13 @@ class CompactWebUiTest(unittest.TestCase):
         self.assertIn("justify-self: end", weather_styles)
         self.assertNotIn("border-left", weather_styles)
 
+    def test_weather_meta_follows_right_aligned_icon(self) -> None:
+        styles = STYLES.read_text(encoding="utf-8")
+        meta_styles = styles.split(".weather-meta {", 1)[1].split("}", 1)[0]
+
+        self.assertIn("justify-content: flex-end", meta_styles)
+        self.assertIn("justify-self: end", meta_styles)
+
 
 if __name__ == "__main__":
     unittest.main()
