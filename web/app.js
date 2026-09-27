@@ -58,10 +58,13 @@ function liveDirectionMarkup(market) {
 }
 function card(market) {
   const [icon, label] = safeCondition(market.weather);
+  const forecastSupport = Number.isFinite(market.forecast_support)
+    ? percent(market.forecast_support)
+    : "データなし";
   const button = document.createElement("button");
   button.type = "button";
   button.className = "market-card";
-  button.innerHTML = `<div class="card-top"><p class="name">${market.name}${liveDirectionMarkup(market)}</p><p class="current">${number.format(market.current)}</p></div><div class="forecast-summary"><span class="icon" aria-hidden="true">${icon}</span><div class="forecast-copy"><span class="weather-name">${label}</span><p class="range"><span class="range-label">予想</span>${number.format(market.range_low)} ～ ${number.format(market.range_high)}</p></div></div>`;
+  button.innerHTML = `<div class="card-numbers"><p class="name">${market.name}${liveDirectionMarkup(market)}</p><p class="current">${number.format(market.current)}</p><p class="range"><span class="range-label">予想</span>${number.format(market.range_low)} ～ ${number.format(market.range_high)}</p></div><div class="card-weather"><span class="icon" aria-hidden="true">${icon}</span><p class="weather-meta"><span class="weather-name">${label}</span><span class="forecast-support">${forecastSupport}</span></p></div>`;
   button.addEventListener("click", () => showDetail(market));
   return button;
 }

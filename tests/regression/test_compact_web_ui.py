@@ -15,10 +15,12 @@ class CompactWebUiTest(unittest.TestCase):
         card_source = source.split("function card(market) {", 1)[1].split("function renderMarkets()", 1)[0]
 
         for snippet in (
+            'class="card-numbers"',
             'class="current"',
             'class="icon"',
-            'class="forecast-copy"',
-            'class="forecast-summary"',
+            'class="card-weather"',
+            'class="weather-meta"',
+            'class="forecast-support"',
             '<span class="range-label">予想</span>',
         ):
             self.assertIn(snippet, card_source)
@@ -70,7 +72,7 @@ class CompactWebUiTest(unittest.TestCase):
         self.assertIn("ー ${amount}", source)
         self.assertIn("↓ ${amount}", source)
 
-    def test_detail_displays_forecast_support_only_as_percentage(self) -> None:
+    def test_card_and_detail_display_forecast_support_as_percentage(self) -> None:
         source = APP_JS.read_text(encoding="utf-8")
         detail_source = source.split("function renderDetail(market) {", 1)[1].split(
             "globalThis.updateCurrentValues", 1
@@ -79,16 +81,31 @@ class CompactWebUiTest(unittest.TestCase):
         self.assertIn("予報根拠度", detail_source)
         self.assertIn("percent(market.forecast_support)", detail_source)
         self.assertIn("Trend一致度", detail_source)
-        self.assertNotIn("予報根拠度", source.split("function card(market) {", 1)[1].split("function renderMarkets()", 1)[0])
+        card_source = source.split("function card(market) {", 1)[1].split(
+            "function renderMarkets()", 1
+        )[0]
+        self.assertIn("percent(market.forecast_support)", card_source)
+        self.assertIn('class="forecast-support"', card_source)
 
-    def test_weather_label_is_left_aligned_but_range_stays_right_aligned(self) -> None:
+    def test_card_uses_two_columns_with_weather_as_largest_element(self) -> None:
         styles = STYLES.read_text(encoding="utf-8")
 
+        self.assertIn(".market-card { display: grid", styles)
+        self.assertIn("grid-template-columns: minmax(0, 45fr) minmax(0, 55fr)", styles)
+        self.assertIn(".card-numbers {", styles)
+        self.assertIn(".card-weather {", styles)
         self.assertIn(".icon {", styles)
-        self.assertIn("font-size: 2.75rem", styles)
-        self.assertIn(".weather-name { justify-self: start;", styles)
+        self.assertIn("font-size: clamp(3.35rem, 16vw, 4.45rem)", styles)
         self.assertIn(".range {", styles)
-        self.assertIn("text-align: right", styles)
+        self.assertIn("font-size: clamp(.58rem, 2.6vw, .7rem)", styles)
+
+    def test_narrow_cards_keep_two_columns_and_favor_number_fit(self) -> None:
+        styles = STYLES.read_text(encoding="utf-8")
+
+        narrow_styles = styles.split("@media (max-width: 359px)", 1)[1].split(
+            "@media (min-width: 650px)", 1
+        )[0]
+        self.assertIn("grid-template-columns: minmax(0, 52fr) minmax(0, 48fr)", narrow_styles)
 
 
 if __name__ == "__main__":

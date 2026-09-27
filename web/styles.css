@@ -7,21 +7,22 @@ header { margin: 0 3px 14px; }
 h1 { display: flex; align-items: baseline; gap: .35em; margin: 2px 0; font-size: 1.05rem; white-space: nowrap; }
 #generated { color: #5b6964; font-size: .82rem; font-weight: 500; white-space: nowrap; }
 .markets { display: grid; gap: 9px; }
-.market-card { width: 100%; border: 1px solid #e2ebe7; border-radius: 16px; padding: 9px 14px 8px; color: inherit; background: rgba(255,255,255,.94); box-shadow: 0 5px 18px rgba(32,73,60,.07); text-align: left; cursor: pointer; }
+.market-card { display: grid; grid-template-columns: minmax(0, 45fr) minmax(0, 55fr); align-items: stretch; gap: 8px; width: 100%; border: 1px solid #e2ebe7; border-radius: 16px; padding: 8px 12px; color: inherit; background: rgba(255,255,255,.94); box-shadow: 0 5px 18px rgba(32,73,60,.07); text-align: left; cursor: pointer; }
 .market-card:hover, .market-card:focus-visible { border-color: #60a58f; transform: translateY(-1px); outline: none; }
-.card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.name { margin: 0; min-width: 0; font-size: 1.05rem; font-weight: 750; }
+.card-numbers { display: flex; min-width: 0; flex-direction: column; justify-content: space-between; padding: 3px 0; }
+.name { margin: 0; min-width: 0; font-size: clamp(.78rem, 3.7vw, .95rem); font-weight: 750; white-space: nowrap; }
 .live-direction { display: inline-block; margin-left: .38em; font-weight: 900; }
 .live-direction-up { color: #1677ff; }
 .live-direction-flat { color: #c28a00; }
 .live-direction-down { color: #d43f3a; }
-.current { margin: 0; flex: none; font-size: clamp(1.35rem, 6vw, 1.7rem); font-weight: 850; font-variant-numeric: tabular-nums; }
-.forecast-summary { display: grid; grid-template-columns: 2.8rem minmax(0, 1fr); align-items: center; gap: 8px; margin-top: 5px; padding-top: 5px; border-top: 1px solid #e3eae7; }
-.icon { display: flex; align-items: center; justify-content: center; align-self: stretch; font-size: 2.75rem; line-height: .95; }
-.forecast-copy { display: grid; min-width: 0; gap: 1px; justify-items: end; }
-.weather-name { justify-self: start; font-size: .82rem; font-weight: 650; white-space: nowrap; }
-.range { max-width: 100%; margin: 0; font-size: clamp(.68rem, 3.1vw, .78rem); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-.range-label { margin-right: .55em; color: #68756f; font-size: .68rem; }
+.current { margin: 0; font-size: clamp(1.18rem, 5.5vw, 1.55rem); font-weight: 850; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.range { max-width: 100%; margin: 0; overflow: hidden; font-size: clamp(.58rem, 2.6vw, .7rem); font-variant-numeric: tabular-nums; letter-spacing: -.02em; text-overflow: clip; white-space: nowrap; }
+.range-label { margin-right: .4em; color: #68756f; font-size: .64rem; }
+.card-weather { display: grid; min-width: 0; grid-template-rows: minmax(0, 1fr) auto; justify-items: center; border-left: 1px solid #e3eae7; }
+.icon { display: flex; align-items: center; justify-content: center; min-height: 0; font-size: clamp(3.35rem, 16vw, 4.45rem); line-height: .85; }
+.weather-meta { display: flex; max-width: 100%; align-items: baseline; justify-content: center; gap: .45em; margin: 0; font-size: clamp(.7rem, 3.2vw, .82rem); white-space: nowrap; }
+.weather-name { min-width: 0; overflow: hidden; font-weight: 700; text-overflow: ellipsis; }
+.forecast-support { flex: none; color: #5b6964; font-size: .9em; font-weight: 750; }
 .error { padding: 18px; border-radius: 14px; color: #762a2a; background: #fff0ef; }
 .current-status { margin: 0 4px 18px; padding: 10px 14px; border-radius: 14px; background: rgba(255,255,255,.7); border: 1px solid #e2ebe7; font-size: .78rem; color: #345048; }
 .current-status p { margin: 0; }
@@ -38,9 +39,10 @@ dialog h2 { margin-top: 0; }
 dialog button { width: 100%; border: 0; border-radius: 12px; padding: 12px; color: white; background: #176b55; font: inherit; font-weight: 750; cursor: pointer; }
 @media (max-width: 359px) {
   h1 { white-space: normal; }
-  .forecast-summary { grid-template-columns: 2.5rem minmax(0, 1fr); gap: 5px; }
-  .icon { font-size: 2.4rem; }
-  .range-label { margin-right: .35em; }
+  .market-card { grid-template-columns: minmax(0, 52fr) minmax(0, 48fr); gap: 5px; padding-inline: 9px; }
+  .icon { font-size: clamp(3rem, 17vw, 3.6rem); }
+  .weather-meta { gap: .3em; font-size: clamp(.64rem, 3.4vw, .74rem); }
+  .range-label { margin-right: .25em; }
 }
 @media (min-width: 650px) { .markets { grid-template-columns: repeat(2, 1fr); } main { padding-top: 40px; } }
 @media (prefers-reduced-motion: no-preference) { .market-card { transition: transform .15s, border-color .15s; } }
