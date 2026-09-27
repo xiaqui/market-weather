@@ -21,6 +21,9 @@ const announcementTime = value => {
   return `${part("month")}/${part("day")}(${part("weekday")}) ${part("hour")}:${part("minute")}`;
 };
 const safeCondition = value => weather[value] || ["❔", value];
+const compactConditionLabel = value => value === "partly_cloudy"
+  ? "晴時々曇"
+  : safeCondition(value)[1];
 let markets = [];
 let selectedMarket = null;
 const liveCurrentValues = new Map();
@@ -57,7 +60,8 @@ function liveDirectionMarkup(market) {
   return `<span class="live-direction live-direction-down" aria-label="予報時終値比 下落 ${amount}">↓ ${amount}</span>`;
 }
 function card(market) {
-  const [icon, label] = safeCondition(market.weather);
+  const [icon] = safeCondition(market.weather);
+  const label = compactConditionLabel(market.weather);
   const forecastSupport = Number.isFinite(market.forecast_support)
     ? percent(market.forecast_support)
     : "データなし";
