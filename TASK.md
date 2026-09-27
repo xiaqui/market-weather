@@ -602,3 +602,135 @@ git diff --check
 - 狭い画面でも破綻しない
 - branchへcommit/pushし、このPRを更新する
 - 実機検収待ちで完了報告する
+
+
+## 次期研究: target-specific weather map v1
+
+種別: 新規タスク
+
+Git運用: branch + PR。
+
+### 背景
+
+現行の4市場共通Analogは日経平均で最も強い一方、
+NYダウ / USDJPY / GOLDでは市場固有要因を十分拾えていない可能性がある。
+
+各対象市場について、Yahoo Financeから毎営業日取得しやすく、
+値動きがあり、経済的な根拠が異なる外部材料を3本に絞った
+target-specific weather map を試験実装して現行モデルと比較する。
+
+### 外部材料3本
+
+```text
+NIKKEI
+- ^DJI
+- JPY=X
+- GC=F
+
+DOW
+- ^VIX
+- ^IXIC
+- ^TNX
+
+USDJPY
+- DX-Y.NYB
+- ^TNX
+- ^N225
+
+GOLD
+- DX-Y.NYB
+- ^TNX
+- ^VIX
+```
+
+材料の役割:
+
+```text
+NIKKEI: 米株 / 円相場 / 金
+DOW:    リスク回避 / 成長株 / 金利
+USDJPY: ドル全体 / 米金利 / 日本株
+GOLD:   ドル全体 / 金利 / リスク回避
+```
+
+### 目的
+
+本番ロジックを即置換せず、試験改善版として現行モデルと戦わせる。
+
+比較対象:
+
+1. 現行 common 4-market Analog
+2. target-specific 3-material Analog
+3. 必要なら、それぞれをTrendと50:50で混ぜたEnsemble
+
+### 実装要件
+
+- Yahoo Finance Chart APIから追加symbolの日足を取得できるようにする
+- 本番forecastの出力はこのタスクでは変更しない
+- 実験用コード / reportとして分離する
+- 形成中の日足を混ぜない
+- target marketの予測時点より未来の外部市場データを混ぜない
+- 既存のglobal clock / as-of思想を維持する
+- 追加材料が休場・欠損の場合の扱いを明示する
+- 追加symbol取得失敗で現行本番を壊さない
+
+### 評価
+
+既存の時系列分離方針を守る。
+
+最低限、現行と試験版について市場別に:
+
+- direction accuracy
+- Brier Score
+- TrendとAnalog不一致時の勝率
+- naive baseline比較
+- 複数の非重複Validation windowでの再現性
+- sample count
+
+を出す。
+
+すでに見たValidation windowを使った比較は「探索的比較」と明記し、
+その結果だけで本番採用を決定しない。
+可能なら未使用の追加out-of-sample期間、または今後のprospective結果で確認できる形も用意する。
+
+### 採用判断
+
+このPRでは本番採用しない。
+
+結果を `reports/` または `docs/` にまとめ、
+次のTASKで以下を判断できる状態にする。
+
+- 市場別にtarget-specific版を採用候補にするか
+- 3材料のうち明らかに弱い / 冗長なものがあるか
+- 別候補と入れ替えて第2試験を回すべきか
+- 現行common modelを維持すべき市場はどれか
+
+### 触らないもの
+
+- Web / Android UI
+- 現行本番forecast JSONの意味
+- weather閾値
+- forecast_support
+- 日次本番workflowの出力
+
+### テスト
+
+- 既存testを壊さない
+- 未来リーク防止
+- symbol mapping
+- 欠損 / 休場
+- target-specific入力の市場別選択
+- 実験結果の再現性
+- `python -m unittest discover -s tests -p 'test_*.py'`
+- `git diff --check`
+
+既知の無関係failureは切り分けて報告する。
+
+### 完了条件
+
+- 4市場すべてのtarget-specific試験版を実行できる
+- 現行版との比較reportが生成される
+- 各3材料の経済的役割とsymbolがdocsへ明記される
+- 本番ロジックは未変更
+- branchへcommit/push
+- PRで結果を報告
+- 次の改善候補を市場別に列挙
