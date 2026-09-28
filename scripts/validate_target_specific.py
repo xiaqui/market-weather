@@ -13,7 +13,7 @@ import argparse
 import json
 import sys
 from bisect import bisect_right
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import datetime, time, timezone
 from pathlib import Path
 from typing import Any
@@ -38,11 +38,22 @@ MATERIALS = {
 # Conservative availability clocks for research-only symbols. Yahoo labels
 # daily rows by date rather than by the instant at which the close was known.
 EXPERIMENTAL_CLOSE = {
-    "^VIX": ("America/New_York", time(16, 0)),
+    # VIX continues to be disseminated through the end of its 16:15 ET
+    # extended calculation session.  The other clocks are the end of the
+    # published daily session, not Yahoo's arbitrary daily-row label time.
+    "^VIX": ("America/New_York", time(16, 15)),
     "^IXIC": ("America/New_York", time(16, 0)),
     "^TNX": ("America/New_York", time(16, 0)),
     "DX-Y.NYB": ("America/New_York", time(17, 0)),
 }
+
+
+@dataclass(frozen=True)
+class TargetSpecificBacktestRecord(model.BacktestRecord):
+    """A scored outcome plus the exact information boundary of its forecast."""
+
+    forecast_clock: int = 0
+    max_material_timestamp: int = 0
 
 
 def normalize_experimental_closes(symbol: str, rows: list[model.Candle]) -> list[model.Candle]:
@@ -53,10 +64,19 @@ def normalize_experimental_closes(symbol: str, rows: list[model.Candle]) -> list
     zone = ZoneInfo(zone_name)
     normalized = []
     for row in rows:
+        # Yahoo's daily labels for all four audited symbols retain their session
+        # date in UTC (even though their intraday label hour varies by symbol).
+        # Taking the date in New York would move some midnight-UTC labels back a
+        # day, so do not infer the date in the exchange timezone here.
         session_date = datetime.fromtimestamp(row.timestamp, timezone.utc).date()
         timestamp = int(datetime.combine(session_date, close_time, tzinfo=zone).timestamp())
         normalized.append(replace(row, timestamp=timestamp))
     return normalized
+
+
+def filter_completed(rows: list[model.Candle], evaluation_timestamp: int) -> list[model.Candle]:
+    """Drop rows whose close/outcome was not known at report generation."""
+    return [row for row in rows if row.timestamp <= evaluation_timestamp]
 
 
 def target_material_symbols(target: str) -> tuple[str, ...]:
@@ -91,6 +111,21 @@ def material_state_at(
         )
         vector.extend(max(-model.SIGNAL_CLIP, min(model.SIGNAL_CLIP, value)) for value in values)
     return model.WeatherMapState(timestamp, tuple(vector))
+
+
+def max_material_timestamp_at(
+    histories: dict[str, list[model.Candle]], timestamp: int, target: str
+) -> int:
+    """Return the newest material row actually eligible for this state."""
+    used = []
+    for symbol in target_material_symbols(target):
+        rows = histories.get(symbol, [])
+        end = bisect_right([row.timestamp for row in rows], timestamp)
+        if end:
+            used.append(rows[end - 1].timestamp)
+    if len(used) != len(target_material_symbols(target)):
+        raise ValueError(f"Incomplete material timestamp audit for {target}")
+    return max(used)
 
 
 def material_states(
@@ -133,44 +168,72 @@ def walk_target_specific(
         actual = target_rows[next_index].close > target_rows[next_index - 1].close
         analog_probability = None if analog is None else analog.probability
         ensemble = trend if analog is None else (trend + analog.probability) / 2
-        records.append(model.BacktestRecord(
+        max_material_timestamp = max_material_timestamp_at(material_histories, current.timestamp, target)
+        if not max_material_timestamp <= current.timestamp < target_rows[next_index].timestamp:
+            raise AssertionError("material/forecast/outcome timestamps are not strictly ordered")
+        records.append(TargetSpecificBacktestRecord(
             timestamp=target_rows[next_index].timestamp,
             trend_probability=trend, analog_probability=analog_probability,
             ensemble_probability=ensemble, actual_up=actual,
             analog_count=0 if analog is None else analog.count,
             analog_mean_distance=None if analog is None else analog.mean_distance,
             historical_up_probability=cumulative_up[next_index - 1] / (next_index - 1),
+            forecast_clock=current.timestamp,
+            max_material_timestamp=max_material_timestamp,
         ))
     return records
 
 
-def _aligned(common: list[model.BacktestRecord], experiment: list[model.BacktestRecord]):
+def _paired(common: list[model.BacktestRecord], experiment: list[model.BacktestRecord]):
+    """Build the common intersection once and reject outcome mismatches."""
     experiment_by_time = {row.timestamp: row for row in experiment}
     common_by_time = {row.timestamp: row for row in common}
     timestamps = sorted(set(common_by_time) & set(experiment_by_time))
-    return ([common_by_time[t] for t in timestamps], [experiment_by_time[t] for t in timestamps])
+    pairs = []
+    for timestamp in timestamps:
+        left, right = common_by_time[timestamp], experiment_by_time[timestamp]
+        if left.actual_up != right.actual_up:
+            raise ValueError(f"Actual outcome differs for paired timestamp {timestamp}")
+        pairs.append((left, right))
+    return pairs
 
 
-def build_report(production: dict[str, list[model.Candle]], materials: dict[str, list[model.Candle]]) -> dict[str, Any]:
+def _split_paired_windows(pairs):
+    """Cut windows only after pairing, guaranteeing identical membership."""
+    return split_windows(pairs)
+
+
+def build_report(production: dict[str, list[model.Candle]], materials: dict[str, list[model.Candle]],
+                 evaluation_timestamp: int | None = None) -> dict[str, Any]:
+    evaluation_timestamp = int(datetime.now(timezone.utc).timestamp()) if evaluation_timestamp is None else evaluation_timestamp
+    production = {name: filter_completed(rows, evaluation_timestamp) for name, rows in production.items()}
+    materials = {name: filter_completed(rows, evaluation_timestamp) for name, rows in materials.items()}
     markets = {}
     for target in model.MARKET_ORDER:
         # Five non-overlapping years retain the full preceding history as the
         # Analog candidate pool and match the existing phase-2 evaluation.
         common = model.walk_forward_records(production, target, sessions=1260)
         specific = walk_target_specific(production, materials, target)
-        common, specific = _aligned(common, specific)
-        common_windows, specific_windows = split_windows(common), split_windows(specific)
+        pairs = _paired(common, specific)
+        paired_windows = _split_paired_windows(pairs)
+        common_windows = [[pair[0] for pair in window] for window in paired_windows]
+        specific_windows = [[pair[1] for pair in window] for window in paired_windows]
         markets[target] = {
             "materials": [{"symbol": symbol, "role": role} for symbol, role in MATERIALS[target]],
-            "aligned_sample_count": len(common),
+            "aligned_sample_count": len(pairs),
             "windows": [
                 {"role": "discovery" if index == 0 else "exploratory_validation",
+                 "pairing": {"sample_count_equal": len(left) == len(right),
+                             "timestamp_range_equal": (left[0].timestamp, left[-1].timestamp) ==
+                                                      (right[0].timestamp, right[-1].timestamp),
+                             "actual_outcomes_equal": all(a.actual_up == b.actual_up for a, b in zip(left, right))},
                  "common": describe_window(left), "target_specific": describe_window(right)}
                 for index, (left, right) in enumerate(zip(common_windows, specific_windows))
             ],
         }
     return {
-        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "generated_at": datetime.fromtimestamp(evaluation_timestamp, timezone.utc).isoformat(timespec="seconds"),
+        "evaluation_timestamp": evaluation_timestamp,
         "production_forecast_changed": False,
         "decision": "research_only_do_not_adopt",
         "method": {
@@ -178,6 +241,13 @@ def build_report(production: dict[str, list[model.Candle]], materials: dict[str,
             "validation_status": "exploratory; these windows were already observed in prior research",
             "future_confirmation": "rerun unchanged on a later prospective 252-session window",
             "missing_policy": "as-of last completed close; skip state until every material has 21 observations",
+            "pairing_policy": "intersection on target and timestamp with identical actual outcome, then shared 252-session windows",
+            "experimental_daily_availability": {
+                "^VIX": "session UTC date at 16:15 America/New_York",
+                "^IXIC": "session UTC date at 16:00 America/New_York",
+                "^TNX": "session UTC date at 16:00 America/New_York",
+                "DX-Y.NYB": "session UTC date at 17:00 America/New_York",
+            },
         },
         "markets": markets,
     }
@@ -187,12 +257,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=DEFAULT_REPORT)
     args = parser.parse_args()
+    evaluation_timestamp = int(datetime.now(timezone.utc).timestamp())
     production_snapshots = {name: model.fetch_market(symbol) for name, symbol in model.SYMBOLS.items()}
     symbols = sorted({symbol for rows in MATERIALS.values() for symbol, _ in rows})
     fetched = {symbol: model.fetch_market(symbol).candles for symbol in symbols}
     fetched = {symbol: normalize_experimental_closes(symbol, rows) for symbol, rows in fetched.items()}
     report = build_report(
-        {name: snapshot.candles for name, snapshot in production_snapshots.items()}, fetched
+        {name: snapshot.candles for name, snapshot in production_snapshots.items()}, fetched,
+        evaluation_timestamp=evaluation_timestamp,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
