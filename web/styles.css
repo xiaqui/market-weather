@@ -20,7 +20,7 @@ h1 { display: flex; align-items: baseline; gap: .35em; margin: 2px 0; font-size:
 .range-label { margin-right: .4em; color: #68756f; font-size: .64rem; }
 .card-weather { display: grid; min-width: 0; grid-template-rows: minmax(0, 1fr) auto; justify-items: center; }
 .icon { display: flex; align-items: center; justify-content: center; justify-self: end; min-height: 0; font-size: clamp(3.35rem, 16vw, 4.45rem); line-height: .85; }
-.weather-meta { display: flex; max-width: 100%; align-items: baseline; justify-content: flex-end; justify-self: end; gap: .45em; margin: 0; font-size: clamp(.7rem, 3.2vw, .82rem); white-space: nowrap; }
+.weather-meta { display: flex; width: clamp(3.35rem, 16vw, 4.45rem); max-width: 100%; align-items: baseline; justify-content: center; justify-self: end; gap: .1em; margin: 0; font-size: clamp(.5rem, 2.4vw, .72rem); white-space: nowrap; }
 .weather-name { min-width: 0; overflow: hidden; font-weight: 700; text-overflow: ellipsis; }
 .forecast-support { flex: none; color: #5b6964; font-size: .9em; font-weight: 750; }
 .error { padding: 18px; border-radius: 14px; color: #762a2a; background: #fff0ef; }
