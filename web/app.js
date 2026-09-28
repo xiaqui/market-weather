@@ -78,6 +78,9 @@ function showDetail(market) {
   renderDetail(market);
   document.querySelector("#detail").showModal();
 }
+function detailCurrentLabel(market) {
+  return liveCurrentValues.has(market.id) ? "現在値" : "基準値";
+}
 function renderDetail(market) {
   const analog = market.analog_probability == null
     ? `<dt>類似天気図予報</dt><dd>データ不足</dd><dt>類似局面</dt><dd>${market.analog_count || 0}件</dd>`
@@ -93,7 +96,7 @@ function renderDetail(market) {
   const forecastSupport = Number.isFinite(market.forecast_support)
     ? percent(market.forecast_support)
     : "データなし";
-  document.querySelector("#detail-content").innerHTML = `<h2>${market.name} の詳細</h2><dl class="detail-list"><dt>現在値</dt><dd>${number.format(market.current)}</dd><dt>元データ最終日</dt><dd><time datetime="${lastDataDate}">${localizedLastDataDate}</time></dd><dt>予測対象営業日</dt><dd>${nextSessionDetail}</dd><dt>天気</dt><dd>${safeCondition(market.weather)[1]}</dd><dt>トレンド予報</dt><dd>${percent(market.trend_probability ?? market.up_probability)}</dd>${analog}<dt>最終予報</dt><dd>${percent(market.up_probability)}</dd><dt>予報根拠度</dt><dd>${forecastSupport}</dd><dt>予想レンジ</dt><dd class="detail-range"><span>${number.format(market.range_low)}</span><span>〜 ${number.format(market.range_high)}</span></dd><dt>Trend一致度</dt><dd>${percent(market.trend_confidence ?? market.confidence)}</dd><dt>リスク状態</dt><dd>${risks[market.risk] || market.risk}</dd></dl>`;
+  document.querySelector("#detail-content").innerHTML = `<h2>${market.name} の詳細</h2><dl class="detail-list"><dt>${detailCurrentLabel(market)}</dt><dd>${number.format(market.current)}</dd><dt>元データ最終日</dt><dd><time datetime="${lastDataDate}">${localizedLastDataDate}</time></dd><dt>予測対象営業日</dt><dd>${nextSessionDetail}</dd><dt>天気</dt><dd>${safeCondition(market.weather)[1]}</dd><dt>トレンド予報</dt><dd>${percent(market.trend_probability ?? market.up_probability)}</dd>${analog}<dt>最終予報</dt><dd>${percent(market.up_probability)}</dd><dt>予報根拠度</dt><dd>${forecastSupport}</dd><dt>予想レンジ</dt><dd class="detail-range"><span>${number.format(market.range_low)}</span><span>〜 ${number.format(market.range_high)}</span></dd><dt>Trend一致度</dt><dd>${percent(market.trend_confidence ?? market.confidence)}</dd><dt>リスク状態</dt><dd>${risks[market.risk] || market.risk}</dd></dl>`;
 }
 globalThis.updateCurrentValues = updates => {
   if (!Array.isArray(updates)) return;
