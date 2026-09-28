@@ -66,7 +66,7 @@ function card(market) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "market-card";
-  button.innerHTML = `<div class="card-info"><p class="name">${market.name}</p><div class="direction-slot">${liveDirectionMarkup(market)}</div><p class="range"><span class="range-label">予想</span>${number.format(market.range_low)} ～ ${number.format(market.range_high)}</p></div><p class="current"><span class="current-int">${number.format(market.current).split(".")[0]}</span><span class="current-decimal">${number.format(market.current).includes(".") ? `.${number.format(market.current).split(".")[1]}` : ""}</span></p><div class="card-weather"><span class="icon" aria-hidden="true">${icon}</span><p class="weather-meta"><span class="weather-name">${label}</span><span class="forecast-support">${forecastSupport}</span></p></div>`;
+  button.innerHTML = `<div class="card-info"><p class="name">${market.name}</p><div class="direction-slot">${liveDirectionMarkup(market)}</div><p class="range"><span class="range-label">予想</span>${number.format(market.range_low)} ～ ${number.format(market.range_high)}</p></div><p class="current">${number.format(market.current)}</p><div class="card-weather"><span class="icon" aria-hidden="true">${icon}</span><p class="weather-meta"><span class="weather-name">${label}</span><span class="forecast-support">${forecastSupport}</span></p></div>`;
   button.addEventListener("click", () => showDetail(market));
   return button;
 }
@@ -93,7 +93,7 @@ function renderDetail(market) {
   const forecastSupport = Number.isFinite(market.forecast_support)
     ? percent(market.forecast_support)
     : "データなし";
-  document.querySelector("#detail-content").innerHTML = `<h2>${market.name} の詳細</h2><dl class="detail-list"><dt>現在値</dt><dd>${number.format(market.current)}</dd><dt>元データ最終日</dt><dd><time datetime="${lastDataDate}">${localizedLastDataDate}</time></dd><dt>予測対象営業日</dt><dd>${nextSessionDetail}</dd><dt>天気</dt><dd>${safeCondition(market.weather)[1]}</dd><dt>トレンド予報</dt><dd>${percent(market.trend_probability ?? market.up_probability)}</dd>${analog}<dt>最終予報</dt><dd>${percent(market.up_probability)}</dd><dt>予報根拠度</dt><dd>${forecastSupport}</dd><dt>予想レンジ</dt><dd class="detail-range"><span>${number.format(market.range_low)}</span><span>〜 ${number.format(market.range_high)}</span></dd><dt>Trend一致度</dt><dd>${percent(market.trend_confidence ?? market.confidence)}</dd><dt>リスク状態</dt><dd>${risks[market.risk] || market.risk}</dd></dl>`;
+  document.querySelector("#detail-content").innerHTML = `<h2>${market.name} の詳細</h2><dl class="detail-list"><dt>現在値</dt><dd>${number.format(market.current)}</dd><dt>元データ最終日</dt><dd><time datetime="${lastDataDate}">${localizedLastDataDate}</time></dd><dt>予測対象営業日</dt><dd>${nextSessionDetail}</dd><dt>天気</dt><dd>${safeCondition(market.weather)[1]}</dd><dt>トレンド予報</dt><dd>${percent(market.trend_probability ?? market.up_probability)}</dd>${analog}<dt>最終予報</dt><dd>${percent(market.up_probability)}</dd><dt>予報根拠度</dt><dd>${forecastSupport}</dd><dt>予想レンジ</dt><dd class="detail-range"><span>〜 ${number.format(market.range_low)}</span><span>${number.format(market.range_high)}</span></dd><dt>Trend一致度</dt><dd>${percent(market.trend_confidence ?? market.confidence)}</dd><dt>リスク状態</dt><dd>${risks[market.risk] || market.risk}</dd></dl>`;
 }
 globalThis.updateCurrentValues = updates => {
   if (!Array.isArray(updates)) return;
