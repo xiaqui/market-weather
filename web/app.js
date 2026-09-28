@@ -1,5 +1,5 @@
 const weather = {
-  sunny: ["☀️", "晴れ"], partly_cloudy: ["🌤️", "晴れ時々曇り"],
+  sunny: ["☀️", "晴れ"], partly_cloudy: ["🌤️", "微晴"],
   cloudy: ["☁️", "曇り"], rainy: ["🌧️", "雨"], storm: ["⛈️", "荒天"],
 };
 const risks = { calm: "安定", normal: "通常", caution: "注意", storm: "荒天" };
@@ -21,9 +21,7 @@ const announcementTime = value => {
   return `${part("month")}/${part("day")}(${part("weekday")}) ${part("hour")}:${part("minute")}`;
 };
 const safeCondition = value => weather[value] || ["❔", value];
-const compactConditionLabel = value => value === "partly_cloudy"
-  ? "晴時々曇"
-  : safeCondition(value)[1];
+const compactConditionLabel = value => safeCondition(value)[1];
 let markets = [];
 let selectedMarket = null;
 const liveCurrentValues = new Map();
