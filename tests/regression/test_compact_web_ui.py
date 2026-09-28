@@ -154,6 +154,8 @@ class CompactWebUiTest(unittest.TestCase):
         self.assertIn("justify-self: center", current_styles)
         self.assertIn("justify-content: flex-end", current_styles)
         self.assertIn("width: 7.6ch", current_styles)
+        self.assertIn("transform: translate(-2ch, -.32em)", current_styles)
+        self.assertNotIn("translateY", current_styles)
         self.assertIn("width: 2.35ch", decimal_styles)
         self.assertIn("text-align: left", decimal_styles)
 
