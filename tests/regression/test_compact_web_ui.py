@@ -140,6 +140,35 @@ class CompactWebUiTest(unittest.TestCase):
         self.assertIn("compactConditionLabel(market.weather)", card_source)
         self.assertIn("safeCondition(market.weather)[1]", detail_source)
 
+    def test_current_values_share_a_centered_decimal_axis(self) -> None:
+        source = APP_JS.read_text(encoding="utf-8")
+        styles = STYLES.read_text(encoding="utf-8")
+        card_source = source.split("function card(market) {", 1)[1].split(
+            "function renderMarkets()", 1
+        )[0]
+        current_styles = styles.split(".current {", 1)[1].split("}", 1)[0]
+        decimal_styles = styles.split(".current-decimal {", 1)[1].split("}", 1)[0]
+
+        self.assertIn('class="current-int"', card_source)
+        self.assertIn('class="current-decimal"', card_source)
+        self.assertIn("justify-self: center", current_styles)
+        self.assertIn("justify-content: flex-end", current_styles)
+        self.assertIn("width: 7.6ch", current_styles)
+        self.assertIn("width: 2.35ch", decimal_styles)
+        self.assertIn("text-align: left", decimal_styles)
+
+    def test_detail_range_upper_line_starts_with_separator(self) -> None:
+        source = APP_JS.read_text(encoding="utf-8")
+        detail_source = source.split("function renderDetail(market) {", 1)[1].split(
+            "globalThis.updateCurrentValues", 1
+        )[0]
+
+        self.assertIn(
+            '<dd class="detail-range"><span>${number.format(market.range_low)}</span>'
+            '<span>〜 ${number.format(market.range_high)}</span></dd>',
+            detail_source,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
