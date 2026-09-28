@@ -602,3 +602,81 @@ git diff --check
 - 狭い画面でも破綻しない
 - branchへcommit/pushし、このPRを更新する
 - 実機検収待ちで完了報告する
+
+
+## 週末更新で月曜予報が古い問題
+
+種別: 不具合修正
+
+Git運用: branch + PR。
+
+### 症状
+
+2026-09-26(土) 朝の自動更新後、`shared/forecast.json` では:
+
+```text
+DOW      last_data_date=2026-09-25 / next_session_date=2026-09-28
+USDJPY   last_data_date=2026-09-25 / next_session_date=2026-09-28
+
+NIKKEI   last_data_date=2026-09-24 / next_session_date=2026-09-25
+GOLD     last_data_date=2026-09-24 / next_session_date=2026-09-25
+```
+
+となり、月曜になっても日経とGOLDだけ金曜予報のまま残っている。
+
+期待仕様は、金曜の確定終値を使って次営業日(月曜)の終値を予報すること。
+
+### 目的
+
+土曜朝の定期更新時点で、金曜営業日の確定足が利用可能な市場はその足まで取り込み、
+`next_session_date` が次営業日(月曜)になること。
+
+特に以下を満たす:
+
+- 日経: 金曜終値 -> 月曜終値予報
+- GOLD: 金曜の確定した日足 -> 次営業日(月曜)予報
+- DOW / USDJPY の既存正常挙動を壊さない
+
+### 調査ポイント
+
+- Yahoo Chart API の日足timestampと、`session_close_timestamp()` / 完了足判定
+- 土曜朝JST(=金曜夜〜土曜UTC境界)での日経・GOLDの最新足除外条件
+- `fetch_market()` の形成中足除外
+- `last_data_date()` と `next_session_date` の算出
+- GOLDの取引日/早期終了/タイムゾーン処理
+- GitHub Actions実行時刻 07:30 JST との関係
+
+### 実装方針
+
+原因を特定して最小修正する。
+
+schedule時刻を安易に後ろ倒しして隠さず、
+「その時刻までに既に確定している日足を正しく採用できる」ことを優先する。
+
+ただしYahoo側で物理的に金曜足がまだ配信されていないことが確認できた場合のみ、
+市場別の利用可能時刻またはworkflow時刻の見直しを提案してよい。
+
+### テスト
+
+最低限、固定時刻を使った回帰テストを追加する。
+
+- 土曜朝JST相当の時刻で、金曜の日経確定足が採用される
+- 土曜朝JST相当の時刻で、金曜のGOLD確定足が採用される
+- 形成中足は引き続き除外される
+- 次営業日が月曜になる
+- 米国祝日 / 日本祝日 / 週末判定を壊さない
+- DOW / USDJPY の既存挙動を壊さない
+- `python -m unittest discover -s tests -p 'test_*.py'`
+- `git diff --check`
+
+既知の無関係failureは切り分けて報告する。
+
+### 完了条件
+
+- 原因を説明できる
+- 土曜朝更新で金曜確定足が正しく反映される
+- 日経/GOLDの `last_data_date` と `next_session_date` が期待どおりになる
+- 4市場の予報JSONを再生成して確認する
+- 本番workflowで次回から再発しない
+- branchへcommit/push
+- PRでテスト結果と修正内容を報告
