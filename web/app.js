@@ -1,5 +1,5 @@
 const weather = {
-  sunny: ["☀️", "晴れ"], partly_cloudy: ["🌤️", "晴れ時々曇り"],
+  sunny: ["☀️", "晴れ"], partly_cloudy: ["🌤️", "微晴"],
   cloudy: ["☁️", "曇り"], rainy: ["🌧️", "雨"], storm: ["⛈️", "荒天"],
 };
 const risks = { calm: "安定", normal: "通常", caution: "注意", storm: "荒天" };
@@ -21,6 +21,7 @@ const announcementTime = value => {
   return `${part("month")}/${part("day")}(${part("weekday")}) ${part("hour")}:${part("minute")}`;
 };
 const safeCondition = value => weather[value] || ["❔", value];
+const compactConditionLabel = value => safeCondition(value)[1];
 let markets = [];
 let selectedMarket = null;
 const liveCurrentValues = new Map();
@@ -57,14 +58,15 @@ function liveDirectionMarkup(market) {
   return `<span class="live-direction live-direction-down" aria-label="予報時終値比 下落 ${amount}">↓ ${amount}</span>`;
 }
 function card(market) {
-  const [icon, label] = safeCondition(market.weather);
+  const [icon] = safeCondition(market.weather);
+  const label = compactConditionLabel(market.weather);
   const forecastSupport = Number.isFinite(market.forecast_support)
     ? percent(market.forecast_support)
     : "データなし";
   const button = document.createElement("button");
   button.type = "button";
   button.className = "market-card";
-  button.innerHTML = `<div class="card-numbers"><p class="name">${market.name}${liveDirectionMarkup(market)}</p><p class="current">${number.format(market.current)}</p><p class="range"><span class="range-label">予想</span>${number.format(market.range_low)} ～ ${number.format(market.range_high)}</p></div><div class="card-weather"><span class="icon" aria-hidden="true">${icon}</span><p class="weather-meta"><span class="weather-name">${label}</span><span class="forecast-support">${forecastSupport}</span></p></div>`;
+  button.innerHTML = `<div class="card-info"><p class="name">${market.name}</p><div class="direction-slot">${liveDirectionMarkup(market)}</div><p class="range"><span class="range-label">予想</span>${number.format(market.range_low)} ～ ${number.format(market.range_high)}</p></div><p class="current"><span class="current-int">${number.format(market.current).split(".")[0]}</span><span class="current-decimal">${number.format(market.current).includes(".") ? `.${number.format(market.current).split(".")[1]}` : ""}</span></p><div class="card-weather"><span class="icon" aria-hidden="true">${icon}</span><p class="weather-meta"><span class="weather-name">${label}</span><span class="forecast-support">${forecastSupport}</span></p></div>`;
   button.addEventListener("click", () => showDetail(market));
   return button;
 }
@@ -75,6 +77,9 @@ function showDetail(market) {
   selectedMarket = market;
   renderDetail(market);
   document.querySelector("#detail").showModal();
+}
+function detailCurrentLabel(market) {
+  return liveCurrentValues.has(market.id) ? "現在値" : "基準値";
 }
 function renderDetail(market) {
   const analog = market.analog_probability == null
@@ -91,7 +96,7 @@ function renderDetail(market) {
   const forecastSupport = Number.isFinite(market.forecast_support)
     ? percent(market.forecast_support)
     : "データなし";
-  document.querySelector("#detail-content").innerHTML = `<h2>${market.name} の詳細</h2><dl class="detail-list"><dt>現在値</dt><dd>${number.format(market.current)}</dd><dt>元データ最終日</dt><dd><time datetime="${lastDataDate}">${localizedLastDataDate}</time></dd><dt>予測対象セッション（次回営業日）</dt><dd>${nextSessionDetail}</dd><dt>天気</dt><dd>${safeCondition(market.weather)[1]}</dd><dt>トレンド予報</dt><dd>${percent(market.trend_probability ?? market.up_probability)}</dd>${analog}<dt>最終予報</dt><dd>${percent(market.up_probability)}</dd><dt>予報根拠度</dt><dd>${forecastSupport}</dd><dt>予想レンジ</dt><dd>${number.format(market.range_low)} ～ ${number.format(market.range_high)}</dd><dt>Trend一致度</dt><dd>${percent(market.trend_confidence ?? market.confidence)}</dd><dt>リスク状態</dt><dd>${risks[market.risk] || market.risk}</dd></dl>`;
+  document.querySelector("#detail-content").innerHTML = `<h2>${market.name} の詳細</h2><dl class="detail-list"><dt>${detailCurrentLabel(market)}</dt><dd>${number.format(market.current)}</dd><dt>元データ最終日</dt><dd><time datetime="${lastDataDate}">${localizedLastDataDate}</time></dd><dt>予測対象営業日</dt><dd>${nextSessionDetail}</dd><dt>天気</dt><dd>${safeCondition(market.weather)[1]}</dd><dt>トレンド予報</dt><dd>${percent(market.trend_probability ?? market.up_probability)}</dd>${analog}<dt>最終予報</dt><dd>${percent(market.up_probability)}</dd><dt>予報根拠度</dt><dd>${forecastSupport}</dd><dt>予想レンジ</dt><dd class="detail-range"><span>${number.format(market.range_low)}</span><span>〜 ${number.format(market.range_high)}</span></dd><dt>Trend一致度</dt><dd>${percent(market.trend_confidence ?? market.confidence)}</dd><dt>リスク状態</dt><dd>${risks[market.risk] || market.risk}</dd></dl>`;
 }
 globalThis.updateCurrentValues = updates => {
   if (!Array.isArray(updates)) return;

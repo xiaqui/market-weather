@@ -107,19 +107,38 @@ class CompactWebUiTest(unittest.TestCase):
         )[0]
         self.assertIn("grid-template-columns: minmax(0, 52fr) minmax(0, 48fr)", narrow_styles)
 
-    def test_weather_icon_is_right_aligned_without_column_divider(self) -> None:
+    def test_weather_block_has_no_column_divider(self) -> None:
         styles = STYLES.read_text(encoding="utf-8")
-        weather_styles = styles.split(".card-weather {", 1)[1].split(".weather-meta {", 1)[0]
+        weather_styles = styles.split(".card-weather {", 1)[1].split("}", 1)[0]
 
-        self.assertIn("justify-self: end", weather_styles)
         self.assertNotIn("border-left", weather_styles)
 
-    def test_weather_meta_follows_right_aligned_icon(self) -> None:
+    def test_icon_stays_right_aligned_and_only_meta_is_centered(self) -> None:
         styles = STYLES.read_text(encoding="utf-8")
+        icon_styles = styles.split(".icon {", 1)[1].split("}", 1)[0]
         meta_styles = styles.split(".weather-meta {", 1)[1].split("}", 1)[0]
 
-        self.assertIn("justify-content: flex-end", meta_styles)
+        self.assertIn("justify-self: end", icon_styles)
+        self.assertNotIn("justify-self: center", icon_styles)
+        self.assertIn("width: clamp(3.35rem, 16vw, 4.45rem)", meta_styles)
+        self.assertIn("max-width: 100%", meta_styles)
+        self.assertIn("justify-content: center", meta_styles)
         self.assertIn("justify-self: end", meta_styles)
+
+    def test_card_shortens_partly_cloudy_but_detail_keeps_formal_label(self) -> None:
+        source = APP_JS.read_text(encoding="utf-8")
+        card_source = source.split("function card(market) {", 1)[1].split(
+            "function renderMarkets()", 1
+        )[0]
+        detail_source = source.split("function renderDetail(market) {", 1)[1].split(
+            "globalThis.updateCurrentValues", 1
+        )[0]
+
+        self.assertIn('partly_cloudy: ["🌤️", "晴れ時々曇り"]', source)
+        self.assertIn('value === "partly_cloudy"', source)
+        self.assertIn('? "晴時々曇"', source)
+        self.assertIn("compactConditionLabel(market.weather)", card_source)
+        self.assertIn("safeCondition(market.weather)[1]", detail_source)
 
 
 if __name__ == "__main__":
