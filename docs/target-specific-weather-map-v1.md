@@ -46,6 +46,10 @@ intersection を最初に作り、その同じ paired rows から window を切�
 - target の次回 close より厳密に前の global clock を選び、各材料を as-of join
   する。未来の材料 row と、query 時点でまだ判明していない Analog outcome は
   候補から除外する。
+- 材料側の最新 clock が休場・欠損により target の前回 close より古い場合、forecast
+  clock は前回 target close まで進める。材料はその時刻への as-of join のままとし、
+  架空 row は作らない。これにより Trend に渡す前回 close も必ず forecast clock
+  以下となり、`max(material, previous target close) ≤ forecast clock < outcome` を保証する。
 - 休場または単発欠損は、捏造や未来方向の補間をせず、最後に完了した実 row を
   使用する。いずれかの材料が 21 observation 未満ならその state を skip する。
 - 追加 symbol の取得と評価は独立 script 内だけで行うため、取得失敗は本番
@@ -60,17 +64,18 @@ intersection を最初に作り、その同じ paired rows から window を切�
 
 | target | discovery accuracy | discovery Brier | validation の傾向 | 判断 |
 |---|---:|---:|---|---|
-| NIKKEI | 55.95% vs 57.54% | .2469 vs .2480 | accuracy 1/4、Brier 1/4 改善 | common 維持 |
-| DOW | 51.59% vs 55.16% | .2512 vs .2567 | accuracy 0/4、Brier 1/4 改善 | common 維持 |
-| USDJPY | 62.30% vs 51.19% | .2252 vs .2519 | accuracy 4/4、Brier 4/4 改善 | prospective 候補 |
-| GOLD | 59.52% vs 56.35% | .2367 vs .2531 | accuracy 3/4、Brier 4/4 改善 | prospective 候補 |
+| NIKKEI | 55.56% vs 57.14% | .2484 vs .2491 | accuracy 1/4、Brier 0/4 改善 | common 維持 |
+| DOW | 51.59% vs 55.56% | .2513 vs .2564 | accuracy 0/4、Brier 1/4 改善 | common 維持 |
+| USDJPY | 61.90% vs 51.19% | .2264 vs .2516 | accuracy 4/4、Brier 4/4 改善 | prospective 候補 |
+| GOLD | 59.52% vs 55.95% | .2365 vs .2530 | accuracy 3/4、Brier 4/4 改善 | prospective 候補 |
 
-旧 report と比べ、未来だった USDJPY 2026-09-27 close を除外したため最新 USDJPY
-window は 2026-09-24 までとなり、target-specific accuracy は 61.90% から 62.30%、
-Brier は .2266 から .2252 へ変化した。VIX の availability を 16:00 から 16:15 に
-保守化し、完全 paired 化した結果、他市場にも丸め表示で最大 .0002 程度の Brier
-差が出たが、市場別の結論と USDJPY/GOLD の優位性は変わらなかった。結果差は
-隠さず、JSON の新しい evaluation timestamp と全 paired window に反映している。
+今回の再実行時刻は 2026-09-29 02:06 UTC であり、前回生成時には未来だった
+USDJPY 2026-09-27 close はこの時点では確定済みなので評価対象へ戻った。前回の
+安全化 report（最新 window が 2026-09-24 まで）との比較では、USDJPY の
+target-specific accuracy は 62.30% から 61.90%、Brier は .2252 から .2264 へ
+変化した。forecast clock 境界修正と最新確定 row の追加後も、市場別の結論と
+USDJPY/GOLD の優位性は変わらなかった。結果差は隠さず、JSON の新しい
+evaluation timestamp と全 paired window に反映している。
 
 JSON には各 model の direction accuracy、Brier、Trend と Analog の不一致時勝率、
 always-up/down・constant-50・expanding historical-rate の naive baseline、sample

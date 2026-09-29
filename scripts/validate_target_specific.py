@@ -128,16 +128,38 @@ def max_material_timestamp_at(
     return max(used)
 
 
+def forecast_clock_at(
+    material_clocks: list[int], previous_target_close: int, next_target_close: int
+) -> int | None:
+    """Return a clock where both Trend history and material state are knowable.
+
+    The latest material clock can predate the target's previous close during a
+    holiday or missing session.  In that case using it as the forecast clock
+    while giving Trend the previous target close would be internally
+    inconsistent.  Advance the query clock to that known target close without
+    manufacturing a material row; the material join remains strictly as-of.
+    """
+    end = bisect_right(material_clocks, next_target_close - 1)
+    if not end:
+        return None
+    clock = max(material_clocks[end - 1], previous_target_close)
+    if clock >= next_target_close:
+        raise AssertionError("forecast clock must be strictly before target outcome")
+    return clock
+
+
 def material_states(
     histories: dict[str, list[model.Candle]], target: str, target_rows: list[model.Candle]
 ) -> list[model.WeatherMapState]:
     clocks = sorted({row.timestamp for rows in histories.values() for row in rows})
     states = []
     for next_index in range(1, len(target_rows)):
-        end = bisect_right(clocks, target_rows[next_index].timestamp - 1)
-        if not end:
+        clock = forecast_clock_at(
+            clocks, target_rows[next_index - 1].timestamp, target_rows[next_index].timestamp
+        )
+        if clock is None:
             continue
-        state = material_state_at(histories, clocks[end - 1], target)
+        state = material_state_at(histories, clock, target)
         if state is not None:
             states.append(state)
     return states
@@ -147,7 +169,7 @@ def walk_target_specific(
     production_histories: dict[str, list[model.Candle]],
     material_histories: dict[str, list[model.Candle]], target: str,
     sessions: int = 1260,
-) -> list[model.BacktestRecord]:
+) -> list[TargetSpecificBacktestRecord]:
     target_rows = production_histories[target]
     states = material_states(material_histories, target, target_rows)
     clocks = sorted({row.timestamp for rows in material_histories.values() for row in rows})
@@ -157,10 +179,13 @@ def walk_target_specific(
     for index in range(1, len(target_rows)):
         cumulative_up.append(cumulative_up[-1] + (target_rows[index].close > target_rows[index - 1].close))
     for next_index in range(start, len(target_rows)):
-        end = bisect_right(clocks, target_rows[next_index].timestamp - 1)
-        if not end:
+        previous_target_close = target_rows[next_index - 1].timestamp
+        clock = forecast_clock_at(
+            clocks, previous_target_close, target_rows[next_index].timestamp
+        )
+        if clock is None:
             continue
-        current = material_state_at(material_histories, clocks[end - 1], target)
+        current = material_state_at(material_histories, clock, target)
         if current is None:
             continue
         trend = float(model.build_prediction(target_rows[:next_index])["trend_probability"])
@@ -169,8 +194,11 @@ def walk_target_specific(
         analog_probability = None if analog is None else analog.probability
         ensemble = trend if analog is None else (trend + analog.probability) / 2
         max_material_timestamp = max_material_timestamp_at(material_histories, current.timestamp, target)
-        if not max_material_timestamp <= current.timestamp < target_rows[next_index].timestamp:
-            raise AssertionError("material/forecast/outcome timestamps are not strictly ordered")
+        if not (
+            max_material_timestamp <= current.timestamp
+            and previous_target_close <= current.timestamp < target_rows[next_index].timestamp
+        ):
+            raise AssertionError("material/target-history/forecast/outcome timestamps are not ordered")
         records.append(TargetSpecificBacktestRecord(
             timestamp=target_rows[next_index].timestamp,
             trend_probability=trend, analog_probability=analog_probability,
@@ -241,6 +269,7 @@ def build_report(production: dict[str, list[model.Candle]], materials: dict[str,
             "validation_status": "exploratory; these windows were already observed in prior research",
             "future_confirmation": "rerun unchanged on a later prospective 252-session window",
             "missing_policy": "as-of last completed close; skip state until every material has 21 observations",
+            "forecast_clock_policy": "max(latest material close before outcome, previous target close); always strictly before outcome",
             "pairing_policy": "intersection on target and timestamp with identical actual outcome, then shared 252-session windows",
             "experimental_daily_availability": {
                 "^VIX": "session UTC date at 16:15 America/New_York",

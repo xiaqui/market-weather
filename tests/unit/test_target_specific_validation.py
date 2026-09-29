@@ -65,12 +65,28 @@ class TargetSpecificValidationTest(unittest.TestCase):
             experiment.target_material_symbols("gold"))}
         records = experiment.walk_target_specific(production, materials, "gold", sessions=30)
         self.assertTrue(records)
+        target_by_timestamp = {row.timestamp: index for index, row in enumerate(production["gold"])}
         for record in records:
+            target_index = target_by_timestamp[record.timestamp]
             self.assertLessEqual(record.max_material_timestamp, record.forecast_clock)
+            self.assertLessEqual(
+                production["gold"][target_index - 1].timestamp, record.forecast_clock
+            )
             self.assertLess(record.forecast_clock, record.timestamp)
         # bisect_right makes a row exactly at the forecast clock eligible.
         clock = materials["^VIX"][-1].timestamp
         self.assertEqual(experiment.max_material_timestamp_at(materials, clock, "gold"), clock)
+
+    def test_stale_material_clock_advances_to_known_previous_target_close(self):
+        production = {market: rows(70, index) for index, market in enumerate(model.MARKET_ORDER)}
+        symbols = experiment.target_material_symbols("gold")
+        materials = {symbol: rows(70, index, missing=(48,))
+                     for index, symbol in enumerate(symbols)}
+        records = experiment.walk_target_specific(production, materials, "gold", sessions=30)
+        target = production["gold"]
+        record = next(item for item in records if item.timestamp == target[49].timestamp)
+        self.assertEqual(record.forecast_clock, target[48].timestamp)
+        self.assertLess(record.max_material_timestamp, record.forecast_clock)
 
     def test_future_target_close_cannot_change_earlier_analog_forecast(self):
         production = {market: rows(90, index) for index, market in enumerate(model.MARKET_ORDER)}
