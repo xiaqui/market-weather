@@ -458,12 +458,39 @@ def parse_history(
     # Keep it out of all features and backtests until its market-specific close;
     # the live value remains available separately through regularMarketPrice.
     now = time.time() if now_timestamp is None else now_timestamp
+    try:
+        regular_session = result["meta"]["currentTradingPeriod"]["regular"]
+        session_start = float(regular_session["start"])
+        session_end = float(regular_session["end"])
+    except (KeyError, TypeError, ValueError):
+        session_start = session_end = 0.0
+
+    # Provider metadata takes precedence while it describes an active session.
+    # A locally calculated close cannot prove that an exceptional/changed
+    # schedule has ended.  The sole exception is metadata demonstrably left on
+    # a prior session during the local weekend; in that case each row's own
+    # market-specific close below decides whether the latest candle is usable.
+    hours = MARKET_HOURS.get(symbol)
+    zone = ZoneInfo(hours.timezone_name) if hours is not None else timezone.utc
+    local_now = datetime.fromtimestamp(now, zone)
+    stale_weekend_session = (
+        session_start <= now < session_end
+        and local_now.weekday() >= 5
+        and datetime.fromtimestamp(session_start, zone).date() < local_now.date()
+    )
+    if session_start <= now < session_end and not stale_weekend_session:
+        candles = [
+            candle
+            for candle in candles
+            if not session_start <= candle.timestamp < session_end
+        ]
+
     # Derive availability for every row from its own session date.  Yahoo's
     # currentTradingPeriod may already point at the next session on weekends,
     # so it cannot reliably decide whether the latest Friday row is complete.
     # This also avoids reusing today's close across ten years (and leaking an
     # ordinary close when today happens to be a half day).
-    if symbol in MARKET_HOURS:
+    if hours is not None:
         candles = [
             Candle(
                 session_close_timestamp(symbol, candle.timestamp),
@@ -472,19 +499,6 @@ def parse_history(
             for candle in candles
         ]
         candles = [candle for candle in candles if candle.timestamp <= now]
-    else:
-        try:
-            regular_session = result["meta"]["currentTradingPeriod"]["regular"]
-            session_start = float(regular_session["start"])
-            session_end = float(regular_session["end"])
-        except (KeyError, TypeError, ValueError):
-            session_start = session_end = 0.0
-        if session_start <= now < session_end:
-            candles = [
-                candle
-                for candle in candles
-                if not session_start <= candle.timestamp < session_end
-            ]
     if len(candles) < MINIMUM_HISTORY:
         raise ValueError(
             f"Insufficient daily history for {symbol}: {len(candles)} "
