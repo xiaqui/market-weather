@@ -22,7 +22,10 @@ from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[1]
 FORECAST_PATH = ROOT / "shared" / "forecast.json"
-YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{}?interval=1d&range=10y"
+YAHOO_CHART_URL = (
+    "https://query1.finance.yahoo.com/v8/finance/chart/{}"
+    "?interval=1d&range=10y&period2={}"
+)
 SYMBOLS = {
     "nikkei": "^N225",
     "dow": "^DJI",
@@ -373,7 +376,14 @@ def session_close_timestamp(symbol: str, raw_timestamp: int) -> int:
     if hours is None:
         return raw_timestamp
     zone = ZoneInfo(hours.timezone_name)
-    label_zone = timezone.utc if hours.date_from_utc else zone
+    # Yahoo labels spot-FX daily rows at midnight in its Europe/London feed
+    # timezone (23:00 UTC while Britain observes daylight saving).  Reading
+    # that timestamp as a UTC calendar date moves Friday's row back to
+    # Thursday. Futures labels, by contrast, are UTC-date labels.
+    if symbol == "JPY=X":
+        label_zone = ZoneInfo("Europe/London")
+    else:
+        label_zone = timezone.utc if hours.date_from_utc else zone
     session_date = datetime.fromtimestamp(raw_timestamp, label_zone).date()
     close_time = hours.normal_close
     if symbol == "^N225" and session_date < date(2024, 11, 5):
@@ -445,9 +455,8 @@ def parse_history(
     candles.sort(key=lambda candle: candle.timestamp)
 
     # Yahoo includes the currently forming interval in daily chart responses.
-    # Its timestamp falls inside the current regular session.  Keep it out of
-    # all features and backtests until that session has ended; the live value
-    # remains available separately through meta.regularMarketPrice.
+    # Keep it out of all features and backtests until its market-specific close;
+    # the live value remains available separately through regularMarketPrice.
     now = time.time() if now_timestamp is None else now_timestamp
     try:
         regular_session = result["meta"]["currentTradingPeriod"]["regular"]
@@ -455,17 +464,33 @@ def parse_history(
         session_end = float(regular_session["end"])
     except (KeyError, TypeError, ValueError):
         session_start = session_end = 0.0
-    if session_start <= now < session_end:
+
+    # Provider metadata takes precedence while it describes an active session.
+    # A locally calculated close cannot prove that an exceptional/changed
+    # schedule has ended.  The sole exception is metadata demonstrably left on
+    # a prior session during the local weekend; in that case each row's own
+    # market-specific close below decides whether the latest candle is usable.
+    hours = MARKET_HOURS.get(symbol)
+    zone = ZoneInfo(hours.timezone_name) if hours is not None else timezone.utc
+    local_now = datetime.fromtimestamp(now, zone)
+    stale_weekend_session = (
+        session_start <= now < session_end
+        and local_now.weekday() >= 5
+        and datetime.fromtimestamp(session_start, zone).date() < local_now.date()
+    )
+    if session_start <= now < session_end and not stale_weekend_session:
         candles = [
             candle
             for candle in candles
             if not session_start <= candle.timestamp < session_end
         ]
 
-    # Derive availability for every historical row from its own session date.
-    # Never reuse today's currentTradingPeriod close across ten years: that
-    # leaks ordinary US closes when today happens to be a half day.
-    if symbol in MARKET_HOURS:
+    # Derive availability for every row from its own session date.  Yahoo's
+    # currentTradingPeriod may already point at the next session on weekends,
+    # so it cannot reliably decide whether the latest Friday row is complete.
+    # This also avoids reusing today's close across ten years (and leaking an
+    # ordinary close when today happens to be a half day).
+    if hours is not None:
         candles = [
             Candle(
                 session_close_timestamp(symbol, candle.timestamp),
@@ -473,6 +498,7 @@ def parse_history(
             )
             for candle in candles
         ]
+        candles = [candle for candle in candles if candle.timestamp <= now]
     if len(candles) < MINIMUM_HISTORY:
         raise ValueError(
             f"Insufficient daily history for {symbol}: {len(candles)} "
@@ -481,15 +507,22 @@ def parse_history(
     return candles
 
 
-def fetch_market(symbol: str) -> MarketSnapshot:
+def fetch_market(
+    symbol: str, now_timestamp: float | None = None
+) -> MarketSnapshot:
     """Fetch completed daily history and the latest price from Yahoo Finance."""
+    now = time.time() if now_timestamp is None else now_timestamp
     request = Request(
-        YAHOO_CHART_URL.format(quote(symbol, safe="")),
+        # The invariant range URL can lag behind regularMarketPrice at the
+        # daily rollover.  An explicit exclusive end makes each scheduled run
+        # request a snapshot through its actual wall clock instead of a stale
+        # range-only history object.
+        YAHOO_CHART_URL.format(quote(symbol, safe=""), int(now) + 1),
         headers={"User-Agent": "market-weather/0.2"},
     )
     with urlopen(request, timeout=20) as response:
         payload = json.load(response)
-    candles = parse_history(payload, symbol)
+    candles = parse_history(payload, symbol, now_timestamp=now)
     try:
         current = _finite_number(payload["chart"]["result"][0]["meta"]["regularMarketPrice"])
     except (KeyError, IndexError, TypeError) as error:
