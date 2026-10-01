@@ -77,6 +77,119 @@ class BacktestRegressionTest(unittest.TestCase):
 
         self.assertEqual(market_data.last_data_date("^DJI", parsed), "2026-09-21")
 
+    def test_saturday_jst_uses_completed_friday_nikkei_and_gold_rows(self) -> None:
+        saturday_morning = datetime(
+            2026, 9, 26, 7, 30, tzinfo=ZoneInfo("Asia/Tokyo")
+        ).timestamp()
+
+        def payload(timestamps):
+            count = len(timestamps)
+            return {"chart": {"result": [{
+                # Deliberately point metadata at a later session. Weekend
+                # completion must be decided from each candle's own close.
+                "meta": {"currentTradingPeriod": {"regular": {
+                    "start": int(saturday_morning) + 100_000,
+                    "end": int(saturday_morning) + 200_000,
+                }}},
+                "timestamp": timestamps,
+                "indicators": {"quote": [{
+                    "open": [100.0] * count,
+                    "high": [101.0] * count,
+                    "low": [99.0] * count,
+                    "close": [100.0] * count,
+                    "volume": [1000] * count,
+                }]},
+            }]}}
+
+        cases = {
+            "^N225": datetime(2026, 9, 25, tzinfo=ZoneInfo("UTC")),
+            "^DJI": datetime(2026, 9, 25, 13, 30, tzinfo=ZoneInfo("UTC")),
+            # Yahoo's London feed labels the Friday FX row at 23:00 UTC
+            # Thursday while British daylight saving is active.
+            "JPY=X": datetime(2026, 9, 24, 23, 0, tzinfo=ZoneInfo("UTC")),
+            "GC=F": datetime(2026, 9, 25, 4, 0, tzinfo=ZoneInfo("UTC")),
+        }
+        for symbol, friday_label in cases.items():
+            with self.subTest(symbol=symbol):
+                timestamps = [int(friday_label.timestamp()) - day * 86_400
+                              for day in range(20, -1, -1)]
+                parsed = market_data.parse_history(
+                    payload(timestamps), symbol, now_timestamp=saturday_morning
+                )
+
+                self.assertEqual(market_data.last_data_date(symbol, parsed), "2026-09-25")
+                self.assertEqual(market_data.next_session_date(symbol, parsed), "2026-09-28")
+
+    def test_market_close_cutoff_still_excludes_a_forming_row(self) -> None:
+        now = datetime(2026, 9, 28, 12, 0, tzinfo=ZoneInfo("Asia/Tokyo")).timestamp()
+        friday = int(datetime(2026, 9, 25, tzinfo=ZoneInfo("UTC")).timestamp())
+        monday = int(datetime(2026, 9, 28, tzinfo=ZoneInfo("UTC")).timestamp())
+        timestamps = [friday - day * 86_400 for day in range(20, -1, -1)] + [monday]
+        count = len(timestamps)
+        payload = {"chart": {"result": [{
+            "timestamp": timestamps,
+            "indicators": {"quote": [{
+                "open": [100.0] * count, "high": [101.0] * count,
+                "low": [99.0] * count, "close": [100.0] * count,
+                "volume": [1000] * count,
+            }]},
+        }]}}
+
+        parsed = market_data.parse_history(payload, "^N225", now_timestamp=now)
+
+        self.assertEqual(market_data.last_data_date("^N225", parsed), "2026-09-25")
+
+    def test_active_provider_session_overrides_normal_close_on_changed_schedule(self) -> None:
+        tokyo = ZoneInfo("Asia/Tokyo")
+        now = datetime(2026, 9, 28, 16, 0, tzinfo=tokyo).timestamp()
+        session_start = int(datetime(2026, 9, 28, 9, 0, tzinfo=tokyo).timestamp())
+        session_end = int(datetime(2026, 9, 28, 17, 0, tzinfo=tokyo).timestamp())
+        friday = int(datetime(2026, 9, 25, tzinfo=ZoneInfo("UTC")).timestamp())
+        monday = int(datetime(2026, 9, 28, tzinfo=ZoneInfo("UTC")).timestamp())
+        timestamps = [friday - day * 86_400 for day in range(20, -1, -1)] + [monday]
+        count = len(timestamps)
+        payload = {"chart": {"result": [{
+            "meta": {"currentTradingPeriod": {"regular": {
+                "start": session_start, "end": session_end,
+            }}},
+            "timestamp": timestamps,
+            "indicators": {"quote": [{
+                "open": [100.0] * count, "high": [101.0] * count,
+                "low": [99.0] * count, "close": [100.0] * (count - 1) + [150.0],
+                "volume": [1000] * count,
+            }]},
+        }]}}
+
+        parsed = market_data.parse_history(payload, "^N225", now_timestamp=now)
+
+        self.assertEqual(market_data.last_data_date("^N225", parsed), "2026-09-25")
+        self.assertNotIn(150.0, [row.close for row in parsed])
+
+    def test_stale_active_metadata_is_bypassed_only_on_weekend(self) -> None:
+        tokyo = ZoneInfo("Asia/Tokyo")
+        now = datetime(2026, 9, 26, 7, 30, tzinfo=tokyo).timestamp()
+        stale_start = int(datetime(2026, 9, 25, 9, 0, tzinfo=tokyo).timestamp())
+        stale_end = int(datetime(2026, 9, 26, 8, 0, tzinfo=tokyo).timestamp())
+        friday = int(datetime(2026, 9, 25, tzinfo=ZoneInfo("UTC")).timestamp())
+        timestamps = [friday - day * 86_400 for day in range(20, -1, -1)]
+        count = len(timestamps)
+        payload = {"chart": {"result": [{
+            "meta": {"currentTradingPeriod": {"regular": {
+                "start": stale_start, "end": stale_end,
+            }}},
+            "timestamp": timestamps,
+            "indicators": {"quote": [{
+                "open": [100.0] * count, "high": [101.0] * count,
+                "low": [99.0] * count, "close": [100.0] * count,
+                "volume": [1000] * count,
+            }]},
+        }]}}
+
+        parsed = market_data.parse_history(payload, "^N225", now_timestamp=now)
+
+        self.assertEqual(market_data.last_data_date("^N225", parsed), "2026-09-25")
+        self.assertEqual(market_data.next_session_date("^N225", parsed), "2026-09-28")
+
     def test_next_session_date_handles_2026_09_21_holiday_gap(self) -> None:
         nikkei_close = market_data.Candle(
             int(datetime(2026, 9, 18, 15, 30, tzinfo=ZoneInfo("Asia/Tokyo")).timestamp()),
