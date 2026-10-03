@@ -61,6 +61,15 @@ def _actual_direction(previous_close: float, close: float) -> str:
     return "flat"
 
 
+def _brier_contribution(probability: float | None, actual_direction: str) -> float | None:
+    # A flat session is neither of the binary up/down outcomes. Excluding it
+    # avoids awarding an arbitrary probability an artificially good score.
+    if probability is None or actual_direction == "flat":
+        return None
+    outcome = 1.0 if actual_direction == "up" else 0.0
+    return (probability - outcome) ** 2
+
+
 def _local_session_date(symbol: str, timestamp: int) -> str:
     hours = market_data.MARKET_HOURS.get(symbol)
     zone = timezone.utc if hours is None else ZoneInfo(hours.timezone_name)
@@ -126,6 +135,9 @@ def _score_market(
         "analog_probability": analog_probability,
         "analog_direction": _direction_from_probability(analog_probability),
         "ensemble_probability": ensemble_probability,
+        "trend_brier_contribution": _brier_contribution(trend_probability, actual_direction),
+        "analog_brier_contribution": _brier_contribution(analog_probability, actual_direction),
+        "ensemble_brier_contribution": _brier_contribution(ensemble_probability, actual_direction),
         "forecast_support": _coerce_probability(market.get("forecast_support")),
         "ensemble_direction": ensemble_direction,
         "actual_direction": actual_direction,
