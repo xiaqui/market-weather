@@ -125,6 +125,31 @@ class TargetSpecificValidationTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             experiment._paired([record], [mismatch])
 
+    def test_oos_report_excludes_boundary_and_pairs_identical_outcomes(self):
+        production = {market: rows(90, index) for index, market in enumerate(model.MARKET_ORDER)}
+        symbols = {symbol for target in experiment.MATERIALS.values() for symbol, _ in target}
+        materials = {symbol: rows(90, index) for index, symbol in enumerate(sorted(symbols))}
+        boundary = production["nikkei"][-4].timestamp
+        evaluation = production["nikkei"][-1].timestamp
+        report = experiment.build_oos_report(
+            production, materials, boundary, evaluation_timestamp=evaluation
+        )
+        for market in report["markets"].values():
+            self.assertEqual(market["sample_count"], 3)
+            self.assertTrue(all(market["pairing"].values()))
+            self.assertGreater(market["common"]["start_timestamp"], boundary)
+            self.assertEqual(
+                market["outcome_dates_utc"],
+                [datetime.fromtimestamp(boundary + offset * 86_400, timezone.utc).date().isoformat()
+                 for offset in range(1, 4)],
+            )
+            self.assertIn("analog", market["target_specific_minus_common"]["accuracy"])
+            self.assertIn("ensemble", market["target_specific_minus_common"]["brier"])
+
+    def test_oos_report_rejects_non_future_evaluation(self):
+        with self.assertRaises(ValueError):
+            experiment.build_oos_report({}, {}, 100, evaluation_timestamp=100)
+
     def test_report_is_deterministic_apart_from_generation_time(self):
         production = {market: rows(80, index) for index, market in enumerate(model.MARKET_ORDER)}
         symbols = {symbol for target in experiment.MATERIALS.values() for symbol, _ in target}

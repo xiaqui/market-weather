@@ -1,0 +1,1363 @@
+{
+  "generated_at": "2026-10-03T02:50:56+00:00",
+  "evaluation_timestamp": 1790995856,
+  "frozen_v1_evaluation_timestamp": 1790647566,
+  "frozen_v1_evaluation_time": "2026-09-29T02:06:06+00:00",
+  "production_forecast_changed": false,
+  "decision": "short_term_oos_observation_do_not_adopt_or_tune",
+  "method": {
+    "oos_boundary": "outcome timestamp strictly greater than frozen v1 evaluation timestamp",
+    "pairing_policy": "same target and timestamp with identical actual outcome",
+    "model_policy": "frozen target-specific v1 materials, features, Analog distance, 50:50 Ensemble, and availability clocks",
+    "interpretation": "small-sample initial OOS observation; not statistical significance"
+  },
+  "markets": {
+    "nikkei": {
+      "materials": [
+        {
+          "symbol": "^DJI",
+          "role": "US equities"
+        },
+        {
+          "symbol": "JPY=X",
+          "role": "yen exchange rate"
+        },
+        {
+          "symbol": "GC=F",
+          "role": "gold"
+        }
+      ],
+      "sample_count": 4,
+      "outcome_dates_utc": [
+        "2026-09-29",
+        "2026-09-30",
+        "2026-10-01",
+        "2026-10-02"
+      ],
+      "pairing": {
+        "sample_count_equal": true,
+        "timestamps_equal": true,
+        "actual_outcomes_equal": true,
+        "all_outcomes_after_frozen_boundary": true
+      },
+      "common": {
+        "start_timestamp": 1790663400,
+        "end_timestamp": 1790922600,
+        "start_date_utc": "2026-09-29",
+        "end_date_utc": "2026-10-02",
+        "sample_count": 4,
+        "analog_available_count": 4,
+        "actual_up_rate": 0.5,
+        "naive_baselines": {
+          "always_up_accuracy": 0.5,
+          "always_down_accuracy": 0.5,
+          "constant_50_brier": 0.25,
+          "expanding_historical_up_rate": {
+            "accuracy": 0.5,
+            "brier": 0.25130331512621784
+          }
+        },
+        "accuracy": {
+          "trend": 0.5,
+          "analog": 0.25,
+          "ensemble": 0.5
+        },
+        "accuracy_wilson_95": {
+          "trend": [
+            0.15003898915214947,
+            0.8499610108478506
+          ],
+          "analog": [
+            0.04558726080970055,
+            0.6993581574175981
+          ],
+          "ensemble": [
+            0.15003898915214947,
+            0.8499610108478506
+          ]
+        },
+        "brier": {
+          "trend": 0.3421035925,
+          "analog": 0.3163109636600807,
+          "ensemble": 0.31677257104794604
+        },
+        "agreement": {
+          "sample_count": 1,
+          "actual_up_rate": 0.0,
+          "trend_accuracy": 0.0,
+          "analog_accuracy": 0.0,
+          "ensemble_accuracy": 0.0
+        },
+        "disagreement": {
+          "sample_count": 3,
+          "actual_up_rate": 0.6666666666666666,
+          "trend_accuracy": 0.6666666666666666,
+          "analog_accuracy": 0.3333333333333333,
+          "ensemble_accuracy": 0.6666666666666666
+        },
+        "direction_groups": {
+          "trend_up_analog_up": {
+            "sample_count": 1,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "trend_up_analog_down": {
+            "sample_count": 3,
+            "actual_up_rate": 0.6666666666666666,
+            "trend_accuracy": 0.6666666666666666,
+            "analog_accuracy": 0.3333333333333333,
+            "ensemble_accuracy": 0.6666666666666666
+          },
+          "trend_down_analog_up": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "trend_down_analog_down": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          }
+        },
+        "paired": {
+          "both_correct": 0,
+          "trend_only_correct": 2,
+          "analog_only_correct": 1,
+          "both_wrong": 1
+        },
+        "paired_exact_binomial_p_value": 1.0,
+        "disagreement_paired": {
+          "both_correct": 0,
+          "trend_only_correct": 2,
+          "analog_only_correct": 1,
+          "both_wrong": 0
+        },
+        "distance_groups": {
+          "closest": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 1.0,
+            "mean_distance": 0.7321421710663465
+          },
+          "middle": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 1.0,
+            "mean_distance": 0.7740111583826571
+          },
+          "farthest": {
+            "sample_count": 2,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.5,
+            "ensemble_accuracy": 0.0,
+            "mean_distance": 0.9012073959963234
+          }
+        },
+        "strength_groups": {
+          "weak": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 1.0
+          },
+          "medium": {
+            "sample_count": 1,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 1.0,
+            "ensemble_accuracy": 0.0
+          },
+          "strong": {
+            "sample_count": 2,
+            "actual_up_rate": 0.5,
+            "trend_accuracy": 0.5,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.5
+          }
+        }
+      },
+      "target_specific": {
+        "start_timestamp": 1790663400,
+        "end_timestamp": 1790922600,
+        "start_date_utc": "2026-09-29",
+        "end_date_utc": "2026-10-02",
+        "sample_count": 4,
+        "analog_available_count": 4,
+        "actual_up_rate": 0.5,
+        "naive_baselines": {
+          "always_up_accuracy": 0.5,
+          "always_down_accuracy": 0.5,
+          "constant_50_brier": 0.25,
+          "expanding_historical_up_rate": {
+            "accuracy": 0.5,
+            "brier": 0.25130331512621784
+          }
+        },
+        "accuracy": {
+          "trend": 0.5,
+          "analog": 0.25,
+          "ensemble": 0.5
+        },
+        "accuracy_wilson_95": {
+          "trend": [
+            0.15003898915214947,
+            0.8499610108478506
+          ],
+          "analog": [
+            0.04558726080970055,
+            0.6993581574175981
+          ],
+          "ensemble": [
+            0.15003898915214947,
+            0.8499610108478506
+          ]
+        },
+        "brier": {
+          "trend": 0.3421035925,
+          "analog": 0.33021331264196735,
+          "ensemble": 0.32419286973149586
+        },
+        "agreement": {
+          "sample_count": 3,
+          "actual_up_rate": 0.3333333333333333,
+          "trend_accuracy": 0.3333333333333333,
+          "analog_accuracy": 0.3333333333333333,
+          "ensemble_accuracy": 0.3333333333333333
+        },
+        "disagreement": {
+          "sample_count": 1,
+          "actual_up_rate": 1.0,
+          "trend_accuracy": 1.0,
+          "analog_accuracy": 0.0,
+          "ensemble_accuracy": 1.0
+        },
+        "direction_groups": {
+          "trend_up_analog_up": {
+            "sample_count": 3,
+            "actual_up_rate": 0.3333333333333333,
+            "trend_accuracy": 0.3333333333333333,
+            "analog_accuracy": 0.3333333333333333,
+            "ensemble_accuracy": 0.3333333333333333
+          },
+          "trend_up_analog_down": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 1.0
+          },
+          "trend_down_analog_up": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "trend_down_analog_down": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          }
+        },
+        "paired": {
+          "both_correct": 1,
+          "trend_only_correct": 1,
+          "analog_only_correct": 0,
+          "both_wrong": 2
+        },
+        "paired_exact_binomial_p_value": 1.0,
+        "disagreement_paired": {
+          "both_correct": 0,
+          "trend_only_correct": 1,
+          "analog_only_correct": 0,
+          "both_wrong": 0
+        },
+        "distance_groups": {
+          "closest": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 1.0,
+            "mean_distance": 0.6863337347300115
+          },
+          "middle": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 1.0,
+            "ensemble_accuracy": 1.0,
+            "mean_distance": 0.6868006764549922
+          },
+          "farthest": {
+            "sample_count": 2,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0,
+            "mean_distance": 0.7650064767765343
+          }
+        },
+        "strength_groups": {
+          "weak": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 1.0,
+            "ensemble_accuracy": 1.0
+          },
+          "medium": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "strong": {
+            "sample_count": 3,
+            "actual_up_rate": 0.3333333333333333,
+            "trend_accuracy": 0.3333333333333333,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.3333333333333333
+          }
+        }
+      },
+      "target_specific_minus_common": {
+        "accuracy": {
+          "trend": 0.0,
+          "analog": 0.0,
+          "ensemble": 0.0
+        },
+        "brier": {
+          "trend": 0.0,
+          "analog": 0.013902348981886636,
+          "ensemble": 0.00742029868354982
+        }
+      }
+    },
+    "dow": {
+      "materials": [
+        {
+          "symbol": "^VIX",
+          "role": "risk aversion"
+        },
+        {
+          "symbol": "^IXIC",
+          "role": "growth equities"
+        },
+        {
+          "symbol": "^TNX",
+          "role": "US rates"
+        }
+      ],
+      "sample_count": 4,
+      "outcome_dates_utc": [
+        "2026-09-29",
+        "2026-09-30",
+        "2026-10-01",
+        "2026-10-02"
+      ],
+      "pairing": {
+        "sample_count_equal": true,
+        "timestamps_equal": true,
+        "actual_outcomes_equal": true,
+        "all_outcomes_after_frozen_boundary": true
+      },
+      "common": {
+        "start_timestamp": 1790712000,
+        "end_timestamp": 1790971200,
+        "start_date_utc": "2026-09-29",
+        "end_date_utc": "2026-10-02",
+        "sample_count": 4,
+        "analog_available_count": 4,
+        "actual_up_rate": 0.5,
+        "naive_baselines": {
+          "always_up_accuracy": 0.5,
+          "always_down_accuracy": 0.5,
+          "constant_50_brier": 0.25,
+          "expanding_historical_up_rate": {
+            "accuracy": 0.5,
+            "brier": 0.2521076866221247
+          }
+        },
+        "accuracy": {
+          "trend": 0.5,
+          "analog": 0.25,
+          "ensemble": 0.5
+        },
+        "accuracy_wilson_95": {
+          "trend": [
+            0.15003898915214947,
+            0.8499610108478506
+          ],
+          "analog": [
+            0.04558726080970055,
+            0.6993581574175981
+          ],
+          "ensemble": [
+            0.15003898915214947,
+            0.8499610108478506
+          ]
+        },
+        "brier": {
+          "trend": 0.34149448750000005,
+          "analog": 0.35275613392465327,
+          "ensemble": 0.32036457266801394
+        },
+        "agreement": {
+          "sample_count": 1,
+          "actual_up_rate": 1.0,
+          "trend_accuracy": 0.0,
+          "analog_accuracy": 0.0,
+          "ensemble_accuracy": 0.0
+        },
+        "disagreement": {
+          "sample_count": 3,
+          "actual_up_rate": 0.3333333333333333,
+          "trend_accuracy": 0.6666666666666666,
+          "analog_accuracy": 0.3333333333333333,
+          "ensemble_accuracy": 0.6666666666666666
+        },
+        "direction_groups": {
+          "trend_up_analog_up": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "trend_up_analog_down": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "trend_down_analog_up": {
+            "sample_count": 3,
+            "actual_up_rate": 0.3333333333333333,
+            "trend_accuracy": 0.6666666666666666,
+            "analog_accuracy": 0.3333333333333333,
+            "ensemble_accuracy": 0.6666666666666666
+          },
+          "trend_down_analog_down": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          }
+        },
+        "paired": {
+          "both_correct": 0,
+          "trend_only_correct": 2,
+          "analog_only_correct": 1,
+          "both_wrong": 1
+        },
+        "paired_exact_binomial_p_value": 1.0,
+        "disagreement_paired": {
+          "both_correct": 0,
+          "trend_only_correct": 2,
+          "analog_only_correct": 1,
+          "both_wrong": 0
+        },
+        "distance_groups": {
+          "closest": {
+            "sample_count": 1,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 1.0,
+            "mean_distance": 0.7600088630583731
+          },
+          "middle": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0,
+            "mean_distance": 0.7802833213102015
+          },
+          "farthest": {
+            "sample_count": 2,
+            "actual_up_rate": 0.5,
+            "trend_accuracy": 0.5,
+            "analog_accuracy": 0.5,
+            "ensemble_accuracy": 0.5,
+            "mean_distance": 0.9012884992822969
+          }
+        },
+        "strength_groups": {
+          "weak": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "medium": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "strong": {
+            "sample_count": 4,
+            "actual_up_rate": 0.5,
+            "trend_accuracy": 0.5,
+            "analog_accuracy": 0.25,
+            "ensemble_accuracy": 0.5
+          }
+        }
+      },
+      "target_specific": {
+        "start_timestamp": 1790712000,
+        "end_timestamp": 1790971200,
+        "start_date_utc": "2026-09-29",
+        "end_date_utc": "2026-10-02",
+        "sample_count": 4,
+        "analog_available_count": 4,
+        "actual_up_rate": 0.5,
+        "naive_baselines": {
+          "always_up_accuracy": 0.5,
+          "always_down_accuracy": 0.5,
+          "constant_50_brier": 0.25,
+          "expanding_historical_up_rate": {
+            "accuracy": 0.5,
+            "brier": 0.2521076866221247
+          }
+        },
+        "accuracy": {
+          "trend": 0.5,
+          "analog": 0.25,
+          "ensemble": 0.5
+        },
+        "accuracy_wilson_95": {
+          "trend": [
+            0.15003898915214947,
+            0.8499610108478506
+          ],
+          "analog": [
+            0.04558726080970055,
+            0.6993581574175981
+          ],
+          "ensemble": [
+            0.15003898915214947,
+            0.8499610108478506
+          ]
+        },
+        "brier": {
+          "trend": 0.34149448750000005,
+          "analog": 0.2786975974778167,
+          "ensemble": 0.29020783613039836
+        },
+        "agreement": {
+          "sample_count": 3,
+          "actual_up_rate": 0.6666666666666666,
+          "trend_accuracy": 0.3333333333333333,
+          "analog_accuracy": 0.3333333333333333,
+          "ensemble_accuracy": 0.3333333333333333
+        },
+        "disagreement": {
+          "sample_count": 1,
+          "actual_up_rate": 0.0,
+          "trend_accuracy": 1.0,
+          "analog_accuracy": 0.0,
+          "ensemble_accuracy": 1.0
+        },
+        "direction_groups": {
+          "trend_up_analog_up": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "trend_up_analog_down": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "trend_down_analog_up": {
+            "sample_count": 1,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 1.0
+          },
+          "trend_down_analog_down": {
+            "sample_count": 3,
+            "actual_up_rate": 0.6666666666666666,
+            "trend_accuracy": 0.3333333333333333,
+            "analog_accuracy": 0.3333333333333333,
+            "ensemble_accuracy": 0.3333333333333333
+          }
+        },
+        "paired": {
+          "both_correct": 1,
+          "trend_only_correct": 1,
+          "analog_only_correct": 0,
+          "both_wrong": 2
+        },
+        "paired_exact_binomial_p_value": 1.0,
+        "disagreement_paired": {
+          "both_correct": 0,
+          "trend_only_correct": 1,
+          "analog_only_correct": 0,
+          "both_wrong": 0
+        },
+        "distance_groups": {
+          "closest": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0,
+            "mean_distance": 0.654153405364654
+          },
+          "middle": {
+            "sample_count": 1,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 1.0,
+            "ensemble_accuracy": 1.0,
+            "mean_distance": 0.6812499888430269
+          },
+          "farthest": {
+            "sample_count": 2,
+            "actual_up_rate": 0.5,
+            "trend_accuracy": 0.5,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.5,
+            "mean_distance": 0.7258686205912803
+          }
+        },
+        "strength_groups": {
+          "weak": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "medium": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "strong": {
+            "sample_count": 4,
+            "actual_up_rate": 0.5,
+            "trend_accuracy": 0.5,
+            "analog_accuracy": 0.25,
+            "ensemble_accuracy": 0.5
+          }
+        }
+      },
+      "target_specific_minus_common": {
+        "accuracy": {
+          "trend": 0.0,
+          "analog": 0.0,
+          "ensemble": 0.0
+        },
+        "brier": {
+          "trend": 0.0,
+          "analog": -0.07405853644683658,
+          "ensemble": -0.03015673653761558
+        }
+      }
+    },
+    "usdjpy": {
+      "materials": [
+        {
+          "symbol": "DX-Y.NYB",
+          "role": "broad US dollar"
+        },
+        {
+          "symbol": "^TNX",
+          "role": "US rates"
+        },
+        {
+          "symbol": "^N225",
+          "role": "Japanese equities"
+        }
+      ],
+      "sample_count": 4,
+      "outcome_dates_utc": [
+        "2026-09-29",
+        "2026-09-30",
+        "2026-10-01",
+        "2026-10-02"
+      ],
+      "pairing": {
+        "sample_count_equal": true,
+        "timestamps_equal": true,
+        "actual_outcomes_equal": true,
+        "all_outcomes_after_frozen_boundary": true
+      },
+      "common": {
+        "start_timestamp": 1790715600,
+        "end_timestamp": 1790974800,
+        "start_date_utc": "2026-09-29",
+        "end_date_utc": "2026-10-02",
+        "sample_count": 4,
+        "analog_available_count": 4,
+        "actual_up_rate": 0.75,
+        "naive_baselines": {
+          "always_up_accuracy": 0.75,
+          "always_down_accuracy": 0.25,
+          "constant_50_brier": 0.25,
+          "expanding_historical_up_rate": {
+            "accuracy": 0.75,
+            "brier": 0.23307528466267002
+          }
+        },
+        "accuracy": {
+          "trend": 1.0,
+          "analog": 0.75,
+          "ensemble": 0.75
+        },
+        "accuracy_wilson_95": {
+          "trend": [
+            0.5101091635454027,
+            1.0
+          ],
+          "analog": [
+            0.30064184258240184,
+            0.9544127391902995
+          ],
+          "ensemble": [
+            0.30064184258240184,
+            0.9544127391902995
+          ]
+        },
+        "brier": {
+          "trend": 0.2326228675,
+          "analog": 0.21347520373431406,
+          "ensemble": 0.2029952490842219
+        },
+        "agreement": {
+          "sample_count": 3,
+          "actual_up_rate": 1.0,
+          "trend_accuracy": 1.0,
+          "analog_accuracy": 1.0,
+          "ensemble_accuracy": 1.0
+        },
+        "disagreement": {
+          "sample_count": 1,
+          "actual_up_rate": 0.0,
+          "trend_accuracy": 1.0,
+          "analog_accuracy": 0.0,
+          "ensemble_accuracy": 0.0
+        },
+        "direction_groups": {
+          "trend_up_analog_up": {
+            "sample_count": 3,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 1.0,
+            "ensemble_accuracy": 1.0
+          },
+          "trend_up_analog_down": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "trend_down_analog_up": {
+            "sample_count": 1,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "trend_down_analog_down": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          }
+        },
+        "paired": {
+          "both_correct": 3,
+          "trend_only_correct": 1,
+          "analog_only_correct": 0,
+          "both_wrong": 0
+        },
+        "paired_exact_binomial_p_value": 1.0,
+        "disagreement_paired": {
+          "both_correct": 0,
+          "trend_only_correct": 1,
+          "analog_only_correct": 0,
+          "both_wrong": 0
+        },
+        "distance_groups": {
+          "closest": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 1.0,
+            "ensemble_accuracy": 1.0,
+            "mean_distance": 0.7910022424364802
+          },
+          "middle": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 1.0,
+            "ensemble_accuracy": 1.0,
+            "mean_distance": 0.8145969733747259
+          },
+          "farthest": {
+            "sample_count": 2,
+            "actual_up_rate": 0.5,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 0.5,
+            "ensemble_accuracy": 0.5,
+            "mean_distance": 0.8305575377334334
+          }
+        },
+        "strength_groups": {
+          "weak": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "medium": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 1.0,
+            "ensemble_accuracy": 1.0
+          },
+          "strong": {
+            "sample_count": 3,
+            "actual_up_rate": 0.6666666666666666,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 0.6666666666666666,
+            "ensemble_accuracy": 0.6666666666666666
+          }
+        }
+      },
+      "target_specific": {
+        "start_timestamp": 1790715600,
+        "end_timestamp": 1790974800,
+        "start_date_utc": "2026-09-29",
+        "end_date_utc": "2026-10-02",
+        "sample_count": 4,
+        "analog_available_count": 4,
+        "actual_up_rate": 0.75,
+        "naive_baselines": {
+          "always_up_accuracy": 0.75,
+          "always_down_accuracy": 0.25,
+          "constant_50_brier": 0.25,
+          "expanding_historical_up_rate": {
+            "accuracy": 0.75,
+            "brier": 0.23307528466267002
+          }
+        },
+        "accuracy": {
+          "trend": 1.0,
+          "analog": 0.75,
+          "ensemble": 0.75
+        },
+        "accuracy_wilson_95": {
+          "trend": [
+            0.5101091635454027,
+            1.0
+          ],
+          "analog": [
+            0.30064184258240184,
+            0.9544127391902995
+          ],
+          "ensemble": [
+            0.30064184258240184,
+            0.9544127391902995
+          ]
+        },
+        "brier": {
+          "trend": 0.2326228675,
+          "analog": 0.20554327319774418,
+          "ensemble": 0.19970473004027992
+        },
+        "agreement": {
+          "sample_count": 3,
+          "actual_up_rate": 1.0,
+          "trend_accuracy": 1.0,
+          "analog_accuracy": 1.0,
+          "ensemble_accuracy": 1.0
+        },
+        "disagreement": {
+          "sample_count": 1,
+          "actual_up_rate": 0.0,
+          "trend_accuracy": 1.0,
+          "analog_accuracy": 0.0,
+          "ensemble_accuracy": 0.0
+        },
+        "direction_groups": {
+          "trend_up_analog_up": {
+            "sample_count": 3,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 1.0,
+            "ensemble_accuracy": 1.0
+          },
+          "trend_up_analog_down": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "trend_down_analog_up": {
+            "sample_count": 1,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "trend_down_analog_down": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          }
+        },
+        "paired": {
+          "both_correct": 3,
+          "trend_only_correct": 1,
+          "analog_only_correct": 0,
+          "both_wrong": 0
+        },
+        "paired_exact_binomial_p_value": 1.0,
+        "disagreement_paired": {
+          "both_correct": 0,
+          "trend_only_correct": 1,
+          "analog_only_correct": 0,
+          "both_wrong": 0
+        },
+        "distance_groups": {
+          "closest": {
+            "sample_count": 1,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0,
+            "mean_distance": 0.7071408545371786
+          },
+          "middle": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 1.0,
+            "ensemble_accuracy": 1.0,
+            "mean_distance": 0.7480035755662162
+          },
+          "farthest": {
+            "sample_count": 2,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 1.0,
+            "ensemble_accuracy": 1.0,
+            "mean_distance": 0.8169557229017821
+          }
+        },
+        "strength_groups": {
+          "weak": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "medium": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 1.0,
+            "ensemble_accuracy": 1.0
+          },
+          "strong": {
+            "sample_count": 3,
+            "actual_up_rate": 0.6666666666666666,
+            "trend_accuracy": 1.0,
+            "analog_accuracy": 0.6666666666666666,
+            "ensemble_accuracy": 0.6666666666666666
+          }
+        }
+      },
+      "target_specific_minus_common": {
+        "accuracy": {
+          "trend": 0.0,
+          "analog": 0.0,
+          "ensemble": 0.0
+        },
+        "brier": {
+          "trend": 0.0,
+          "analog": -0.007931930536569876,
+          "ensemble": -0.0032905190439419807
+        }
+      }
+    },
+    "gold": {
+      "materials": [
+        {
+          "symbol": "DX-Y.NYB",
+          "role": "broad US dollar"
+        },
+        {
+          "symbol": "^TNX",
+          "role": "US rates"
+        },
+        {
+          "symbol": "^VIX",
+          "role": "risk aversion"
+        }
+      ],
+      "sample_count": 3,
+      "outcome_dates_utc": [
+        "2026-09-29",
+        "2026-09-30",
+        "2026-10-01"
+      ],
+      "pairing": {
+        "sample_count_equal": true,
+        "timestamps_equal": true,
+        "actual_outcomes_equal": true,
+        "all_outcomes_after_frozen_boundary": true
+      },
+      "common": {
+        "start_timestamp": 1790715600,
+        "end_timestamp": 1790888400,
+        "start_date_utc": "2026-09-29",
+        "end_date_utc": "2026-10-01",
+        "sample_count": 3,
+        "analog_available_count": 3,
+        "actual_up_rate": 1.0,
+        "naive_baselines": {
+          "always_up_accuracy": 1.0,
+          "always_down_accuracy": 0.0,
+          "constant_50_brier": 0.25,
+          "expanding_historical_up_rate": {
+            "accuracy": 1.0,
+            "brier": 0.21469015243889497
+          }
+        },
+        "accuracy": {
+          "trend": 0.0,
+          "analog": 0.6666666666666666,
+          "ensemble": 0.0
+        },
+        "accuracy_wilson_95": {
+          "trend": [
+            5.551115123125783e-17,
+            0.5614970317550454
+          ],
+          "analog": [
+            0.2076596008020477,
+            0.9385080552796037
+          ],
+          "ensemble": [
+            5.551115123125783e-17,
+            0.5614970317550454
+          ]
+        },
+        "brier": {
+          "trend": 0.6348131666666667,
+          "analog": 0.23626203953666702,
+          "ensemble": 0.41092227426670586
+        },
+        "agreement": {
+          "sample_count": 1,
+          "actual_up_rate": 1.0,
+          "trend_accuracy": 0.0,
+          "analog_accuracy": 0.0,
+          "ensemble_accuracy": 0.0
+        },
+        "disagreement": {
+          "sample_count": 2,
+          "actual_up_rate": 1.0,
+          "trend_accuracy": 0.0,
+          "analog_accuracy": 1.0,
+          "ensemble_accuracy": 0.0
+        },
+        "direction_groups": {
+          "trend_up_analog_up": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "trend_up_analog_down": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "trend_down_analog_up": {
+            "sample_count": 2,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 1.0,
+            "ensemble_accuracy": 0.0
+          },
+          "trend_down_analog_down": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          }
+        },
+        "paired": {
+          "both_correct": 0,
+          "trend_only_correct": 0,
+          "analog_only_correct": 2,
+          "both_wrong": 1
+        },
+        "paired_exact_binomial_p_value": 0.5,
+        "disagreement_paired": {
+          "both_correct": 0,
+          "trend_only_correct": 0,
+          "analog_only_correct": 2,
+          "both_wrong": 0
+        },
+        "distance_groups": {
+          "closest": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0,
+            "mean_distance": 0.7804820692734256
+          },
+          "middle": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 1.0,
+            "ensemble_accuracy": 0.0,
+            "mean_distance": 0.8072606649825159
+          },
+          "farthest": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 1.0,
+            "ensemble_accuracy": 0.0,
+            "mean_distance": 0.8427151129038453
+          }
+        },
+        "strength_groups": {
+          "weak": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "medium": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "strong": {
+            "sample_count": 3,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.6666666666666666,
+            "ensemble_accuracy": 0.0
+          }
+        }
+      },
+      "target_specific": {
+        "start_timestamp": 1790715600,
+        "end_timestamp": 1790888400,
+        "start_date_utc": "2026-09-29",
+        "end_date_utc": "2026-10-01",
+        "sample_count": 3,
+        "analog_available_count": 3,
+        "actual_up_rate": 1.0,
+        "naive_baselines": {
+          "always_up_accuracy": 1.0,
+          "always_down_accuracy": 0.0,
+          "constant_50_brier": 0.25,
+          "expanding_historical_up_rate": {
+            "accuracy": 1.0,
+            "brier": 0.21469015243889497
+          }
+        },
+        "accuracy": {
+          "trend": 0.0,
+          "analog": 0.3333333333333333,
+          "ensemble": 0.0
+        },
+        "accuracy_wilson_95": {
+          "trend": [
+            5.551115123125783e-17,
+            0.5614970317550454
+          ],
+          "analog": [
+            0.06149194472039621,
+            0.7923403991979522
+          ],
+          "ensemble": [
+            5.551115123125783e-17,
+            0.5614970317550454
+          ]
+        },
+        "brier": {
+          "trend": 0.6348131666666667,
+          "analog": 0.30612380962866875,
+          "ensemble": 0.4440389552933255
+        },
+        "agreement": {
+          "sample_count": 2,
+          "actual_up_rate": 1.0,
+          "trend_accuracy": 0.0,
+          "analog_accuracy": 0.0,
+          "ensemble_accuracy": 0.0
+        },
+        "disagreement": {
+          "sample_count": 1,
+          "actual_up_rate": 1.0,
+          "trend_accuracy": 0.0,
+          "analog_accuracy": 1.0,
+          "ensemble_accuracy": 0.0
+        },
+        "direction_groups": {
+          "trend_up_analog_up": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "trend_up_analog_down": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "trend_down_analog_up": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 1.0,
+            "ensemble_accuracy": 0.0
+          },
+          "trend_down_analog_down": {
+            "sample_count": 2,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          }
+        },
+        "paired": {
+          "both_correct": 0,
+          "trend_only_correct": 0,
+          "analog_only_correct": 1,
+          "both_wrong": 2
+        },
+        "paired_exact_binomial_p_value": 1.0,
+        "disagreement_paired": {
+          "both_correct": 0,
+          "trend_only_correct": 0,
+          "analog_only_correct": 1,
+          "both_wrong": 0
+        },
+        "distance_groups": {
+          "closest": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 1.0,
+            "ensemble_accuracy": 0.0,
+            "mean_distance": 0.6115605867940316
+          },
+          "middle": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0,
+            "mean_distance": 0.6882904998058224
+          },
+          "farthest": {
+            "sample_count": 1,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0,
+            "mean_distance": 0.7056527677277603
+          }
+        },
+        "strength_groups": {
+          "weak": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "medium": {
+            "sample_count": 0,
+            "actual_up_rate": 0.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.0,
+            "ensemble_accuracy": 0.0
+          },
+          "strong": {
+            "sample_count": 3,
+            "actual_up_rate": 1.0,
+            "trend_accuracy": 0.0,
+            "analog_accuracy": 0.3333333333333333,
+            "ensemble_accuracy": 0.0
+          }
+        }
+      },
+      "target_specific_minus_common": {
+        "accuracy": {
+          "trend": 0.0,
+          "analog": -0.3333333333333333,
+          "ensemble": 0.0
+        },
+        "brier": {
+          "trend": 0.0,
+          "analog": 0.06986177009200173,
+          "ensemble": 0.03311668102661963
+        }
+      }
+    }
+  }
+}

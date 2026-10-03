@@ -27,6 +27,8 @@ from scripts.validate_phase2 import describe_window, split_windows
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REPORT = ROOT / "reports" / "target-specific-weather-map-v1.json"
+DEFAULT_OOS_REPORT = ROOT / "reports" / "target-specific-weather-map-v1-oos.json"
+FROZEN_REPORT = ROOT / "reports" / "target-specific-weather-map-v1.json"
 
 MATERIALS = {
     "nikkei": (("^DJI", "US equities"), ("JPY=X", "yen exchange rate"), ("GC=F", "gold")),
@@ -282,22 +284,125 @@ def build_report(production: dict[str, list[model.Candle]], materials: dict[str,
     }
 
 
+
+def _metric_deltas(common: dict[str, Any], target_specific: dict[str, Any]) -> dict[str, Any]:
+    """Return target-specific minus common metrics for the paired OOS rows."""
+    return {
+        "accuracy": {
+            name: target_specific["accuracy"][name] - common["accuracy"][name]
+            for name in ("trend", "analog", "ensemble")
+        },
+        "brier": {
+            name: target_specific["brier"][name] - common["brier"][name]
+            for name in ("trend", "analog", "ensemble")
+        },
+    }
+
+
+def build_oos_report(
+    production: dict[str, list[model.Candle]],
+    materials: dict[str, list[model.Candle]],
+    frozen_evaluation_timestamp: int,
+    evaluation_timestamp: int | None = None,
+) -> dict[str, Any]:
+    """Score only paired outcomes completed after the frozen v1 boundary."""
+    evaluation_timestamp = (
+        int(datetime.now(timezone.utc).timestamp())
+        if evaluation_timestamp is None else evaluation_timestamp
+    )
+    if evaluation_timestamp <= frozen_evaluation_timestamp:
+        raise ValueError("OOS evaluation must be later than the frozen v1 boundary")
+    production = {
+        name: filter_completed(rows, evaluation_timestamp) for name, rows in production.items()
+    }
+    materials = {
+        name: filter_completed(rows, evaluation_timestamp) for name, rows in materials.items()
+    }
+    markets = {}
+    for target in model.MARKET_ORDER:
+        common = model.walk_forward_records(production, target, sessions=1260)
+        specific = walk_target_specific(production, materials, target)
+        pairs = [
+            pair for pair in _paired(common, specific)
+            if frozen_evaluation_timestamp < pair[0].timestamp <= evaluation_timestamp
+        ]
+        if not pairs:
+            raise ValueError(f"No post-boundary paired outcomes for {target}")
+        common_rows = [pair[0] for pair in pairs]
+        specific_rows = [pair[1] for pair in pairs]
+        common_summary = describe_window(common_rows)
+        specific_summary = describe_window(specific_rows)
+        markets[target] = {
+            "materials": [
+                {"symbol": symbol, "role": role} for symbol, role in MATERIALS[target]
+            ],
+            "sample_count": len(pairs),
+            "outcome_dates_utc": [
+                datetime.fromtimestamp(pair[0].timestamp, timezone.utc).date().isoformat()
+                for pair in pairs
+            ],
+            "pairing": {
+                "sample_count_equal": len(common_rows) == len(specific_rows),
+                "timestamps_equal": all(a.timestamp == b.timestamp for a, b in pairs),
+                "actual_outcomes_equal": all(a.actual_up == b.actual_up for a, b in pairs),
+                "all_outcomes_after_frozen_boundary": all(
+                    a.timestamp > frozen_evaluation_timestamp for a, _ in pairs
+                ),
+            },
+            "common": common_summary,
+            "target_specific": specific_summary,
+            "target_specific_minus_common": _metric_deltas(
+                common_summary, specific_summary
+            ),
+        }
+    return {
+        "generated_at": datetime.fromtimestamp(
+            evaluation_timestamp, timezone.utc
+        ).isoformat(timespec="seconds"),
+        "evaluation_timestamp": evaluation_timestamp,
+        "frozen_v1_evaluation_timestamp": frozen_evaluation_timestamp,
+        "frozen_v1_evaluation_time": datetime.fromtimestamp(
+            frozen_evaluation_timestamp, timezone.utc
+        ).isoformat(timespec="seconds"),
+        "production_forecast_changed": False,
+        "decision": "short_term_oos_observation_do_not_adopt_or_tune",
+        "method": {
+            "oos_boundary": "outcome timestamp strictly greater than frozen v1 evaluation timestamp",
+            "pairing_policy": "same target and timestamp with identical actual outcome",
+            "model_policy": "frozen target-specific v1 materials, features, Analog distance, 50:50 Ensemble, and availability clocks",
+            "interpretation": "small-sample initial OOS observation; not statistical significance",
+        },
+        "markets": markets,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=DEFAULT_REPORT)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--oos", action="store_true",
+        help="score only outcomes after the frozen v1 report evaluation timestamp",
+    )
     args = parser.parse_args()
     evaluation_timestamp = int(datetime.now(timezone.utc).timestamp())
     production_snapshots = {name: model.fetch_market(symbol) for name, symbol in model.SYMBOLS.items()}
     symbols = sorted({symbol for rows in MATERIALS.values() for symbol, _ in rows})
     fetched = {symbol: model.fetch_market(symbol).candles for symbol in symbols}
     fetched = {symbol: normalize_experimental_closes(symbol, rows) for symbol, rows in fetched.items()}
-    report = build_report(
-        {name: snapshot.candles for name, snapshot in production_snapshots.items()}, fetched,
-        evaluation_timestamp=evaluation_timestamp,
-    )
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"Wrote {args.output}")
+    production = {name: snapshot.candles for name, snapshot in production_snapshots.items()}
+    if args.oos:
+        frozen = json.loads(FROZEN_REPORT.read_text(encoding="utf-8"))
+        report = build_oos_report(
+            production, fetched, frozen["evaluation_timestamp"],
+            evaluation_timestamp=evaluation_timestamp,
+        )
+        output = args.output or DEFAULT_OOS_REPORT
+    else:
+        report = build_report(production, fetched, evaluation_timestamp=evaluation_timestamp)
+        output = args.output or DEFAULT_REPORT
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"Wrote {output}")
 
 
 if __name__ == "__main__":

@@ -103,3 +103,34 @@ python scripts/validate_target_specific.py
 
 外部データ取得に失敗した場合は script が失敗して report を更新しない。本番
 forecast generator からこの script を呼ばないことが、その障害分離である。
+
+## 2026-09-29 固定後の短期 OOS 追試
+
+2026-09-29T02:06:06Z に固定した v1 を調整せず、その時刻より後に
+確定した common / target-specific の paired outcome だけを 2026-10-03T02:50:56Z
+時点で追試した。対象日は NIKKEI、DOW、USDJPY が 9/29〜10/2 の 4 件、
+GOLD が 9/29〜10/1 の 3 件である。完全な結果は
+[`reports/target-specific-weather-map-v1-oos.json`](../reports/target-specific-weather-map-v1-oos.json)
+に旧 exploratory report と分けて保存した。
+
+| target | n | Analog accuracy (common → specific) | Analog Brier (common → specific) | Ensemble accuracy | Ensemble Brier (common → specific) |
+|---|---:|---:|---:|---:|---:|
+| NIKKEI | 4 | 25.0% → 25.0% | .3163 → .3302 | 50.0% → 50.0% | .3168 → .3242 |
+| DOW | 4 | 25.0% → 25.0% | .3528 → .2787 | 50.0% → 50.0% | .3204 → .2902 |
+| USDJPY | 4 | 75.0% → 75.0% | .2135 → .2055 | 75.0% → 75.0% | .2030 → .1997 |
+| GOLD | 3 | 66.7% → 33.3% | .2363 → .3061 | 0.0% → 0.0% | .4109 → .4440 |
+
+USDJPY は accuracy 同率で Brier が小幅に良化し、旧 exploratory validation の
+優位と整合した。一方、GOLD は accuracy、Brier とも悪化し、旧期間の
+優位をこの短期 OOS では維持しなかった。DOW は Brier のみ改善、NIKKEI は
+同率 accuracy で Brier が悪化した。ただし 3〜4 件の初期観測にすぎず、
+統計的優位や不優位とは解釈しない。この結果に応じた材料、feature、
+Analog 距離、Trend との 50:50 重み、availability clock の変更は行っていない。
+本番 forecast も変更していない。
+
+追試の再実行は次のとおり。固定境界は旧 report の
+`evaluation_timestamp` から読み取る。
+
+```bash
+python scripts/validate_target_specific.py --oos
+```
