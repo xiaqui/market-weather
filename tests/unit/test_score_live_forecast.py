@@ -151,6 +151,40 @@ class ProspectiveScoringTest(unittest.TestCase):
         self.assertEqual(second["added"], 0)
         self.assertEqual(len(records), 1)
 
+    def test_does_not_score_stale_target_as_retrospective_forecast(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            prospective_dir = root / "reports" / "live-forecast"
+            prospective_dir.mkdir(parents=True)
+            history_path = root / "reports" / "live-forecast-history.json"
+            history_path.parent.mkdir(parents=True, exist_ok=True)
+            history_path.write_text("[]\n", encoding="utf-8")
+            (prospective_dir / "stale.json").write_text(
+                json.dumps({
+                    "source_generated_at": "2026-10-03T01:15:54+00:00",
+                    "forecast": {"markets": [{
+                        "id": "nikkei",
+                        "next_session_date": "2026-10-02",
+                        "up_probability": 0.99,
+                        "trend_probability": 0.99,
+                        "analog_probability": 0.99,
+                    }]},
+                }),
+                encoding="utf-8",
+            )
+            histories = {"nikkei": [
+                self._candle(2026, 10, 1, 15, 30, "Asia/Tokyo", 100),
+                self._candle(2026, 10, 2, 15, 30, "Asia/Tokyo", 110),
+            ]}
+
+            summary = score_live_forecast.score_prospective_forecasts(
+                prospective_dir, history_path, histories
+            )
+
+            self.assertEqual(summary["processed"], 1)
+            self.assertEqual(summary["added"], 0)
+            self.assertEqual(json.loads(history_path.read_text(encoding="utf-8")), [])
+
     def test_multiple_days_and_market_specific_sessions_are_scored_in_order(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

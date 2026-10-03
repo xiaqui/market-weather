@@ -14,7 +14,11 @@ class SaveLiveForecastTest(unittest.TestCase):
             target = root / "snapshots"
             forecast = {
                 "generated_at": "2026-10-03T01:15:54+00:00",
-                "markets": [{"id": "dow", "up_probability": 0.6}],
+                "markets": [{
+                    "id": "dow",
+                    "next_session_date": "2026-10-05",
+                    "up_probability": 0.6,
+                }],
             }
             source.write_text(json.dumps(forecast), encoding="utf-8")
 
@@ -45,6 +49,27 @@ class SaveLiveForecastTest(unittest.TestCase):
 
             with self.assertRaises(FileExistsError):
                 save_snapshot(source, target)
+
+    def test_rejects_target_that_closed_before_generated_at(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "forecast.json"
+            target = root / "snapshots"
+            source.write_text(
+                json.dumps({
+                    "generated_at": "2026-10-03T01:15:54+00:00",
+                    "markets": [
+                        {"id": "nikkei", "next_session_date": "2026-10-02"},
+                        {"id": "gold", "next_session_date": "2026-10-02"},
+                    ],
+                }),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "already completed"):
+                save_snapshot(source, target)
+
+            self.assertFalse(target.exists())
 
 
 if __name__ == "__main__":
