@@ -895,3 +895,81 @@ GOLD:   ドル全体 / 金利 / リスク回避
 - branchへcommit/push
 - PRで結果を報告
 - 次の改善候補を市場別に列挙
+
+
+## 追加研究: target-specific v1 の 2026-09-29 以降 OOS 追試
+
+種別: 既存研究の追試
+
+Git運用: branch + PR。
+
+### 目的
+
+2026-09-29 02:06 UTC に固定済みの target-specific weather map v1 を一切調整せず、
+その時点より後に確定した営業日だけで common と比較する。
+本番 forecast は変更しない。
+
+### 固定する材料
+
+- NIKKEI: ^DJI / JPY=X / GC=F
+- DOW: ^VIX / ^IXIC / ^TNX
+- USDJPY: DX-Y.NYB / ^TNX / ^N225
+- GOLD: DX-Y.NYB / ^TNX / ^VIX
+
+材料、feature、Analog距離、Trendとの50:50重み、availability clockを変更しない。
+今回の結果を見てパラメータ調整しない。
+
+### 評価期間
+
+旧reportの evaluation timestamp = 2026-09-29T02:06:06Z より後に outcome が確定した
+paired rowだけを抽出する。境界以前のrowは成績に混ぜない。
+各市場で利用可能な全件を使い、sample countと対象日を明記する。
+形成中candleは除外する。
+
+### 比較
+
+同じ target/timestamp/actual outcome で common と target-specific をpairにし、最低限:
+
+- direction accuracy: Trend / Analog / 50:50 Ensemble
+- Brier Score: Trend / Analog / Ensemble
+- common vs target-specific の差
+- Trend / Analog 不一致時の勝敗（件数があれば）
+- always-up / always-down / constant-50 等の naive baseline
+- sample count
+- 対象営業日一覧
+
+を市場別に出す。
+
+サンプルが少ないため統計的優位とは呼ばず、短期 OOS の初期観測として解釈する。
+特に USDJPY / GOLD が旧 exploratory validation の優位を維持したか確認する。
+NIKKEI / DOW も同時に出すが、結果に合わせて材料を変更しない。
+
+### 保存
+
+新しい report を既存 exploratory report と分離して
+reports/target-specific-weather-map-v1-oos.json に保存する。
+docs/target-specific-weather-map-v1.md に短い OOS 追記を加える。
+既存 reports/target-specific-weather-map-v1.json は上書きしない。
+
+### 安全条件
+
+- 本番 shared/forecast.json を変更しない
+- scripts/fetch_market_data.py の本番モデルを変更しない
+- 日次workflowを変更しない
+- weather閾値を変更しない
+- 未来リーク防止assertを維持
+- 旧v1の材料/feature/重みを変更しない
+- OOS結果を見て同じ期間へ最適化しない
+
+### テスト
+
+対象テスト、全体unit suite、py_compile、git diff --checkを実行する。
+既知の無関係failureは切り分ける。
+
+### 完了条件
+
+- 2026-09-29 02:06:06Z より後だけのOOS比較reportが生成される
+- 4市場すべてでcommonとtarget-specificが同一outcomeにpairされる
+- USDJPY/GOLDの短期OOS成績を明示する
+- 本番forecastが未変更であることを確認する
+- PRへ結果とテストを報告する
