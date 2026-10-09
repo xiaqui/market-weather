@@ -93,6 +93,9 @@ class ProspectiveScoringTest(unittest.TestCase):
         self.assertEqual(record["ensemble_probability"], 0.11)
         self.assertEqual(record["actual_direction"], "down")
         self.assertTrue(record["ensemble_correct"])
+        self.assertAlmostEqual(record["ensemble_brier_contribution"], 0.11**2)
+        self.assertAlmostEqual(record["trend_brier_contribution"], 0.21**2)
+        self.assertAlmostEqual(record["analog_brier_contribution"], 0.31**2)
         self.assertTrue(record["actual_in_predicted_range"])
 
     def test_does_not_add_duplicate_record_for_same_forecast_market_target(self) -> None:
@@ -147,6 +150,116 @@ class ProspectiveScoringTest(unittest.TestCase):
         self.assertEqual(first["added"], 1)
         self.assertEqual(second["added"], 0)
         self.assertEqual(len(records), 1)
+
+    def test_does_not_score_stale_target_as_retrospective_forecast(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            prospective_dir = root / "reports" / "live-forecast"
+            prospective_dir.mkdir(parents=True)
+            history_path = root / "reports" / "live-forecast-history.json"
+            history_path.parent.mkdir(parents=True, exist_ok=True)
+            history_path.write_text("[]\n", encoding="utf-8")
+            (prospective_dir / "stale.json").write_text(
+                json.dumps({
+                    "source_generated_at": "2026-10-03T01:15:54+00:00",
+                    "forecast": {"markets": [{
+                        "id": "nikkei",
+                        "next_session_date": "2026-10-02",
+                        "up_probability": 0.99,
+                        "trend_probability": 0.99,
+                        "analog_probability": 0.99,
+                    }]},
+                }),
+                encoding="utf-8",
+            )
+            histories = {"nikkei": [
+                self._candle(2026, 10, 1, 15, 30, "Asia/Tokyo", 100),
+                self._candle(2026, 10, 2, 15, 30, "Asia/Tokyo", 110),
+            ]}
+
+            summary = score_live_forecast.score_prospective_forecasts(
+                prospective_dir, history_path, histories
+            )
+
+            self.assertEqual(summary["processed"], 1)
+            self.assertEqual(summary["added"], 0)
+            self.assertEqual(json.loads(history_path.read_text(encoding="utf-8")), [])
+
+    def test_multiple_days_and_market_specific_sessions_are_scored_in_order(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            prospective_dir = root / "reports" / "live-forecast"
+            prospective_dir.mkdir(parents=True)
+            history_path = root / "reports" / "history.json"
+            history_path.parent.mkdir(parents=True, exist_ok=True)
+            history_path.write_text("[]\n", encoding="utf-8")
+
+            targets = {
+                "nikkei": ("2026-09-24", 0.8),  # three-day holiday closure
+                "dow": ("2026-09-21", 0.7),
+                "usdjpy": ("2026-09-22", 0.4),
+                "gold": ("2026-09-23", 0.3),
+            }
+            for day, generated_at in enumerate(
+                ("2026-09-20T12:00:00+00:00", "2026-09-21T12:00:00+00:00")
+            ):
+                markets = [
+                    {
+                        "id": market_id,
+                        "next_session_date": target_date,
+                        "up_probability": probability,
+                    }
+                    for market_id, (target_date, probability) in targets.items()
+                ]
+                (prospective_dir / f"snapshot-{day}.json").write_text(
+                    json.dumps(
+                        {
+                            "source_generated_at": generated_at,
+                            "forecast": {"markets": markets},
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+
+            histories = {
+                "nikkei": [
+                    self._candle(2026, 9, 18, 15, 30, "Asia/Tokyo", 100),
+                    self._candle(2026, 9, 24, 15, 30, "Asia/Tokyo", 101),
+                ],
+                "dow": [
+                    self._candle(2026, 9, 18, 16, 0, "America/New_York", 100),
+                    self._candle(2026, 9, 21, 16, 0, "America/New_York", 99),
+                ],
+                "usdjpy": [
+                    self._candle(2026, 9, 21, 17, 0, "America/New_York", 100),
+                    self._candle(2026, 9, 22, 17, 0, "America/New_York", 100),
+                ],
+                "gold": [self._candle(2026, 9, 22, 17, 0, "America/New_York", 100)],
+            }
+
+            first = score_live_forecast.score_prospective_forecasts(
+                prospective_dir, history_path, histories
+            )
+            histories["gold"].append(
+                self._candle(2026, 9, 23, 17, 0, "America/New_York", 102)
+            )
+            second = score_live_forecast.score_prospective_forecasts(
+                prospective_dir, history_path, histories
+            )
+            third = score_live_forecast.score_prospective_forecasts(
+                prospective_dir, history_path, histories
+            )
+            records = json.loads(history_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(first["added"], 6)
+        self.assertEqual(first["waiting"], 2)
+        self.assertEqual(second["added"], 2)
+        self.assertEqual(third["added"], 0)
+        self.assertEqual(len(records), 8)
+        flat = next(record for record in records if record["market"] == "usdjpy")
+        self.assertEqual(flat["actual_direction"], "flat")
+        self.assertIsNone(flat["ensemble_correct"])
+        self.assertIsNone(flat["ensemble_brier_contribution"])
 
 
 if __name__ == "__main__":
