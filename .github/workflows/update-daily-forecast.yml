@@ -35,17 +35,21 @@ jobs:
       - name: Sync forecast copies
         run: python scripts/sync_forecast.py
 
+      - name: Save prospective forecast snapshot
+        run: python -m scripts.save_live_forecast
+
       - name: Score prospective forecasts
         run: python -m scripts.score_live_forecast
 
       - name: Commit updated forecasts
         run: |
-          if git diff --quiet -- \
+          if test -z "$(git status --porcelain -- \
             shared/forecast.json \
             android/app/src/main/assets/forecast.json \
             android/app/src/test/resources/forecast.json \
             web/forecast.json \
-            reports/live-forecast-history.json; then
+            reports/live-forecast \
+            reports/live-forecast-history.json)"; then
             echo "Forecast data is already up to date."
             exit 0
           fi
@@ -57,6 +61,7 @@ jobs:
             android/app/src/main/assets/forecast.json \
             android/app/src/test/resources/forecast.json \
             web/forecast.json \
+            reports/live-forecast \
             reports/live-forecast-history.json
           git commit -m "Update daily market forecast"
           git push origin HEAD:main
