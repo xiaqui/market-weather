@@ -385,14 +385,24 @@ def session_close_timestamp(symbol: str, raw_timestamp: int) -> int:
     else:
         label_zone = timezone.utc if hours.date_from_utc else zone
     session_date = datetime.fromtimestamp(raw_timestamp, label_zone).date()
+    return session_date_close_timestamp(symbol, session_date.isoformat())
+
+
+def session_date_close_timestamp(symbol: str, session_date: str) -> int:
+    """Return the conservative close timestamp for an ISO session date."""
+    hours = MARKET_HOURS.get(symbol)
+    if hours is None:
+        raise ValueError(f"Unknown market symbol: {symbol}")
+    parsed_date = date.fromisoformat(session_date)
+    zone = ZoneInfo(hours.timezone_name)
     close_time = hours.normal_close
-    if symbol == "^N225" and session_date < date(2024, 11, 5):
+    if symbol == "^N225" and parsed_date < date(2024, 11, 5):
         close_time = datetime_time(15, 0)
-    elif symbol == "^DJI" and _is_us_early_close(session_date):
+    elif symbol == "^DJI" and _is_us_early_close(parsed_date):
         close_time = datetime_time(13, 0)
-    elif symbol == "GC=F" and _is_us_early_close(session_date):
+    elif symbol == "GC=F" and _is_us_early_close(parsed_date):
         close_time = datetime_time(13, 30)
-    return int(datetime.combine(session_date, close_time, tzinfo=zone).timestamp())
+    return int(datetime.combine(parsed_date, close_time, tzinfo=zone).timestamp())
 
 
 def last_data_date(symbol: str, candles: list[Candle]) -> str:

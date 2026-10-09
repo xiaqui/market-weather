@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from scripts import fetch_market_data as market_data
+
 
 ROOT = Path(__file__).resolve().parents[1]
 FORECAST_PATH = ROOT / "shared" / "forecast.json"
@@ -27,6 +29,26 @@ def _snapshot_name(generated_at: str) -> str:
     return utc.strftime("%Y-%m-%dT%H-%M-%SZ.json")
 
 
+def _reject_completed_targets(forecast: dict[str, Any], generated_at: str) -> None:
+    source_timestamp = int(datetime.fromisoformat(generated_at).timestamp())
+    stale_targets = []
+    for market in forecast.get("markets", []):
+        if not isinstance(market, dict):
+            continue
+        market_id = market.get("id")
+        symbol = market_data.SYMBOLS.get(market_id)
+        target_date = market.get("next_session_date")
+        if symbol is None or not isinstance(target_date, str) or not target_date:
+            continue
+        if market_data.session_date_close_timestamp(symbol, target_date) <= source_timestamp:
+            stale_targets.append(f"{market_id} ({target_date})")
+    if stale_targets:
+        raise ValueError(
+            "Forecast contains target sessions already completed at generated_at: "
+            + ", ".join(stale_targets)
+        )
+
+
 def save_snapshot(
     forecast_path: Path = FORECAST_PATH,
     prospective_dir: Path = PROSPECTIVE_DIR,
@@ -42,6 +64,8 @@ def save_snapshot(
     generated_at = forecast.get("generated_at")
     if not isinstance(generated_at, str) or not generated_at:
         raise ValueError(f"Forecast has no generated_at: {forecast_path}")
+
+    _reject_completed_targets(forecast, generated_at)
 
     snapshot = {"source_generated_at": generated_at, "forecast": forecast}
     prospective_dir.mkdir(parents=True, exist_ok=True)

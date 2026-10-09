@@ -109,6 +109,11 @@ def _score_market(
     target_date = _target_session_date(market, symbol, candles, source_timestamp)
     if target_date is None:
         return None, market_id
+    # Never score a forecast whose target had already closed when the forecast
+    # was generated. This second line of defense also protects history from
+    # stale or manually created snapshots that bypassed the snapshot writer.
+    if market_data.session_date_close_timestamp(symbol, target_date) <= source_timestamp:
+        return None, None
 
     index_by_date = {
         _local_session_date(symbol, candle.timestamp): index
