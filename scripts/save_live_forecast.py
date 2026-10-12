@@ -85,15 +85,7 @@ def save_snapshot(
         raise ValueError(f"Forecast has no generated_at: {forecast_path}")
 
     snapshot_forecast, stale_count = _without_completed_targets(forecast, generated_at)
-    if stale_count and not snapshot_forecast.get("markets"):
-        LOGGER.warning(
-            "Skipping prospective snapshot because all markets are stale: generated_at=%s",
-            generated_at,
-        )
-        return None, False
-
     snapshot = {"source_generated_at": generated_at, "forecast": snapshot_forecast}
-    prospective_dir.mkdir(parents=True, exist_ok=True)
     destination = prospective_dir / _snapshot_name(generated_at)
 
     for candidate in prospective_dir.glob("*.json"):
@@ -105,6 +97,15 @@ def save_snapshot(
                 f"Snapshot for {generated_at} already exists with different content: {candidate}"
             )
         return candidate, False
+
+    if stale_count and not snapshot_forecast.get("markets"):
+        LOGGER.warning(
+            "Skipping prospective snapshot because all markets are stale: generated_at=%s",
+            generated_at,
+        )
+        return None, False
+
+    prospective_dir.mkdir(parents=True, exist_ok=True)
 
     # Exclusive creation is the final guard against concurrent overwrite.
     descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
