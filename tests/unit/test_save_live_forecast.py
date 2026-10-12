@@ -108,6 +108,46 @@ class SaveLiveForecastTest(unittest.TestCase):
             self.assertEqual(second, (None, False))
             self.assertFalse(target.exists())
 
+    def test_all_stale_rerun_rejects_existing_valid_snapshot_at_same_timestamp(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "forecast.json"
+            target = root / "snapshots"
+            generated_at = "2026-10-10T01:15:54+00:00"
+            source.write_text(
+                json.dumps({
+                    "generated_at": generated_at,
+                    "markets": [{
+                        "id": "dow",
+                        "next_session_date": "2026-10-12",
+                        "up_probability": 0.6,
+                    }],
+                }),
+                encoding="utf-8",
+            )
+            original_path, created = save_snapshot(source, target)
+            original_content = original_path.read_text(encoding="utf-8")
+
+            source.write_text(
+                json.dumps({
+                    "generated_at": generated_at,
+                    "markets": [{
+                        "id": "dow",
+                        "next_session_date": "2026-10-09",
+                        "up_probability": 0.4,
+                    }],
+                }),
+                encoding="utf-8",
+            )
+
+            with self.assertLogs("scripts.save_live_forecast", level="WARNING"):
+                with self.assertRaises(FileExistsError):
+                    save_snapshot(source, target)
+
+            self.assertTrue(created)
+            self.assertEqual(original_path.read_text(encoding="utf-8"), original_content)
+            self.assertEqual(len(list(target.glob("*.json"))), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
