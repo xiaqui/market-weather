@@ -57,3 +57,22 @@ branch + PR
 - workflow成功なのにhistoryだけ止まる今回のsilent failureを回帰テストで検知できる
 - 本番forecastの値は変更しない
 - PRで原因、変更点、test結果を報告する
+
+
+## 2026-10-12 追加: stale市場1件で日次更新全体が停止する障害
+
+### 再現証拠
+
+GitHub Actions run 38014689871 (2026-10-10) は Fetch completed market data / Sync forecast copies まで成功後、Save prospective forecast snapshot で `ValueError: Forecast contains target sessions already completed at generated_at: gold (2026-10-09)` により停止。ScoreとCommitがskipされ、本番更新も配信されない。過去のP1修正で retrospective 混入は防げたが、単一市場のstale feedで全市場の更新を止めるfail-closed設計になっている。
+
+### 必須修正
+
+- retrospective市場は絶対にprospective scoreへ入れない。一方、単一市場のstale targetを理由に日次workflow全体を失敗させない。
+- snapshotには市場別にvalidなprospective forecastのみ保存し、stale市場は除外して理由・generated_at・market・targetをログに記録する。すべてstaleならsnapshot作成をskipし正常終了。既存snapshotのimmutable/idempotenceは維持。
+- scorer側の独立したretrospective拒否を残す。日付だけでなく各市場のsession close timezoneを使用。
+- `shared/forecast.json` および配布用forecastは既存処理どおり更新・commitする。予報ロジック/UI/閾値/重みは変更しない。
+- workflowを fetch -> sync -> snapshot -> score -> commit として維持し、snapshot除外でcommitがskipされないこと。
+- GOLDだけstale、他3市場valid、4市場全部stale、休場、再実行、後日score、既存history互換を回帰テストする。
+- 特に10/10 runのstale GOLDを再現するテストを追加する。
+- targeted/full suite、py_compile、git diff --checkを実施。既知の無関係失敗は分離報告。
+- 完了後、PRに原因と対処、テストを報告する。レビューP1解消までmerge禁止。
