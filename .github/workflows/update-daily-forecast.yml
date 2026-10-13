@@ -41,6 +41,9 @@ jobs:
       - name: Score prospective forecasts
         run: python -m scripts.score_live_forecast
 
+      - name: Build official representative scores
+        run: python -m scripts.build_official_scores
+
       - name: Commit updated forecasts
         run: |
           if test -z "$(git status --porcelain -- \
@@ -49,7 +52,8 @@ jobs:
             android/app/src/test/resources/forecast.json \
             web/forecast.json \
             reports/live-forecast \
-            reports/live-forecast-history.json)"; then
+            reports/live-forecast-history.json \
+            web/official-scores.json)"; then
             echo "Forecast data is already up to date."
             exit 0
           fi
@@ -62,6 +66,7 @@ jobs:
             android/app/src/test/resources/forecast.json \
             web/forecast.json \
             reports/live-forecast \
-            reports/live-forecast-history.json
+            reports/live-forecast-history.json \
+            web/official-scores.json
           git commit -m "Update daily market forecast"
           git push origin HEAD:main

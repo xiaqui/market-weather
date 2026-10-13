@@ -6,7 +6,7 @@ on:
     types: [completed]
   push:
     branches: [main]
-    paths: [web/**, shared/forecast.json, scripts/sync_forecast.py, .github/workflows/deploy-pages.yml]
+    paths: [web/**, shared/forecast.json, scripts/sync_forecast.py, scripts/build_official_scores.py, reports/live-forecast-history.json, .github/workflows/deploy-pages.yml]
 permissions:
   contents: read
   pages: write

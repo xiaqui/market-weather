@@ -209,8 +209,32 @@ async function loadForecast() {
     document.querySelector("#error").hidden = false;
   }
 }
+const scoreValue = (value, kind = "decimal") => {
+  if (!Number.isFinite(value)) return "N/A";
+  return kind === "percent" ? `${(value * 100).toFixed(1)}%` : value.toFixed(3);
+};
+async function loadOfficialScores() {
+  const content = document.querySelector("#scores-content");
+  if (!content) return;
+  try {
+    const response = await fetch("official-scores.json");
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    const overall = data.overall;
+    const rows = ["trend", "analog", "ensemble"].map(key => {
+      const label = { trend: "Trend", analog: "Analog", ensemble: "Ensemble" }[key];
+      const item = overall.forecasters[key];
+      return `<tr><th scope="row">${label}</th><td>${item.samples}</td><td>${scoreValue(item.accuracy, "percent")}</td><td>${scoreValue(item.mean_brier)}</td></tr>`;
+    }).join("");
+    content.innerHTML = `<table class="scores-table"><thead><tr><th>予報士</th><th>件数</th><th>的中率</th><th>Brier</th></tr></thead><tbody>${rows}</tbody></table><p class="scores-small">レンジ内率 ${scoreValue(overall.range.inside_rate, "percent")} / 平均レンジ幅（終値比） ${scoreValue(overall.range.mean_width_close_ratio, "percent")} / interval score N/A（名目被覆率未定義）${overall.small_sample ? " / 小標本" : ""}</p>`;
+  } catch (error) {
+    console.error(error);
+    content.textContent = "成績データを読み込めませんでした。";
+  }
+}
 document.querySelector("#close-detail").addEventListener("click", () => {
   document.querySelector("#detail").close();
   selectedMarket = null;
 });
 loadForecast();
+loadOfficialScores();
