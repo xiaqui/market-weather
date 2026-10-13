@@ -1,0 +1,71 @@
+{
+  "source_generated_at": "2026-10-13T14:52:26+00:00",
+  "forecast": {
+    "generated_at": "2026-10-13T14:52:26+00:00",
+    "markets": [
+      {
+        "id": "nikkei",
+        "name": "日経平均",
+        "current": 67777.52,
+        "up_probability": 0.5468,
+        "range_low": 66595.9243,
+        "range_high": 68980.0804,
+        "confidence": 0.6,
+        "weather": "partly_cloudy",
+        "risk": "normal",
+        "trend_probability": 0.4261,
+        "analog_probability": 0.6676,
+        "analog_count": 30,
+        "analog_mean_distance": 0.747,
+        "analog_mean_next_return": 0.002214,
+        "last_data_date": "2026-10-13",
+        "next_session_date": "2026-10-14",
+        "trend_confidence": 0.6,
+        "analog_effective_sample_size": 29.9696,
+        "forecast_support": 0.6527
+      },
+      {
+        "id": "dow",
+        "name": "NYダウ",
+        "current": 51862.5,
+        "up_probability": 0.5466,
+        "range_low": 51462.2297,
+        "range_high": 52265.8836,
+        "confidence": 0.8,
+        "weather": "partly_cloudy",
+        "risk": "calm",
+        "trend_probability": 0.6968,
+        "analog_probability": 0.3963,
+        "analog_count": 30,
+        "analog_mean_distance": 0.747,
+        "analog_mean_next_return": -0.001586,
+        "last_data_date": "2026-10-12",
+        "next_session_date": "2026-10-13",
+        "trend_confidence": 0.8,
+        "analog_effective_sample_size": 29.8888,
+        "forecast_support": 0.6971
+      },
+      {
+        "id": "gold",
+        "name": "GOLD",
+        "current": 4192.5,
+        "up_probability": 0.4642,
+        "range_low": 4135.7541,
+        "range_high": 4250.0245,
+        "confidence": 0.6,
+        "weather": "cloudy",
+        "risk": "normal",
+        "trend_probability": 0.3305,
+        "analog_probability": 0.5979,
+        "analog_count": 30,
+        "analog_mean_distance": 0.7435,
+        "analog_mean_next_return": 0.000202,
+        "last_data_date": "2026-10-12",
+        "next_session_date": "2026-10-13",
+        "trend_confidence": 0.6,
+        "analog_effective_sample_size": 29.9646,
+        "forecast_support": 0.6427
+      }
+    ]
+  }
+}
