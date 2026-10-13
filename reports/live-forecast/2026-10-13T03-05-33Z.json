@@ -1,0 +1,50 @@
+{
+  "source_generated_at": "2026-10-13T03:05:33+00:00",
+  "forecast": {
+    "generated_at": "2026-10-13T03:05:33+00:00",
+    "markets": [
+      {
+        "id": "nikkei",
+        "name": "日経平均",
+        "current": 67292.39,
+        "up_probability": 0.6595,
+        "range_low": 66183.6593,
+        "range_high": 68419.6945,
+        "confidence": 0.6,
+        "weather": "sunny",
+        "risk": "normal",
+        "trend_probability": 0.7532,
+        "analog_probability": 0.5658,
+        "analog_count": 30,
+        "analog_mean_distance": 0.9714,
+        "analog_mean_next_return": 0.005069,
+        "last_data_date": "2026-10-09",
+        "next_session_date": "2026-10-13",
+        "trend_confidence": 0.6,
+        "analog_effective_sample_size": 29.9089,
+        "forecast_support": 0.6701
+      },
+      {
+        "id": "dow",
+        "name": "NYダウ",
+        "current": 51850.55,
+        "up_probability": 0.571,
+        "range_low": 51450.3719,
+        "range_high": 52253.8406,
+        "confidence": 0.8,
+        "weather": "partly_cloudy",
+        "risk": "calm",
+        "trend_probability": 0.6968,
+        "analog_probability": 0.4452,
+        "analog_count": 30,
+        "analog_mean_distance": 0.6356,
+        "analog_mean_next_return": -0.00035,
+        "last_data_date": "2026-10-12",
+        "next_session_date": "2026-10-13",
+        "trend_confidence": 0.8,
+        "analog_effective_sample_size": 29.5131,
+        "forecast_support": 0.7304
+      }
+    ]
+  }
+}
