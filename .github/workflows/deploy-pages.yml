@@ -25,6 +25,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Sync forecast data
         run: python3 scripts/sync_forecast.py
+      - name: Build official representative scores
+        run: python3 -m scripts.build_official_scores
       - uses: actions/configure-pages@v5
         with:
           enablement: true
