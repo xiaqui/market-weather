@@ -3,30 +3,30 @@
   "selection_policy": "latest valid 00:00-06:00 JST forecast before session open; otherwise latest valid forecast before open",
   "interval_score_note": "N/A: forecast interval nominal coverage is not defined; coverage and relative width are reported separately.",
   "overall": {
-    "representative_samples": 4,
-    "comparison_population": 4,
+    "representative_samples": 5,
+    "comparison_population": 5,
     "small_sample": true,
     "forecasters": {
       "trend": {
-        "samples": 4,
-        "accuracy": 0.5,
-        "mean_brier": 0.34174262499999997
+        "samples": 5,
+        "accuracy": 0.4,
+        "mean_brier": 0.3347773
       },
       "analog": {
-        "samples": 4,
-        "accuracy": 0.5,
-        "mean_brier": 0.29854147249999996
+        "samples": 5,
+        "accuracy": 0.4,
+        "mean_brier": 0.29418942
       },
       "ensemble": {
-        "samples": 4,
-        "accuracy": 0.25,
-        "mean_brier": 0.3106390225
+        "samples": 5,
+        "accuracy": 0.2,
+        "mean_brier": 0.30685281999999997
       }
     },
     "range": {
-      "samples": 4,
-      "inside_rate": 0.75,
-      "mean_width_close_ratio": 0.02496558297885738,
+      "samples": 5,
+      "inside_rate": 0.8,
+      "mean_width_close_ratio": 0.02302224020922219,
       "nominal_coverage": null,
       "mean_interval_score": null
     }
@@ -62,30 +62,30 @@
       }
     },
     "dow": {
-      "representative_samples": 2,
-      "comparison_population": 2,
+      "representative_samples": 3,
+      "comparison_population": 3,
       "small_sample": true,
       "forecasters": {
         "trend": {
-          "samples": 2,
-          "accuracy": 0.5,
-          "mean_brier": 0.30904952499999994
+          "samples": 3,
+          "accuracy": 0.3333333333333333,
+          "mean_brier": 0.30833835000000004
         },
         "analog": {
-          "samples": 2,
-          "accuracy": 1.0,
-          "mean_brier": 0.19603356500000002
+          "samples": 3,
+          "accuracy": 0.6666666666666666,
+          "mean_brier": 0.2229494466666667
         },
         "ensemble": {
-          "samples": 2,
-          "accuracy": 0.5,
-          "mean_brier": 0.24390291999999997
+          "samples": 3,
+          "accuracy": 0.3333333333333333,
+          "mean_brier": 0.25983795
         }
       },
       "range": {
-        "samples": 2,
+        "samples": 3,
         "inside_rate": 1.0,
-        "mean_width_close_ratio": 0.01541286405305247,
+        "mean_width_close_ratio": 0.015358199078928792,
         "nominal_coverage": null,
         "mean_interval_score": null
       }
@@ -195,6 +195,29 @@
       "actual_close": 51670.1015625,
       "actual_in_predicted_range": true,
       "scored_at": "2026-10-14T01:18:51+00:00"
+    },
+    {
+      "forecast_file": "reports/live-forecast/2026-10-14T12-42-56Z.json",
+      "forecast_source_generated_at": "2026-10-14T12:42:56+00:00",
+      "market": "dow",
+      "target_session_date": "2026-10-14",
+      "trend_probability": 0.554,
+      "trend_direction": "up",
+      "analog_probability": 0.5261,
+      "analog_direction": "up",
+      "ensemble_probability": 0.5401,
+      "trend_brier_contribution": 0.3069160000000001,
+      "analog_brier_contribution": 0.27678121,
+      "ensemble_brier_contribution": 0.29170801,
+      "forecast_support": 0.7324,
+      "ensemble_direction": "up",
+      "actual_direction": "down",
+      "ensemble_correct": false,
+      "predicted_range_low": 51278.0144,
+      "predicted_range_high": 52065.1836,
+      "actual_close": 51621.48046875,
+      "actual_in_predicted_range": true,
+      "scored_at": "2026-10-14T22:58:23+00:00"
     },
     {
       "forecast_file": "reports/live-forecast/2026-10-12T16-34-48Z.json",
@@ -411,6 +434,22 @@
       "generated_at": "2026-10-13T14:52:26+00:00",
       "status": "excluded",
       "reason": "generated_after_session_open"
+    },
+    {
+      "market": "dow",
+      "target_session_date": "2026-10-14",
+      "forecast_file": "reports/live-forecast/2026-10-14T01-18-19Z.json",
+      "generated_at": "2026-10-14T01:18:19+00:00",
+      "status": "excluded",
+      "reason": "duplicate_not_representative"
+    },
+    {
+      "market": "dow",
+      "target_session_date": "2026-10-14",
+      "forecast_file": "reports/live-forecast/2026-10-14T12-42-56Z.json",
+      "generated_at": "2026-10-14T12:42:56+00:00",
+      "status": "selected",
+      "reason": "latest_before_open_fallback"
     }
   ]
 }
