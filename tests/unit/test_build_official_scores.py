@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -15,12 +16,19 @@ class OfficialScoreTest(unittest.TestCase):
     def tearDown(self):
         self.temporary.cleanup()
 
-    def _record(self, generated: str, market: str = "nikkei", target: str = "2026-10-13", filename: str | None = None) -> dict:
+    def _record(
+        self,
+        generated: str,
+        market: str = "nikkei",
+        target: str = "2026-10-13",
+        filename: str | None = None,
+        last_data_date: str = "2026-10-09",
+    ) -> dict:
         relative_path = filename or f"reports/live-forecast/{generated.replace(':', '-').replace('+', '_')}-{market}.json"
         snapshot = self.root / relative_path
         snapshot.parent.mkdir(parents=True, exist_ok=True)
         snapshot.write_text(json.dumps({
-            "forecast": {"markets": [{"id": market, "last_data_date": "2026-10-09"}]}
+            "forecast": {"markets": [{"id": market, "last_data_date": last_data_date}]}
         }), encoding="utf-8")
         return {
             "forecast_file": relative_path,
@@ -76,6 +84,49 @@ class OfficialScoreTest(unittest.TestCase):
                 selected, audit = build_official_scores.select_representatives([record], self.root)
                 self.assertEqual(selected, [])
                 self.assertEqual(audit[0]["reason"], "generated_after_session_open")
+
+    def test_scheduled_fx_forecast_targets_session_before_open_across_dst(self):
+        cases = [
+            # Sunday's run must forecast Monday, rather than the prior Friday.
+            ("2026-01-04T20:00:00+00:00", "2026-01-05", 2),
+            ("2026-07-05T20:00:00+00:00", "2026-07-06", 1),
+        ]
+        for scheduled, target, hours_before_open in cases:
+            with self.subTest(target=target):
+                generated = datetime.fromisoformat(scheduled)
+                opening = build_official_scores.session_open("usdjpy", target)
+                self.assertEqual(opening.astimezone(timezone.utc) - generated, timedelta(hours=hours_before_open))
+                last_data_date = (
+                    "2026-01-02" if target.startswith("2026-01") else "2026-07-03"
+                )
+                record = self._record(
+                    scheduled, "usdjpy", target, last_data_date=last_data_date
+                )
+                selected, audit = build_official_scores.select_representatives([record], self.root)
+                self.assertEqual(selected, [record])
+                self.assertEqual(audit[0]["reason"], "latest_00_06_jst")
+
+    def test_delayed_fx_run_cannot_admit_target_session_information(self):
+        cases = [
+            ("2026-01-05", "2026-01-04T21:59:59+00:00", True),
+            ("2026-01-05", "2026-01-04T22:00:00+00:00", False),
+            ("2026-07-06", "2026-07-05T20:59:59+00:00", True),
+            ("2026-07-06", "2026-07-05T21:00:00+00:00", False),
+        ]
+        for target, generated, eligible in cases:
+            with self.subTest(target=target, generated=generated):
+                last_data_date = (
+                    "2026-01-02" if target.startswith("2026-01") else "2026-07-03"
+                )
+                record = self._record(
+                    generated, "usdjpy", target, last_data_date=last_data_date
+                )
+                selected, audit = build_official_scores.select_representatives([record], self.root)
+                self.assertEqual(bool(selected), eligible)
+                if eligible:
+                    self.assertEqual(audit[0]["status"], "selected")
+                else:
+                    self.assertEqual(audit[0]["reason"], "generated_after_session_open")
 
     def test_future_input_is_rejected(self):
         record = self._record("2026-10-12T16:34:48+00:00", filename="snapshot.json")

@@ -5,6 +5,9 @@ on:
   schedule:
     # Refresh after the Japan cash-market close (16:00 JST).
     - cron: "0 7 * * 1-5"
+    # Capture USD/JPY's next labelled session before its 17:00 ET open.
+    # 20:00 UTC is 16:00 EDT / 15:00 EST; Sunday covers Monday's session.
+    - cron: "0 20 * * 0-4"
     # Refresh again after the US cash-market close (07:30 JST on the following day).
     - cron: "30 22 * * 1-5"
 

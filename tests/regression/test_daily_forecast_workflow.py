@@ -11,6 +11,7 @@ class DailyForecastWorkflowTest(unittest.TestCase):
             encoding="utf-8"
         )
 
+        self.assertIn('cron: "0 20 * * 0-4"', workflow)
         self.assertIn('cron: "30 22 * * 1-5"', workflow)
         self.assertIn('python-version: "3.12"', workflow)
         self.assertIn("python scripts/fetch_market_data.py", workflow)
