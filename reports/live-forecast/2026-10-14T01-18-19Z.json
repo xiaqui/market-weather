@@ -1,0 +1,29 @@
+{
+  "source_generated_at": "2026-10-14T01:18:19+00:00",
+  "forecast": {
+    "generated_at": "2026-10-14T01:18:19+00:00",
+    "markets": [
+      {
+        "id": "dow",
+        "name": "NYダウ",
+        "current": 51670.1,
+        "up_probability": 0.5384,
+        "range_low": 51278.0144,
+        "range_high": 52065.1836,
+        "confidence": 0.6,
+        "weather": "cloudy",
+        "risk": "calm",
+        "trend_probability": 0.554,
+        "analog_probability": 0.5228,
+        "analog_count": 30,
+        "analog_mean_distance": 0.5882,
+        "analog_mean_next_return": 0.000381,
+        "last_data_date": "2026-10-13",
+        "next_session_date": "2026-10-14",
+        "trend_confidence": 0.6,
+        "analog_effective_sample_size": 29.6475,
+        "forecast_support": 0.745
+      }
+    ]
+  }
+}
