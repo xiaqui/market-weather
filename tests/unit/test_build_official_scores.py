@@ -1,7 +1,6 @@
 import json
 import tempfile
 import unittest
-from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -9,9 +8,22 @@ from scripts import build_official_scores
 
 
 class OfficialScoreTest(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self.temporary.name)
+
+    def tearDown(self):
+        self.temporary.cleanup()
+
     def _record(self, generated: str, market: str = "nikkei", target: str = "2026-10-13", filename: str | None = None) -> dict:
+        relative_path = filename or f"reports/live-forecast/{generated.replace(':', '-').replace('+', '_')}-{market}.json"
+        snapshot = self.root / relative_path
+        snapshot.parent.mkdir(parents=True, exist_ok=True)
+        snapshot.write_text(json.dumps({
+            "forecast": {"markets": [{"id": market, "last_data_date": "2026-10-09"}]}
+        }), encoding="utf-8")
         return {
-            "forecast_file": filename or f"reports/live-forecast/{generated[11:19].replace(':', '')}.json",
+            "forecast_file": relative_path,
             "forecast_source_generated_at": generated,
             "market": market,
             "target_session_date": target,
@@ -30,14 +42,14 @@ class OfficialScoreTest(unittest.TestCase):
             self._record("2026-10-12T16:34:48+00:00"),  # 01:34:48 JST
             self._record("2026-10-13T03:05:00+00:00"),  # 12:05 JST, after open
         ]
-        selected, audit = build_official_scores.select_representatives(records)
+        selected, audit = build_official_scores.select_representatives(records, self.root)
         self.assertEqual(selected[0]["forecast_source_generated_at"], "2026-10-12T16:34:48+00:00")
         self.assertIn("generated_after_session_open", [item["reason"] for item in audit])
         self.assertEqual(sum(item["status"] == "selected" for item in audit), 1)
 
     def test_falls_back_to_latest_before_open(self):
         records = [self._record("2026-10-12T10:00:00+00:00"), self._record("2026-10-12T14:00:00+00:00")]
-        selected, audit = build_official_scores.select_representatives(records)
+        selected, audit = build_official_scores.select_representatives(records, self.root)
         self.assertEqual(selected[0]["forecast_source_generated_at"], "2026-10-12T14:00:00+00:00")
         self.assertIn("latest_before_open_fallback", [item["reason"] for item in audit])
 
@@ -48,15 +60,59 @@ class OfficialScoreTest(unittest.TestCase):
         self.assertEqual(summer.astimezone(ZoneInfo("UTC")).hour, 13)
         gold = build_official_scores.session_open("gold", "2026-07-06")
         self.assertEqual(gold.date().isoformat(), "2026-07-05")
+        self.assertEqual(gold.hour, 18)
+        self.assertEqual(build_official_scores.session_open("usdjpy", "2026-07-06").hour, 17)
+
+    def test_fx_and_gold_after_open_are_excluded_in_winter_and_summer(self):
+        cases = [
+            ("usdjpy", "2026-01-05", "2026-01-04T22:01:00+00:00"),
+            ("usdjpy", "2026-07-06", "2026-07-05T21:01:00+00:00"),
+            ("gold", "2026-01-05", "2026-01-04T23:01:00+00:00"),
+            ("gold", "2026-07-06", "2026-07-05T22:01:00+00:00"),
+        ]
+        for market, target, generated in cases:
+            with self.subTest(market=market, target=target):
+                record = self._record(generated, market, target)
+                selected, audit = build_official_scores.select_representatives([record], self.root)
+                self.assertEqual(selected, [])
+                self.assertEqual(audit[0]["reason"], "generated_after_session_open")
 
     def test_future_input_is_rejected(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            record = self._record("2026-10-12T16:34:48+00:00", filename="snapshot.json")
-            (root / "snapshot.json").write_text(json.dumps({"forecast": {"markets": [{"id": "nikkei", "last_data_date": "2026-10-13"}]}}), encoding="utf-8")
-            selected, audit = build_official_scores.select_representatives([record], root)
+        record = self._record("2026-10-12T16:34:48+00:00", filename="snapshot.json")
+        (self.root / "snapshot.json").write_text(json.dumps({"forecast": {"markets": [{"id": "nikkei", "last_data_date": "2026-10-13"}]}}), encoding="utf-8")
+        selected, audit = build_official_scores.select_representatives([record], self.root)
         self.assertEqual(selected, [])
         self.assertEqual(audit[0]["reason"], "future_input_data")
+
+    def test_unverifiable_snapshot_fields_are_excluded_with_specific_reasons(self):
+        base = self._record("2026-10-12T16:34:48+00:00", filename="snapshot.json")
+        cases = [
+            ("snapshot_not_found", None, {**base, "forecast_file": "missing.json"}),
+            ("market_not_in_snapshot", {"forecast": {"markets": [{"id": "dow", "last_data_date": "2026-10-09"}]}}, base),
+            ("missing_last_data_date", {"forecast": {"markets": [{"id": "nikkei"}]}}, base),
+            ("invalid_last_data_date", {"forecast": {"markets": [{"id": "nikkei", "last_data_date": "not-a-date"}]}}, base),
+        ]
+        for reason, payload, record in cases:
+            with self.subTest(reason=reason):
+                if payload is not None:
+                    (self.root / "snapshot.json").write_text(json.dumps(payload), encoding="utf-8")
+                selected, audit = build_official_scores.select_representatives([record], self.root)
+                self.assertEqual(selected, [])
+                self.assertEqual(audit[0]["reason"], reason)
+
+        unknown = {**base, "market": "unknown"}
+        selected, audit = build_official_scores.select_representatives([unknown], self.root)
+        self.assertEqual(selected, [])
+        self.assertEqual(audit[0]["reason"], "unknown_market_symbol")
+
+    def test_legacy_september_snapshot_without_last_data_date_is_excluded(self):
+        history = json.loads((build_official_scores.ROOT / "reports/live-forecast-history.json").read_text(encoding="utf-8"))
+        legacy = [record for record in history if record.get("forecast_file") == "reports/live-forecast/2026-09-21.json"]
+        selected, audit = build_official_scores.select_representatives(legacy)
+        self.assertEqual(selected, [])
+        self.assertTrue(legacy)
+        self.assertIn("missing_last_data_date", {item["reason"] for item in audit})
+        self.assertTrue(all(item["status"] == "excluded" for item in audit))
 
     def test_build_is_idempotent_and_uses_same_population(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -65,9 +121,9 @@ class OfficialScoreTest(unittest.TestCase):
             output = root / "official.json"
             records = [self._record("2026-10-12T16:34:48+00:00")]
             history.write_text(json.dumps(records), encoding="utf-8")
-            first = build_official_scores.build_report(history, output, root)
+            first = build_official_scores.build_report(history, output, self.root)
             first_bytes = output.read_bytes()
-            second = build_official_scores.build_report(history, output, root)
+            second = build_official_scores.build_report(history, output, self.root)
         self.assertEqual(first, second)
         self.assertEqual(first_bytes, json.dumps(second, ensure_ascii=False, indent=2).encode() + b"\n")
         samples = {value["samples"] for value in first["overall"]["forecasters"].values()}

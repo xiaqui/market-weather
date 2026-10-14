@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 import tempfile
 from collections import defaultdict
@@ -47,22 +46,14 @@ def session_open(market: str, target: str) -> datetime:
     eastern = ZoneInfo("America/New_York")
     if market == "dow":
         return datetime.combine(day, time(9, 30), eastern)
-    if market in {"gold", "usdjpy"}:
+    if market == "usdjpy":
+        previous = day - timedelta(days=1)
+        return datetime.combine(previous, time(17), eastern)
+    if market == "gold":
         # Yahoo labels these nearly-24-hour sessions by their closing date.
         previous = day - timedelta(days=1)
         return datetime.combine(previous, time(18), eastern)
     raise ValueError(f"Unknown market: {market}")
-
-
-def _snapshot_market(record: dict[str, Any], root: Path) -> dict[str, Any] | None:
-    path = root / str(record.get("forecast_file", ""))
-    if not path.is_file():
-        return None
-    payload = _read(path)
-    for market in payload.get("forecast", {}).get("markets", []):
-        if market.get("id") == record.get("market"):
-            return market
-    return None
 
 
 def _candidate(record: dict[str, Any], root: Path) -> tuple[bool, str, datetime | None]:
@@ -70,21 +61,42 @@ def _candidate(record: dict[str, Any], root: Path) -> tuple[bool, str, datetime 
         generated = datetime.fromisoformat(record["forecast_source_generated_at"])
         if generated.tzinfo is None:
             return False, "generated_at_has_no_timezone", None
-        opening = session_open(record["market"], record["target_session_date"])
+        market = record["market"]
+        target = record["target_session_date"]
     except (KeyError, TypeError, ValueError):
         return False, "invalid_session_metadata", None
+    symbol = market_data.SYMBOLS.get(market)
+    if symbol is None:
+        return False, "unknown_market_symbol", generated
+    try:
+        opening = session_open(market, target)
+    except (TypeError, ValueError):
+        return False, "invalid_session_metadata", generated
     if generated >= opening:
         return False, "generated_after_session_open", generated
-    snapshot_market = _snapshot_market(record, root)
-    if snapshot_market is not None:
-        last_date = snapshot_market.get("last_data_date")
-        symbol = market_data.SYMBOLS.get(record["market"])
-        if isinstance(last_date, str) and symbol:
-            try:
-                if market_data.session_date_close_timestamp(symbol, last_date) > generated.timestamp():
-                    return False, "future_input_data", generated
-            except ValueError:
-                return False, "invalid_last_data_date", generated
+    snapshot_path = root / str(record.get("forecast_file", ""))
+    if not snapshot_path.is_file():
+        return False, "snapshot_not_found", generated
+    try:
+        payload = _read(snapshot_path)
+        markets = payload.get("forecast", {}).get("markets", [])
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return False, "snapshot_unreadable", generated
+    snapshot_market = next(
+        (item for item in markets if isinstance(item, dict) and item.get("id") == record["market"]),
+        None,
+    ) if isinstance(markets, list) else None
+    if snapshot_market is None:
+        return False, "market_not_in_snapshot", generated
+    last_date = snapshot_market.get("last_data_date")
+    if not isinstance(last_date, str) or not last_date:
+        return False, "missing_last_data_date", generated
+    try:
+        input_close = market_data.session_date_close_timestamp(symbol, last_date)
+    except (TypeError, ValueError):
+        return False, "invalid_last_data_date", generated
+    if input_close > generated.timestamp():
+        return False, "future_input_data", generated
     return True, "eligible", generated
 
 
