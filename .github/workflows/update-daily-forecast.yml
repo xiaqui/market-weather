@@ -5,8 +5,8 @@ on:
   schedule:
     # Refresh after the Japan cash-market close (16:00 JST).
     - cron: "0 7 * * 1-5"
-    # Capture USD/JPY's next labelled session before its 17:00 ET open.
-    # 20:00 UTC is 16:00 EDT / 15:00 EST; Sunday covers Monday's session.
+    # Build horizon-aligned USD/JPY and Gold forecasts before their ET opens.
+    # 20:00 UTC is before USD/JPY 17:00 ET and Gold 18:00 ET in EST and EDT.
     - cron: "0 20 * * 0-4"
     # Refresh again after the US cash-market close (07:30 JST on the following day).
     - cron: "30 22 * * 1-5"
@@ -33,7 +33,7 @@ jobs:
           python-version: "3.12"
 
       - name: Fetch completed market data
-        run: python scripts/fetch_market_data.py ${{ github.event.schedule == '0 20 * * 0-4' && '--advance-usdjpy-target' || '' }}
+        run: python scripts/fetch_market_data.py ${{ github.event.schedule == '0 20 * * 0-4' && '--preopen-overnight-targets' || '' }}
 
       - name: Sync forecast copies
         run: python scripts/sync_forecast.py

@@ -1,7 +1,7 @@
 import json
 import tempfile
 import unittest
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -112,46 +112,50 @@ class FeatureAndPredictionTest(unittest.TestCase):
             "2026-09-07",
         )
 
-    def test_preopen_usdjpy_target_advances_sunday_and_weekdays_across_dst(self) -> None:
+    def test_preopen_plans_align_targets_and_horizons_across_dst(self) -> None:
         cases = [
-            ("2026-01-04T20:00:00+00:00", "2026-01-02", "2026-01-05"),
-            ("2026-01-05T20:00:00+00:00", "2026-01-02", "2026-01-06"),
-            ("2026-07-05T20:00:00+00:00", "2026-07-03", "2026-07-06"),
-            ("2026-07-06T20:00:00+00:00", "2026-07-03", "2026-07-07"),
-            ("2026-07-07T20:00:00+00:00", "2026-07-06", "2026-07-08"),
-            ("2026-07-08T20:00:00+00:00", "2026-07-07", "2026-07-09"),
-            ("2026-07-09T20:00:00+00:00", "2026-07-08", "2026-07-10"),
+            ("usdjpy", "2026-01-05T20:00:00+00:00", "2026-01-02", "2026-01-06", 2),
+            ("gold", "2026-01-05T20:00:00+00:00", "2026-01-02", "2026-01-06", 2),
+            ("usdjpy", "2026-07-06T20:00:00+00:00", "2026-07-03", "2026-07-07", 2),
+            ("gold", "2026-07-06T20:00:00+00:00", "2026-07-03", "2026-07-07", 2),
+            ("usdjpy", "2026-07-05T20:00:00+00:00", "2026-07-03", "2026-07-06", 1),
+            ("gold", "2026-07-05T20:00:00+00:00", "2026-07-03", "2026-07-06", 1),
         ]
-        for generated, last_completed, expected in cases:
-            with self.subTest(generated=generated):
+        for market, generated, last_completed, target, horizon in cases:
+            with self.subTest(market=market, generated=generated):
                 self.assertEqual(
-                    market_data.next_usdjpy_session_after(
-                        datetime.fromisoformat(generated), last_completed
+                    market_data.preopen_overnight_plan(
+                        market, datetime.fromisoformat(generated), last_completed
                     ),
-                    expected,
+                    (target, horizon),
                 )
 
-    def test_delayed_preopen_usdjpy_run_never_targets_an_open_session(self) -> None:
+    def test_delayed_overnight_run_skips_sessions_that_already_opened(self) -> None:
         cases = [
-            ("2026-01-05T21:59:59+00:00", "2026-01-02", "2026-01-06"),
-            ("2026-01-05T22:00:00+00:00", "2026-01-02", "2026-01-07"),
-            ("2026-07-06T20:59:59+00:00", "2026-07-03", "2026-07-07"),
-            ("2026-07-06T21:00:00+00:00", "2026-07-03", "2026-07-08"),
+            ("usdjpy", "2026-07-06T21:00:00+00:00", "2026-07-03", "2026-07-08", 3),
+            ("gold", "2026-07-06T22:00:00+00:00", "2026-07-03", "2026-07-08", 3),
+            ("usdjpy", "2026-01-05T22:00:00+00:00", "2026-01-02", "2026-01-07", 3),
+            ("gold", "2026-01-05T23:00:00+00:00", "2026-01-02", "2026-01-07", 3),
         ]
-        for generated, last_completed, expected in cases:
-            with self.subTest(generated=generated):
-                moment = datetime.fromisoformat(generated)
-                target = market_data.next_usdjpy_session_after(moment, last_completed)
-                self.assertEqual(target, expected)
-                eastern = ZoneInfo("America/New_York")
-                opening = datetime.combine(
-                    date.fromisoformat(target) - timedelta(days=1),
-                    time(17),
-                    tzinfo=eastern,
-                )
-                self.assertLess(moment, opening)
+        for market, generated, last_completed, target, horizon in cases:
+            self.assertEqual(
+                market_data.preopen_overnight_plan(
+                    market, datetime.fromisoformat(generated), last_completed
+                ),
+                (target, horizon),
+            )
 
-    def test_preopen_override_changes_only_usdjpy_target_in_saved_forecast(self) -> None:
+    def test_horizon_prediction_uses_completed_close_and_wider_interval(self) -> None:
+        rows = candles()
+        one = market_data.build_prediction(rows, 999.0)
+        two = market_data.build_prediction(rows, 999.0, horizon_sessions=2)
+        self.assertEqual(one["current"], 999.0)
+        self.assertEqual(two["forecast_horizon_sessions"], 2)
+        one_width = one["range_high"] - one["range_low"]
+        two_width = two["range_high"] - two["range_low"]
+        self.assertGreater(two_width, one_width)
+
+    def test_preopen_override_saves_horizon_aligned_overnight_targets(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "forecast.json"
             path.write_text(json.dumps({"markets": [
@@ -165,12 +169,8 @@ class FeatureAndPredictionTest(unittest.TestCase):
                 for market_id in market_data.MARKET_ORDER
             }
             generated = datetime(2026, 7, 6, 20, tzinfo=timezone.utc)
-            market_data._write_forecast(
-                path,
-                predictions,
-                advance_usdjpy_target=True,
-                generated_at=generated,
-            )
+            market_data._write_forecast(path, predictions, generated_at=generated,
+                target_overrides={"usdjpy": "2026-07-07", "gold": "2026-07-07"})
             saved = json.loads(path.read_text(encoding="utf-8"))
             snapshot_path, created = save_live_forecast.save_snapshot(
                 path, Path(directory) / "snapshots"
@@ -181,8 +181,9 @@ class FeatureAndPredictionTest(unittest.TestCase):
             market["id"]: market["next_session_date"] for market in saved["markets"]
         }
         self.assertEqual(targets["usdjpy"], "2026-07-07")
+        self.assertEqual(targets["gold"], "2026-07-07")
         self.assertEqual(
-            {targets[market] for market in ("nikkei", "dow", "gold")},
+            {targets[market] for market in ("nikkei", "dow")},
             {"2026-07-06"},
         )
         self.assertEqual(saved["generated_at"], "2026-07-06T20:00:00+00:00")

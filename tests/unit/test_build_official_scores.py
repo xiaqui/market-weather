@@ -23,12 +23,16 @@ class OfficialScoreTest(unittest.TestCase):
         target: str = "2026-10-13",
         filename: str | None = None,
         last_data_date: str = "2026-10-09",
+        horizon: int | None = None,
     ) -> dict:
         relative_path = filename or f"reports/live-forecast/{generated.replace(':', '-').replace('+', '_')}-{market}.json"
         snapshot = self.root / relative_path
         snapshot.parent.mkdir(parents=True, exist_ok=True)
+        snapshot_market = {"id": market, "last_data_date": last_data_date}
+        if horizon is not None:
+            snapshot_market["forecast_horizon_sessions"] = horizon
         snapshot.write_text(json.dumps({
-            "forecast": {"markets": [{"id": market, "last_data_date": last_data_date}]}
+            "forecast": {"markets": [snapshot_market]}
         }), encoding="utf-8")
         return {
             "forecast_file": relative_path,
@@ -127,6 +131,27 @@ class OfficialScoreTest(unittest.TestCase):
                     self.assertEqual(audit[0]["status"], "selected")
                 else:
                     self.assertEqual(audit[0]["reason"], "generated_after_session_open")
+
+    def test_advanced_target_requires_matching_model_horizon(self):
+        valid = self._record(
+            "2026-07-06T20:00:00+00:00", "usdjpy", "2026-07-07",
+            last_data_date="2026-07-03", horizon=2,
+        )
+        selected, audit = build_official_scores.select_representatives(
+            [valid], self.root
+        )
+        self.assertEqual(selected, [valid])
+        self.assertEqual(audit[0]["status"], "selected")
+
+        invalid = self._record(
+            "2026-07-06T20:01:00+00:00", "usdjpy", "2026-07-07",
+            last_data_date="2026-07-03", horizon=1,
+        )
+        selected, audit = build_official_scores.select_representatives(
+            [invalid], self.root
+        )
+        self.assertEqual(selected, [])
+        self.assertEqual(audit[0]["reason"], "forecast_horizon_mismatch")
 
     def test_future_input_is_rejected(self):
         record = self._record("2026-10-12T16:34:48+00:00", filename="snapshot.json")

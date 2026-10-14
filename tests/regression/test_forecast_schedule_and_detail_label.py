@@ -14,6 +14,8 @@ class ForecastScheduleAndDetailLabelTest(unittest.TestCase):
         self.assertIn('cron: "30 22 * * 1-5"', workflow)
         self.assertIn("16:00 JST", workflow)
         self.assertIn("17:00 ET", workflow)
+        self.assertIn("Gold", workflow)
+        self.assertIn("17:00 ET and Gold 18:00 ET", workflow)
         self.assertIn("07:30 JST", workflow)
 
     def test_detail_uses_baseline_label_until_live_value_exists(self) -> None:

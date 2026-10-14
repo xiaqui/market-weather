@@ -16,7 +16,7 @@ class DailyForecastWorkflowTest(unittest.TestCase):
         self.assertIn('python-version: "3.12"', workflow)
         self.assertIn("python scripts/fetch_market_data.py", workflow)
         self.assertIn(
-            "github.event.schedule == '0 20 * * 0-4' && '--advance-usdjpy-target'",
+            "github.event.schedule == '0 20 * * 0-4' && '--preopen-overnight-targets'",
             workflow,
         )
         self.assertIn("python scripts/sync_forecast.py", workflow)

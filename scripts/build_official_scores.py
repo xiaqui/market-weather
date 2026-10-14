@@ -93,10 +93,23 @@ def _candidate(record: dict[str, Any], root: Path) -> tuple[bool, str, datetime 
         return False, "missing_last_data_date", generated
     try:
         input_close = market_data.session_date_close_timestamp(symbol, last_date)
+        last_day = date.fromisoformat(last_date)
+        target_day = date.fromisoformat(target)
     except (TypeError, ValueError):
         return False, "invalid_last_data_date", generated
     if input_close > generated.timestamp():
         return False, "future_input_data", generated
+    horizon = snapshot_market.get("forecast_horizon_sessions", 1)
+    if isinstance(horizon, bool) or not isinstance(horizon, int) or horizon < 1:
+        return False, "invalid_forecast_horizon", generated
+    cursor = last_day
+    actual_horizon = 0
+    while cursor < target_day:
+        cursor += timedelta(days=1)
+        if market_data._is_market_session_day(symbol, cursor):
+            actual_horizon += 1
+    if cursor != target_day or actual_horizon != horizon:
+        return False, "forecast_horizon_mismatch", generated
     return True, "eligible", generated
 
 

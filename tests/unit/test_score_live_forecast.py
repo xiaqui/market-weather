@@ -185,6 +185,48 @@ class ProspectiveScoringTest(unittest.TestCase):
             self.assertEqual(summary["added"], 0)
             self.assertEqual(json.loads(history_path.read_text(encoding="utf-8")), [])
 
+    def test_two_session_forecast_is_scored_against_its_completed_baseline(self) -> None:
+        candles = [
+            self._candle(2026, 7, 3, 17, 0, "America/New_York", 100),
+            self._candle(2026, 7, 6, 17, 0, "America/New_York", 90),
+            self._candle(2026, 7, 7, 17, 0, "America/New_York", 105),
+        ]
+        market = {
+            "id": "usdjpy",
+            "last_data_date": "2026-07-03",
+            "next_session_date": "2026-07-07",
+            "forecast_horizon_sessions": 2,
+            "up_probability": 0.7,
+            "trend_probability": 0.7,
+            "analog_probability": 0.7,
+        }
+
+        record, waiting = score_live_forecast._score_market(
+            Path("snapshot.json"), "2026-07-06T20:00:00+00:00", market, candles
+        )
+
+        self.assertIsNone(waiting)
+        self.assertIsNotNone(record)
+        # Monday fell, but the model estimated Friday-to-Tuesday, which rose.
+        self.assertEqual(record["actual_direction"], "up")
+
+    def test_horizon_mismatch_is_rejected_instead_of_mislabelled(self) -> None:
+        candles = [
+            self._candle(2026, 7, 3, 17, 0, "America/New_York", 100),
+            self._candle(2026, 7, 6, 17, 0, "America/New_York", 101),
+            self._candle(2026, 7, 7, 17, 0, "America/New_York", 102),
+        ]
+        market = {
+            "id": "usdjpy", "last_data_date": "2026-07-03",
+            "next_session_date": "2026-07-07", "forecast_horizon_sessions": 1,
+            "up_probability": 0.7,
+        }
+        record, waiting = score_live_forecast._score_market(
+            Path("snapshot.json"), "2026-07-06T20:00:00+00:00", market, candles
+        )
+        self.assertIsNone(record)
+        self.assertIsNone(waiting)
+
     def test_multiple_days_and_market_specific_sessions_are_scored_in_order(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

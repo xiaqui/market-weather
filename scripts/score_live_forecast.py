@@ -124,7 +124,21 @@ def _score_market(
         return None, market_id
 
     target_candle = candles[target_index]
-    previous_candle = candles[target_index - 1]
+    explicit_horizon = "forecast_horizon_sessions" in market
+    horizon = market.get("forecast_horizon_sessions", 1)
+    if isinstance(horizon, bool) or not isinstance(horizon, int) or horizon < 1:
+        return None, None
+    last_data_date = market.get("last_data_date")
+    baseline_index = (
+        index_by_date.get(last_data_date) if explicit_horizon else target_index - 1
+    )
+    if baseline_index is None or baseline_index >= target_index:
+        return None, None
+    # The truth label must span the same period the model estimated.  This is
+    # especially important for the pre-open two-session FX/Gold forecasts.
+    if target_index - baseline_index != horizon:
+        return None, None
+    previous_candle = candles[baseline_index]
     trend_probability = _coerce_probability(market.get("trend_probability"))
     analog_probability = _coerce_probability(market.get("analog_probability"))
     ensemble_probability = _coerce_probability(market.get("up_probability"))
