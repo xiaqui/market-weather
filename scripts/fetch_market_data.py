@@ -3,10 +3,12 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import os
 import statistics
+from statistics import NormalDist
 import tempfile
 import time
 from bisect import bisect_right
@@ -433,6 +435,38 @@ def next_session_date(symbol: str, candles: list[Candle]) -> str:
             return session_date.isoformat()
 
 
+def preopen_overnight_plan(
+    market: str, generated_at: datetime, last_completed_session: str
+) -> tuple[str, int]:
+    """Return an unopened target and its true horizon from completed data.
+
+    FX sessions open at 17:00 ET and Gold sessions at 18:00 ET on the prior
+    calendar day.  At the 20:00 UTC run the immediately following candle can
+    already be active, so weekday forecasts must estimate two observations
+    ahead rather than relabel a one-observation forecast.
+    """
+    symbol = SYMBOLS[market]
+    if symbol not in {"JPY=X", "GC=F"}:
+        raise ValueError(f"Unsupported overnight market: {market}")
+    if generated_at.tzinfo is None:
+        raise ValueError("generated_at must include a timezone")
+    opening_hour = 17 if symbol == "JPY=X" else 18
+    eastern = ZoneInfo("America/New_York")
+    completed = date.fromisoformat(last_completed_session)
+    candidate = completed
+    horizon = 0
+    while True:
+        candidate += timedelta(days=1)
+        if not _is_market_session_day(symbol, candidate):
+            continue
+        horizon += 1
+        opening = datetime.combine(
+            candidate - timedelta(days=1), datetime_time(opening_hour), tzinfo=eastern
+        )
+        if generated_at < opening:
+            return candidate.isoformat(), horizon
+
+
 def parse_history(
     payload: dict[str, Any], symbol: str, now_timestamp: float | None = None
 ) -> list[Candle]:
@@ -594,9 +628,11 @@ def risk_for_volatility(volatility: float) -> str:
 
 
 def build_prediction(
-    candles: list[Candle], current_price: float | None = None
+    candles: list[Candle], current_price: float | None = None, *, horizon_sessions: int = 1
 ) -> dict[str, float | str]:
-    """Create the baseline prediction from past and current candles only."""
+    """Create a forecast for an explicit number of sessions ahead."""
+    if horizon_sessions < 1:
+        raise ValueError("horizon_sessions must be positive")
     features = calculate_features(candles)
     volatility_5d = max(features.volatility_5d, MINIMUM_DAILY_VOLATILITY)
     volatility_20d = max(features.volatility_20d, MINIMUM_DAILY_VOLATILITY)
@@ -608,7 +644,14 @@ def build_prediction(
         features.ma_deviation_20d / volatility_20d,
     )
     score = sum(weight * max(-SIGNAL_CLIP, min(SIGNAL_CLIP, signal)) for weight, signal in zip(SIGNAL_WEIGHTS, signals))
-    probability = 0.5 + PROBABILITY_SPREAD * math.tanh(score)
+    one_session_probability = 0.5 + PROBABILITY_SPREAD * math.tanh(score)
+    # Convert the one-session directional signal to the requested cumulative
+    # horizon under the same independent-normal-return assumption used by the
+    # square-root-of-time interval below. This is a real horizon conversion,
+    # not a relabelled one-session prediction.
+    probability = NormalDist().cdf(
+        NormalDist().inv_cdf(one_session_probability) * math.sqrt(horizon_sessions)
+    )
 
     nonzero_signs = [math.copysign(1, signal) for signal in signals if signal != 0]
     agreement = abs(sum(nonzero_signs)) / len(nonzero_signs) if nonzero_signs else 0.0
@@ -616,7 +659,8 @@ def build_prediction(
     confidence = sufficiency * (0.5 + 0.5 * agreement)
 
     current = candles[-1].close if current_price is None else current_price
-    range_factor = max(features.volatility_20d, MINIMUM_DAILY_VOLATILITY) * RANGE_VOLATILITY_MULTIPLIER
+    range_factor = (max(features.volatility_20d, MINIMUM_DAILY_VOLATILITY)
+                    * RANGE_VOLATILITY_MULTIPLIER * math.sqrt(horizon_sessions))
     low, high = current * math.exp(-range_factor), current * math.exp(range_factor)
     return {
         "current": current,
@@ -629,6 +673,7 @@ def build_prediction(
         "confidence": round(max(0.0, min(1.0, confidence)), 4),
         "weather": weather_for_probability(probability),
         "risk": risk_for_volatility(features.volatility_20d),
+        "forecast_horizon_sessions": horizon_sessions,
     }
 
 
@@ -746,6 +791,8 @@ def find_analogs(
     current: WeatherMapState,
     historical_states: list[WeatherMapState],
     target_candles: list[Candle],
+    *,
+    horizon_sessions: int = 1,
 ) -> AnalogResult | None:
     """Find completed historical outcomes available strictly before/currently at query."""
     target_timestamps = [candle.timestamp for candle in target_candles]
@@ -754,7 +801,7 @@ def find_analogs(
         if state.timestamp >= current.timestamp:
             continue
         base_index = bisect_right(target_timestamps, state.timestamp) - 1
-        next_index = base_index + 1
+        next_index = base_index + horizon_sessions
         if base_index < 0 or next_index >= len(target_candles):
             continue
         # Knowing this outcome at the query instant is mandatory. This also
@@ -929,7 +976,7 @@ def _historical_states(
 
 
 def build_cross_asset_predictions(
-    snapshots: dict[str, MarketSnapshot]
+    snapshots: dict[str, MarketSnapshot], *, horizons: dict[str, int] | None = None
 ) -> tuple[dict[str, dict[str, float | str | int | None]], dict[str, list[WeatherMapState]]]:
     """Combine unchanged Trend forecasts with leak-safe cross-asset analogs."""
     histories = {market: snapshot.candles for market, snapshot in snapshots.items()}
@@ -937,7 +984,11 @@ def build_cross_asset_predictions(
     state_sets = {}
     for market in MARKET_ORDER:
         snapshot = snapshots[market]
-        prediction = build_prediction(snapshot.candles, snapshot.current)
+        horizon = (horizons or {}).get(market, 1)
+        current = snapshot.current if horizon == 1 else snapshot.candles[-1].close
+        prediction = build_prediction(
+            snapshot.candles, current, horizon_sessions=horizon
+        )
         prediction["last_data_date"] = last_data_date(SYMBOLS[market], snapshot.candles)
         prediction["next_session_date"] = next_session_date(
             SYMBOLS[market], snapshot.candles
@@ -948,7 +999,9 @@ def build_cross_asset_predictions(
             raise ValueError(f"Insufficient aligned history for {market} weather map")
         states = _historical_states(histories, market)
         state_sets[market] = states
-        analog = find_analogs(query, states, snapshot.candles)
+        analog = find_analogs(
+            query, states, snapshot.candles, horizon_sessions=horizon
+        )
         trend = float(prediction["trend_probability"])
         trend_confidence = float(prediction["trend_confidence"])
         if analog is None:
@@ -1249,16 +1302,39 @@ def print_backtest_diagnostics(market: str, diagnostics: dict[str, Any]) -> None
           f"Analog={formatted_brier['analog']}, Ensemble={formatted_brier['ensemble']}")
 
 
-def update_forecast(path: Path = FORECAST_PATH) -> dict[str, dict[str, float | str | int | None]]:
+def _preopen_overrides(
+    snapshots: dict[str, MarketSnapshot], generated_at: datetime
+) -> tuple[dict[str, int], dict[str, str]]:
+    horizons: dict[str, int] = {}
+    targets: dict[str, str] = {}
+    for market in ("usdjpy", "gold"):
+        last_completed = last_data_date(SYMBOLS[market], snapshots[market].candles)
+        target, horizon = preopen_overnight_plan(
+            market, generated_at, last_completed
+        )
+        targets[market] = target
+        horizons[market] = horizon
+    return horizons, targets
+
+
+def update_forecast(
+    path: Path = FORECAST_PATH, *, preopen_overnight_targets: bool = False
+) -> dict[str, dict[str, float | str | int | None]]:
     """Fetch all markets successfully before atomically replacing the forecast."""
     snapshots = {market_id: fetch_market(symbol) for market_id, symbol in SYMBOLS.items()}
-    predictions, _ = build_cross_asset_predictions(snapshots)
-    _write_forecast(path, predictions)
+    generated_at = datetime.now(timezone.utc)
+    horizons, targets = _preopen_overrides(snapshots, generated_at) if preopen_overnight_targets else ({}, {})
+    predictions, _ = build_cross_asset_predictions(snapshots, horizons=horizons)
+    _write_forecast(path, predictions, generated_at=generated_at, target_overrides=targets)
     return predictions
 
 
 def _write_forecast(
-    path: Path, predictions: dict[str, dict[str, float | str | int | None]]
+    path: Path,
+    predictions: dict[str, dict[str, float | str | int | None]],
+    *,
+    target_overrides: dict[str, str] | None = None,
+    generated_at: datetime | None = None,
 ) -> None:
     forecast = json.loads(path.read_text(encoding="utf-8"))
     markets = {market["id"]: market for market in forecast["markets"]}
@@ -1266,9 +1342,13 @@ def _write_forecast(
     if missing:
         raise ValueError(f"Markets missing from forecast: {', '.join(sorted(missing))}")
 
+    generated_at = generated_at or datetime.now(timezone.utc)
+    for market, target in (target_overrides or {}).items():
+        predictions[market]["next_session_date"] = target
+
     for market_id, prediction in predictions.items():
         markets[market_id].update(prediction)
-    forecast["generated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    forecast["generated_at"] = generated_at.isoformat(timespec="seconds")
 
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
@@ -1286,10 +1366,27 @@ def _write_forecast(
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--preopen-overnight-targets",
+        action="store_true",
+        help="build horizon-aligned USD/JPY and Gold forecasts before session open",
+    )
+    args = parser.parse_args()
     snapshots = {market_id: fetch_market(symbol) for market_id, symbol in SYMBOLS.items()}
-    predictions, _ = build_cross_asset_predictions(snapshots)
+    generated_at = datetime.now(timezone.utc)
+    horizons, targets = (
+        _preopen_overrides(snapshots, generated_at)
+        if args.preopen_overnight_targets else ({}, {})
+    )
+    predictions, _ = build_cross_asset_predictions(snapshots, horizons=horizons)
     # Reuse already fetched data: production runs must not silently mix snapshots.
-    _write_forecast(FORECAST_PATH, predictions)
+    _write_forecast(
+        FORECAST_PATH,
+        predictions,
+        generated_at=generated_at,
+        target_overrides=targets,
+    )
 
     histories = {market: snapshot.candles for market, snapshot in snapshots.items()}
     for market_id, prediction in predictions.items():
