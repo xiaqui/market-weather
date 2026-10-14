@@ -1,8 +1,12 @@
+import json
+import tempfile
 import unittest
-from datetime import datetime
+from datetime import date, datetime, time, timedelta, timezone
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from scripts import fetch_market_data as market_data
+from scripts import save_live_forecast
 
 
 def candles(count: int = 80, growth: float = 0.002) -> list[market_data.Candle]:
@@ -107,6 +111,87 @@ class FeatureAndPredictionTest(unittest.TestCase):
             market_data.next_session_date("JPY=X", candles()[:-1] + [fx_close]),
             "2026-09-07",
         )
+
+    def test_preopen_usdjpy_target_advances_sunday_and_weekdays_across_dst(self) -> None:
+        cases = [
+            ("2026-01-04T20:00:00+00:00", "2026-01-02", "2026-01-05"),
+            ("2026-01-05T20:00:00+00:00", "2026-01-02", "2026-01-06"),
+            ("2026-07-05T20:00:00+00:00", "2026-07-03", "2026-07-06"),
+            ("2026-07-06T20:00:00+00:00", "2026-07-03", "2026-07-07"),
+            ("2026-07-07T20:00:00+00:00", "2026-07-06", "2026-07-08"),
+            ("2026-07-08T20:00:00+00:00", "2026-07-07", "2026-07-09"),
+            ("2026-07-09T20:00:00+00:00", "2026-07-08", "2026-07-10"),
+        ]
+        for generated, last_completed, expected in cases:
+            with self.subTest(generated=generated):
+                self.assertEqual(
+                    market_data.next_usdjpy_session_after(
+                        datetime.fromisoformat(generated), last_completed
+                    ),
+                    expected,
+                )
+
+    def test_delayed_preopen_usdjpy_run_never_targets_an_open_session(self) -> None:
+        cases = [
+            ("2026-01-05T21:59:59+00:00", "2026-01-02", "2026-01-06"),
+            ("2026-01-05T22:00:00+00:00", "2026-01-02", "2026-01-07"),
+            ("2026-07-06T20:59:59+00:00", "2026-07-03", "2026-07-07"),
+            ("2026-07-06T21:00:00+00:00", "2026-07-03", "2026-07-08"),
+        ]
+        for generated, last_completed, expected in cases:
+            with self.subTest(generated=generated):
+                moment = datetime.fromisoformat(generated)
+                target = market_data.next_usdjpy_session_after(moment, last_completed)
+                self.assertEqual(target, expected)
+                eastern = ZoneInfo("America/New_York")
+                opening = datetime.combine(
+                    date.fromisoformat(target) - timedelta(days=1),
+                    time(17),
+                    tzinfo=eastern,
+                )
+                self.assertLess(moment, opening)
+
+    def test_preopen_override_changes_only_usdjpy_target_in_saved_forecast(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "forecast.json"
+            path.write_text(json.dumps({"markets": [
+                {"id": market_id} for market_id in market_data.MARKET_ORDER
+            ]}), encoding="utf-8")
+            predictions = {
+                market_id: {
+                    "last_data_date": "2026-07-03",
+                    "next_session_date": "2026-07-06",
+                }
+                for market_id in market_data.MARKET_ORDER
+            }
+            generated = datetime(2026, 7, 6, 20, tzinfo=timezone.utc)
+            market_data._write_forecast(
+                path,
+                predictions,
+                advance_usdjpy_target=True,
+                generated_at=generated,
+            )
+            saved = json.loads(path.read_text(encoding="utf-8"))
+            snapshot_path, created = save_live_forecast.save_snapshot(
+                path, Path(directory) / "snapshots"
+            )
+            snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+
+        targets = {
+            market["id"]: market["next_session_date"] for market in saved["markets"]
+        }
+        self.assertEqual(targets["usdjpy"], "2026-07-07")
+        self.assertEqual(
+            {targets[market] for market in ("nikkei", "dow", "gold")},
+            {"2026-07-06"},
+        )
+        self.assertEqual(saved["generated_at"], "2026-07-06T20:00:00+00:00")
+        self.assertTrue(created)
+        snapshot_usdjpy = next(
+            market for market in snapshot["forecast"]["markets"]
+            if market["id"] == "usdjpy"
+        )
+        self.assertEqual(snapshot_usdjpy["next_session_date"], "2026-07-07")
 
     def test_next_session_date_does_not_apply_nyse_holidays_to_gold(self) -> None:
         gold_close = market_data.Candle(

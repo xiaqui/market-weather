@@ -33,7 +33,7 @@ jobs:
           python-version: "3.12"
 
       - name: Fetch completed market data
-        run: python scripts/fetch_market_data.py
+        run: python scripts/fetch_market_data.py ${{ github.event.schedule == '0 20 * * 0-4' && '--advance-usdjpy-target' || '' }}
 
       - name: Sync forecast copies
         run: python scripts/sync_forecast.py

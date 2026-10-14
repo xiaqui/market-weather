@@ -15,6 +15,10 @@ class DailyForecastWorkflowTest(unittest.TestCase):
         self.assertIn('cron: "30 22 * * 1-5"', workflow)
         self.assertIn('python-version: "3.12"', workflow)
         self.assertIn("python scripts/fetch_market_data.py", workflow)
+        self.assertIn(
+            "github.event.schedule == '0 20 * * 0-4' && '--advance-usdjpy-target'",
+            workflow,
+        )
         self.assertIn("python scripts/sync_forecast.py", workflow)
         snapshot = workflow.index("python -m scripts.save_live_forecast")
         score = workflow.index("python -m scripts.score_live_forecast")

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import os
@@ -431,6 +432,34 @@ def next_session_date(symbol: str, candles: list[Candle]) -> str:
         session_date += timedelta(days=1)
         if _is_market_session_day(symbol, session_date):
             return session_date.isoformat()
+
+
+def next_usdjpy_session_after(
+    generated_at: datetime, last_completed_session: str
+) -> str:
+    """Return the first USD/JPY session that has not opened at ``generated_at``.
+
+    USD/JPY daily candles are labelled by their closing date, while the session
+    starts at 17:00 America/New_York on the preceding calendar day.  The
+    pre-open workflow therefore cannot derive Monday-through-Thursday targets
+    solely from the latest completed candle: Yahoo correctly omits the active
+    candle, causing the ordinary next-session calculation to select the
+    session that is about to open rather than tomorrow's labelled session.
+    """
+    if generated_at.tzinfo is None:
+        raise ValueError("generated_at must include a timezone")
+    eastern = ZoneInfo("America/New_York")
+    completed = date.fromisoformat(last_completed_session)
+    candidate = max(generated_at.astimezone(eastern).date(), completed)
+    while True:
+        candidate += timedelta(days=1)
+        if not _is_market_session_day("JPY=X", candidate):
+            continue
+        opening = datetime.combine(
+            candidate - timedelta(days=1), datetime_time(17), tzinfo=eastern
+        )
+        if generated_at < opening:
+            return candidate.isoformat()
 
 
 def parse_history(
@@ -1249,16 +1278,22 @@ def print_backtest_diagnostics(market: str, diagnostics: dict[str, Any]) -> None
           f"Analog={formatted_brier['analog']}, Ensemble={formatted_brier['ensemble']}")
 
 
-def update_forecast(path: Path = FORECAST_PATH) -> dict[str, dict[str, float | str | int | None]]:
+def update_forecast(
+    path: Path = FORECAST_PATH, *, advance_usdjpy_target: bool = False
+) -> dict[str, dict[str, float | str | int | None]]:
     """Fetch all markets successfully before atomically replacing the forecast."""
     snapshots = {market_id: fetch_market(symbol) for market_id, symbol in SYMBOLS.items()}
     predictions, _ = build_cross_asset_predictions(snapshots)
-    _write_forecast(path, predictions)
+    _write_forecast(path, predictions, advance_usdjpy_target=advance_usdjpy_target)
     return predictions
 
 
 def _write_forecast(
-    path: Path, predictions: dict[str, dict[str, float | str | int | None]]
+    path: Path,
+    predictions: dict[str, dict[str, float | str | int | None]],
+    *,
+    advance_usdjpy_target: bool = False,
+    generated_at: datetime | None = None,
 ) -> None:
     forecast = json.loads(path.read_text(encoding="utf-8"))
     markets = {market["id"]: market for market in forecast["markets"]}
@@ -1266,9 +1301,16 @@ def _write_forecast(
     if missing:
         raise ValueError(f"Markets missing from forecast: {', '.join(sorted(missing))}")
 
+    generated_at = generated_at or datetime.now(timezone.utc)
+    if advance_usdjpy_target:
+        usdjpy = predictions["usdjpy"]
+        usdjpy["next_session_date"] = next_usdjpy_session_after(
+            generated_at, str(usdjpy["last_data_date"])
+        )
+
     for market_id, prediction in predictions.items():
         markets[market_id].update(prediction)
-    forecast["generated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    forecast["generated_at"] = generated_at.isoformat(timespec="seconds")
 
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
@@ -1286,10 +1328,21 @@ def _write_forecast(
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--advance-usdjpy-target",
+        action="store_true",
+        help="select the first USD/JPY session that has not opened yet",
+    )
+    args = parser.parse_args()
     snapshots = {market_id: fetch_market(symbol) for market_id, symbol in SYMBOLS.items()}
     predictions, _ = build_cross_asset_predictions(snapshots)
     # Reuse already fetched data: production runs must not silently mix snapshots.
-    _write_forecast(FORECAST_PATH, predictions)
+    _write_forecast(
+        FORECAST_PATH,
+        predictions,
+        advance_usdjpy_target=args.advance_usdjpy_target,
+    )
 
     histories = {market: snapshot.candles for market, snapshot in snapshots.items()}
     for market_id, prediction in predictions.items():
