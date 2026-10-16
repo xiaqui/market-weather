@@ -544,6 +544,22 @@
       "generated_at": "2026-10-15T12:31:02+00:00",
       "status": "selected",
       "reason": "latest_before_open_fallback"
+    },
+    {
+      "market": "usdjpy",
+      "target_session_date": "2026-10-15",
+      "forecast_file": "reports/live-forecast/2026-10-15T00-39-32Z.json",
+      "generated_at": "2026-10-15T00:39:32+00:00",
+      "status": "excluded",
+      "reason": "generated_after_session_open"
+    },
+    {
+      "market": "usdjpy",
+      "target_session_date": "2026-10-15",
+      "forecast_file": "reports/live-forecast/2026-10-15T12-31-02Z.json",
+      "generated_at": "2026-10-15T12:31:02+00:00",
+      "status": "excluded",
+      "reason": "generated_after_session_open"
     }
   ]
 }
