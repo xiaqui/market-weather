@@ -49,6 +49,7 @@ jobs:
         run: ./gradlew renameDebugApk
       - uses: actions/upload-artifact@v4
         with:
+          retention-days: 3
           name: market-weather-debug
           path: android/app/build/outputs/apk/market-weather/market-weather-debug.apk
           if-no-files-found: error
