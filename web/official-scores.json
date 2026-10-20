@@ -3,60 +3,60 @@
   "selection_policy": "latest valid 00:00-06:00 JST forecast before session open; otherwise latest valid forecast before open",
   "interval_score_note": "N/A: forecast interval nominal coverage is not defined; coverage and relative width are reported separately.",
   "overall": {
-    "representative_samples": 14,
-    "comparison_population": 14,
+    "representative_samples": 16,
+    "comparison_population": 16,
     "small_sample": true,
     "forecasters": {
       "trend": {
-        "samples": 14,
-        "accuracy": 0.35714285714285715,
-        "mean_brier": 0.3999161542857143
+        "samples": 16,
+        "accuracy": 0.375,
+        "mean_brier": 0.40825772125000004
       },
       "analog": {
-        "samples": 14,
-        "accuracy": 0.35714285714285715,
-        "mean_brier": 0.28724505857142857
+        "samples": 16,
+        "accuracy": 0.375,
+        "mean_brier": 0.27486809125
       },
       "ensemble": {
-        "samples": 14,
-        "accuracy": 0.21428571428571427,
-        "mean_brier": 0.3260003757142857
+        "samples": 16,
+        "accuracy": 0.25,
+        "mean_brier": 0.31820636125
       }
     },
     "range": {
-      "samples": 14,
-      "inside_rate": 0.7857142857142857,
-      "mean_width_close_ratio": 0.025614317912593144,
+      "samples": 16,
+      "inside_rate": 0.8125,
+      "mean_width_close_ratio": 0.028116878647747656,
       "nominal_coverage": null,
       "mean_interval_score": null
     }
   },
   "markets": {
     "nikkei": {
-      "representative_samples": 5,
-      "comparison_population": 5,
+      "representative_samples": 6,
+      "comparison_population": 6,
       "small_sample": true,
       "forecasters": {
         "trend": {
-          "samples": 5,
-          "accuracy": 0.6,
-          "mean_brier": 0.328613238
+          "samples": 6,
+          "accuracy": 0.6666666666666666,
+          "mean_brier": 0.2866972466666667
         },
         "analog": {
-          "samples": 5,
-          "accuracy": 0.2,
-          "mean_brier": 0.32203521999999996
+          "samples": 6,
+          "accuracy": 0.16666666666666666,
+          "mean_brier": 0.31933085
         },
         "ensemble": {
-          "samples": 5,
-          "accuracy": 0.4,
-          "mean_brier": 0.30940875
+          "samples": 6,
+          "accuracy": 0.5,
+          "mean_brier": 0.2866001516666667
         }
       },
       "range": {
-        "samples": 5,
-        "inside_rate": 0.6,
-        "mean_width_close_ratio": 0.03876905191561776,
+        "samples": 6,
+        "inside_rate": 0.6666666666666666,
+        "mean_width_close_ratio": 0.03980839256324945,
         "nominal_coverage": null,
         "mean_interval_score": null
       }
@@ -120,30 +120,30 @@
       }
     },
     "gold": {
-      "representative_samples": 1,
-      "comparison_population": 1,
+      "representative_samples": 2,
+      "comparison_population": 2,
       "small_sample": true,
       "forecasters": {
         "trend": {
-          "samples": 1,
+          "samples": 2,
           "accuracy": 0.0,
-          "mean_brier": 0.67158025
+          "mean_brier": 0.76388017
         },
         "analog": {
-          "samples": 1,
+          "samples": 2,
           "accuracy": 1.0,
-          "mean_brier": 0.09223368999999998
+          "mean_brier": 0.081441665
         },
         "ensemble": {
-          "samples": 1,
+          "samples": 2,
           "accuracy": 0.0,
-          "mean_brier": 0.31539456
+          "mean_brier": 0.33506696
         }
       },
       "range": {
-        "samples": 1,
+        "samples": 2,
         "inside_rate": 1.0,
-        "mean_width_close_ratio": 0.04711848446547219,
+        "mean_width_close_ratio": 0.046691498125861375,
         "nominal_coverage": null,
         "mean_interval_score": null
       }
@@ -312,6 +312,29 @@
       "scored_at": "2026-10-18T22:12:52+00:00"
     },
     {
+      "forecast_file": "reports/live-forecast/2026-10-15T22-52-37Z.json",
+      "forecast_source_generated_at": "2026-10-15T22:52:37+00:00",
+      "market": "gold",
+      "target_session_date": "2026-10-19",
+      "trend_probability": 0.0747,
+      "trend_direction": "down",
+      "analog_probability": 0.7342,
+      "analog_direction": "up",
+      "ensemble_probability": 0.4044,
+      "trend_brier_contribution": 0.8561800900000001,
+      "analog_brier_contribution": 0.07064964000000001,
+      "ensemble_brier_contribution": 0.35473936,
+      "forecast_support": 0.5777,
+      "ensemble_direction": "down",
+      "actual_direction": "up",
+      "ensemble_correct": false,
+      "predicted_range_low": 4012.7944,
+      "predicted_range_high": 4205.2594,
+      "actual_close": 4160.10009765625,
+      "actual_in_predicted_range": true,
+      "scored_at": "2026-10-20T12:36:13+00:00"
+    },
+    {
       "forecast_file": "reports/live-forecast/2026-10-12T16-34-48Z.json",
       "forecast_source_generated_at": "2026-10-12T16:34:48+00:00",
       "market": "nikkei",
@@ -425,6 +448,29 @@
       "actual_close": 64916.69921875,
       "actual_in_predicted_range": true,
       "scored_at": "2026-10-19T14:27:15+00:00"
+    },
+    {
+      "forecast_file": "reports/live-forecast/2026-10-19T14-26-45Z.json",
+      "forecast_source_generated_at": "2026-10-19T14:26:45+00:00",
+      "market": "nikkei",
+      "target_session_date": "2026-10-20",
+      "trend_probability": 0.2777,
+      "trend_direction": "down",
+      "analog_probability": 0.553,
+      "analog_direction": "up",
+      "ensemble_probability": 0.4154,
+      "trend_brier_contribution": 0.07711729,
+      "analog_brier_contribution": 0.30580900000000005,
+      "ensemble_brier_contribution": 0.17255716,
+      "forecast_support": 0.7155,
+      "ensemble_direction": "down",
+      "actual_direction": "down",
+      "ensemble_correct": true,
+      "predicted_range_low": 63490.8503,
+      "predicted_range_high": 66374.5708,
+      "actual_close": 64075.421875,
+      "actual_in_predicted_range": true,
+      "scored_at": "2026-10-20T12:36:13+00:00"
     },
     {
       "forecast_file": "reports/live-forecast/2026-10-14T22-57-42Z.json",
@@ -860,6 +906,30 @@
     },
     {
       "market": "usdjpy",
+      "target_session_date": "2026-10-19",
+      "forecast_file": "reports/live-forecast/2026-10-19T14-26-45Z.json",
+      "generated_at": "2026-10-19T14:26:45+00:00",
+      "status": "excluded",
+      "reason": "generated_after_session_open"
+    },
+    {
+      "market": "gold",
+      "target_session_date": "2026-10-19",
+      "forecast_file": "reports/live-forecast/2026-10-15T22-52-37Z.json",
+      "generated_at": "2026-10-15T22:52:37+00:00",
+      "status": "selected",
+      "reason": "latest_before_open_fallback"
+    },
+    {
+      "market": "nikkei",
+      "target_session_date": "2026-10-20",
+      "forecast_file": "reports/live-forecast/2026-10-19T14-26-45Z.json",
+      "generated_at": "2026-10-19T14:26:45+00:00",
+      "status": "selected",
+      "reason": "latest_before_open_fallback"
+    },
+    {
+      "market": "gold",
       "target_session_date": "2026-10-19",
       "forecast_file": "reports/live-forecast/2026-10-19T14-26-45Z.json",
       "generated_at": "2026-10-19T14:26:45+00:00",
