@@ -3,30 +3,30 @@
   "selection_policy": "latest valid 00:00-06:00 JST forecast before session open; otherwise latest valid forecast before open",
   "interval_score_note": "N/A: forecast interval nominal coverage is not defined; coverage and relative width are reported separately.",
   "overall": {
-    "representative_samples": 19,
-    "comparison_population": 19,
+    "representative_samples": 21,
+    "comparison_population": 21,
     "small_sample": true,
     "forecasters": {
       "trend": {
-        "samples": 19,
-        "accuracy": 0.42105263157894735,
-        "mean_brier": 0.3855902052631579
+        "samples": 21,
+        "accuracy": 0.42857142857142855,
+        "mean_brier": 0.36600288761904765
       },
       "analog": {
-        "samples": 19,
-        "accuracy": 0.42105263157894735,
-        "mean_brier": 0.27219091736842105
+        "samples": 21,
+        "accuracy": 0.42857142857142855,
+        "mean_brier": 0.2691722323809524
       },
       "ensemble": {
-        "samples": 19,
-        "accuracy": 0.3157894736842105,
-        "mean_brier": 0.30601155578947364
+        "samples": 21,
+        "accuracy": 0.3333333333333333,
+        "mean_brier": 0.2954004709523809
       }
     },
     "range": {
-      "samples": 19,
-      "inside_rate": 0.7894736842105263,
-      "mean_width_close_ratio": 0.02889951523237608,
+      "samples": 21,
+      "inside_rate": 0.8095238095238095,
+      "mean_width_close_ratio": 0.027361430430103275,
       "nominal_coverage": null,
       "mean_interval_score": null
     }
@@ -62,59 +62,59 @@
       }
     },
     "dow": {
-      "representative_samples": 7,
-      "comparison_population": 7,
+      "representative_samples": 8,
+      "comparison_population": 8,
       "small_sample": true,
       "forecasters": {
         "trend": {
-          "samples": 7,
-          "accuracy": 0.42857142857142855,
-          "mean_brier": 0.32740731857142863
+          "samples": 8,
+          "accuracy": 0.5,
+          "mean_brier": 0.29165793500000003
         },
         "analog": {
-          "samples": 7,
-          "accuracy": 0.2857142857142857,
-          "mean_brier": 0.3008998057142857
+          "samples": 8,
+          "accuracy": 0.25,
+          "mean_brier": 0.29907883125
         },
         "ensemble": {
-          "samples": 7,
-          "accuracy": 0.2857142857142857,
-          "mean_brier": 0.30322879857142854
+          "samples": 8,
+          "accuracy": 0.375,
+          "mean_brier": 0.28237301
         }
       },
       "range": {
-        "samples": 7,
-        "inside_rate": 0.7142857142857143,
-        "mean_width_close_ratio": 0.01465298438636506,
+        "samples": 8,
+        "inside_rate": 0.75,
+        "mean_width_close_ratio": 0.01468198327001184,
         "nominal_coverage": null,
         "mean_interval_score": null
       }
     },
     "usdjpy": {
-      "representative_samples": 2,
-      "comparison_population": 2,
+      "representative_samples": 3,
+      "comparison_population": 3,
       "small_sample": true,
       "forecasters": {
         "trend": {
-          "samples": 2,
+          "samples": 3,
           "accuracy": 0.0,
-          "mean_brier": 0.556646665
+          "mean_brier": 0.4772426066666667
         },
         "analog": {
-          "samples": 2,
-          "accuracy": 0.5,
-          "mean_brier": 0.29174079999999997
+          "samples": 3,
+          "accuracy": 0.6666666666666666,
+          "mean_brier": 0.25937968
         },
         "ensemble": {
-          "samples": 2,
+          "samples": 3,
           "accuracy": 0.0,
-          "mean_brier": 0.403868125
+          "mean_brier": 0.3535146966666667
         }
       },
       "range": {
-        "samples": 2,
+        "samples": 3,
         "inside_rate": 1.0,
-        "mean_width_close_ratio": 0.014483611718886133,
+        "mean_width_close_ratio": 0.013193832533085407,
         "nominal_coverage": null,
         "mean_interval_score": null
       }
@@ -310,6 +310,29 @@
       "actual_close": 52495.87890625,
       "actual_in_predicted_range": false,
       "scored_at": "2026-10-20T22:55:06+00:00"
+    },
+    {
+      "forecast_file": "reports/live-forecast/2026-10-21T12-47-07Z.json",
+      "forecast_source_generated_at": "2026-10-21T12:47:07+00:00",
+      "market": "dow",
+      "target_session_date": "2026-10-21",
+      "trend_probability": 0.7965,
+      "trend_direction": "up",
+      "analog_probability": 0.4649,
+      "analog_direction": "down",
+      "ensemble_probability": 0.6307,
+      "trend_brier_contribution": 0.041412250000000005,
+      "analog_brier_contribution": 0.28633201,
+      "ensemble_brier_contribution": 0.13638248999999997,
+      "forecast_support": 0.7681,
+      "ensemble_direction": "up",
+      "actual_direction": "up",
+      "ensemble_correct": true,
+      "predicted_range_low": 52103.9731,
+      "predicted_range_high": 52890.7347,
+      "actual_close": 52856.08984375,
+      "actual_in_predicted_range": true,
+      "scored_at": "2026-10-21T23:00:55+00:00"
     },
     {
       "forecast_file": "reports/live-forecast/2026-10-14T22-57-42Z.json",
@@ -586,6 +609,29 @@
       "actual_close": 157.80599975585938,
       "actual_in_predicted_range": true,
       "scored_at": "2026-10-19T23:17:24+00:00"
+    },
+    {
+      "forecast_file": "reports/live-forecast/2026-10-19T23-17-03Z.json",
+      "forecast_source_generated_at": "2026-10-19T23:17:03+00:00",
+      "market": "usdjpy",
+      "target_session_date": "2026-10-21",
+      "trend_probability": 0.4357,
+      "trend_direction": "down",
+      "analog_probability": 0.5588,
+      "analog_direction": "up",
+      "ensemble_probability": 0.4972,
+      "trend_brier_contribution": 0.31843449,
+      "analog_brier_contribution": 0.19465744000000004,
+      "ensemble_brier_contribution": 0.25280784,
+      "forecast_support": 0.7716,
+      "ensemble_direction": "down",
+      "actual_direction": "up",
+      "ensemble_correct": false,
+      "predicted_range_low": 156.9683,
+      "predicted_range_high": 158.6482,
+      "actual_close": 158.26800537109375,
+      "actual_in_predicted_range": true,
+      "scored_at": "2026-10-21T23:00:55+00:00"
     }
   ],
   "audit": [
@@ -1066,6 +1112,54 @@
       "target_session_date": "2026-10-20",
       "forecast_file": "reports/live-forecast/2026-10-20T12-35-43Z.json",
       "generated_at": "2026-10-20T12:35:43+00:00",
+      "status": "excluded",
+      "reason": "generated_after_session_open"
+    },
+    {
+      "market": "usdjpy",
+      "target_session_date": "2026-10-21",
+      "forecast_file": "reports/live-forecast/2026-10-19T23-17-03Z.json",
+      "generated_at": "2026-10-19T23:17:03+00:00",
+      "status": "selected",
+      "reason": "latest_before_open_fallback"
+    },
+    {
+      "market": "dow",
+      "target_session_date": "2026-10-21",
+      "forecast_file": "reports/live-forecast/2026-10-20T22-54-31Z.json",
+      "generated_at": "2026-10-20T22:54:31+00:00",
+      "status": "excluded",
+      "reason": "duplicate_not_representative"
+    },
+    {
+      "market": "dow",
+      "target_session_date": "2026-10-21",
+      "forecast_file": "reports/live-forecast/2026-10-21T00-42-47Z.json",
+      "generated_at": "2026-10-21T00:42:47+00:00",
+      "status": "excluded",
+      "reason": "duplicate_not_representative"
+    },
+    {
+      "market": "usdjpy",
+      "target_session_date": "2026-10-21",
+      "forecast_file": "reports/live-forecast/2026-10-21T00-42-47Z.json",
+      "generated_at": "2026-10-21T00:42:47+00:00",
+      "status": "excluded",
+      "reason": "generated_after_session_open"
+    },
+    {
+      "market": "dow",
+      "target_session_date": "2026-10-21",
+      "forecast_file": "reports/live-forecast/2026-10-21T12-47-07Z.json",
+      "generated_at": "2026-10-21T12:47:07+00:00",
+      "status": "selected",
+      "reason": "latest_before_open_fallback"
+    },
+    {
+      "market": "usdjpy",
+      "target_session_date": "2026-10-21",
+      "forecast_file": "reports/live-forecast/2026-10-21T12-47-07Z.json",
+      "generated_at": "2026-10-21T12:47:07+00:00",
       "status": "excluded",
       "reason": "generated_after_session_open"
     }
