@@ -1,0 +1,52 @@
+{
+  "source_generated_at": "2026-10-22T00:45:59+00:00",
+  "forecast": {
+    "generated_at": "2026-10-22T00:45:59+00:00",
+    "markets": [
+      {
+        "id": "dow",
+        "name": "NYダウ",
+        "current": 52856.09,
+        "up_probability": 0.6061,
+        "range_low": 52468.828,
+        "range_high": 53246.2103,
+        "confidence": 1.0,
+        "weather": "partly_cloudy",
+        "risk": "calm",
+        "trend_probability": 0.8066,
+        "analog_probability": 0.4055,
+        "analog_count": 30,
+        "analog_mean_distance": 0.7395,
+        "analog_mean_next_return": -0.000396,
+        "last_data_date": "2026-10-21",
+        "next_session_date": "2026-10-22",
+        "trend_confidence": 1.0,
+        "analog_effective_sample_size": 29.814,
+        "forecast_support": 0.7292,
+        "forecast_horizon_sessions": 1
+      },
+      {
+        "id": "usdjpy",
+        "name": "USD/JPY",
+        "current": 158.187,
+        "up_probability": 0.5613,
+        "range_low": 157.6126,
+        "range_high": 158.7635,
+        "confidence": 0.6,
+        "weather": "partly_cloudy",
+        "risk": "calm",
+        "trend_probability": 0.5869,
+        "analog_probability": 0.5357,
+        "analog_count": 30,
+        "analog_mean_distance": 0.7483,
+        "analog_mean_next_return": 0.000299,
+        "last_data_date": "2026-10-21",
+        "next_session_date": "2026-10-22",
+        "trend_confidence": 0.6,
+        "analog_effective_sample_size": 29.6126,
+        "forecast_support": 0.7277,
+        "forecast_horizon_sessions": 1
+      }
+    ]
+  }
+}
