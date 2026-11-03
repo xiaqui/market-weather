@@ -3,60 +3,60 @@
   "selection_policy": "latest valid 00:00-06:00 JST forecast before session open; otherwise latest valid forecast before open",
   "interval_score_note": "N/A: forecast interval nominal coverage is not defined; coverage and relative width are reported separately.",
   "overall": {
-    "representative_samples": 33,
-    "comparison_population": 33,
+    "representative_samples": 34,
+    "comparison_population": 34,
     "small_sample": false,
     "forecasters": {
       "trend": {
-        "samples": 33,
-        "accuracy": 0.48484848484848486,
-        "mean_brier": 0.3148642427272727
+        "samples": 34,
+        "accuracy": 0.5,
+        "mean_brier": 0.30734169470588235
       },
       "analog": {
-        "samples": 33,
-        "accuracy": 0.45454545454545453,
-        "mean_brier": 0.2786740560606061
+        "samples": 34,
+        "accuracy": 0.47058823529411764,
+        "mean_brier": 0.2769720547058824
       },
       "ensemble": {
-        "samples": 33,
-        "accuracy": 0.42424242424242425,
-        "mean_brier": 0.2725939187878788
+        "samples": 34,
+        "accuracy": 0.4411764705882353,
+        "mean_brier": 0.2683144579411765
       }
     },
     "range": {
-      "samples": 33,
-      "inside_rate": 0.696969696969697,
-      "mean_width_close_ratio": 0.028758525826428228,
+      "samples": 34,
+      "inside_rate": 0.7058823529411765,
+      "mean_width_close_ratio": 0.02918675997613416,
       "nominal_coverage": null,
       "mean_interval_score": null
     }
   },
   "markets": {
     "nikkei": {
-      "representative_samples": 9,
-      "comparison_population": 9,
+      "representative_samples": 10,
+      "comparison_population": 10,
       "small_sample": true,
       "forecasters": {
         "trend": {
-          "samples": 9,
-          "accuracy": 0.6666666666666666,
-          "mean_brier": 0.2705393522222222
+          "samples": 10,
+          "accuracy": 0.7,
+          "mean_brier": 0.24939517799999997
         },
         "analog": {
-          "samples": 9,
-          "accuracy": 0.2222222222222222,
-          "mean_brier": 0.3294713011111111
+          "samples": 10,
+          "accuracy": 0.3,
+          "mean_brier": 0.318604772
         },
         "ensemble": {
-          "samples": 9,
-          "accuracy": 0.4444444444444444,
-          "mean_brier": 0.2758059266666667
+          "samples": 10,
+          "accuracy": 0.5,
+          "mean_brier": 0.260934559
         }
       },
       "range": {
-        "samples": 9,
-        "inside_rate": 0.6666666666666666,
-        "mean_width_close_ratio": 0.041877267039913485,
+        "samples": 10,
+        "inside_rate": 0.7,
+        "mean_width_close_ratio": 0.042021389027565116,
         "nominal_coverage": null,
         "mean_interval_score": null
       }
@@ -770,6 +770,29 @@
       "actual_close": 62693.16015625,
       "actual_in_predicted_range": true,
       "scored_at": "2026-11-01T23:22:01+00:00"
+    },
+    {
+      "forecast_file": "reports/live-forecast/2026-11-01T23-21-22Z.json",
+      "forecast_source_generated_at": "2026-11-01T23:21:22+00:00",
+      "market": "nikkei",
+      "target_session_date": "2026-11-02",
+      "trend_probability": 0.2431,
+      "trend_direction": "down",
+      "analog_probability": 0.4699,
+      "analog_direction": "down",
+      "ensemble_probability": 0.3565,
+      "trend_brier_contribution": 0.05909761,
+      "analog_brier_contribution": 0.22080601,
+      "ensemble_brier_contribution": 0.12709225,
+      "forecast_support": 0.7322,
+      "ensemble_direction": "down",
+      "actual_direction": "down",
+      "ensemble_correct": true,
+      "predicted_range_low": 61938.5508,
+      "predicted_range_high": 64671.1615,
+      "actual_close": 63081.859375,
+      "actual_in_predicted_range": true,
+      "scored_at": "2026-11-03T03:33:04+00:00"
     },
     {
       "forecast_file": "reports/live-forecast/2026-10-14T22-57-42Z.json",
@@ -1614,6 +1637,14 @@
       "generated_at": "2026-11-02T16:53:29+00:00",
       "status": "excluded",
       "reason": "generated_after_session_open"
+    },
+    {
+      "market": "nikkei",
+      "target_session_date": "2026-11-02",
+      "forecast_file": "reports/live-forecast/2026-11-01T23-21-22Z.json",
+      "generated_at": "2026-11-01T23:21:22+00:00",
+      "status": "selected",
+      "reason": "latest_before_open_fallback"
     }
   ]
 }

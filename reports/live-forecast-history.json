@@ -2006,5 +2006,28 @@
     "actual_close": 157.677001953125,
     "actual_in_predicted_range": true,
     "scored_at": "2026-11-03T01:59:35+00:00"
+  },
+  {
+    "forecast_file": "reports/live-forecast/2026-11-01T23-21-22Z.json",
+    "forecast_source_generated_at": "2026-11-01T23:21:22+00:00",
+    "market": "nikkei",
+    "target_session_date": "2026-11-02",
+    "trend_probability": 0.2431,
+    "trend_direction": "down",
+    "analog_probability": 0.4699,
+    "analog_direction": "down",
+    "ensemble_probability": 0.3565,
+    "trend_brier_contribution": 0.05909761,
+    "analog_brier_contribution": 0.22080601,
+    "ensemble_brier_contribution": 0.12709225,
+    "forecast_support": 0.7322,
+    "ensemble_direction": "down",
+    "actual_direction": "down",
+    "ensemble_correct": true,
+    "predicted_range_low": 61938.5508,
+    "predicted_range_high": 64671.1615,
+    "actual_close": 63081.859375,
+    "actual_in_predicted_range": true,
+    "scored_at": "2026-11-03T03:33:04+00:00"
   }
 ]
