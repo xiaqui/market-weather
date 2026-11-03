@@ -1645,6 +1645,14 @@
       "generated_at": "2026-11-01T23:21:22+00:00",
       "status": "selected",
       "reason": "latest_before_open_fallback"
+    },
+    {
+      "market": "gold",
+      "target_session_date": "2026-11-02",
+      "forecast_file": "reports/live-forecast/2026-11-02T16-53-29Z.json",
+      "generated_at": "2026-11-02T16:53:29+00:00",
+      "status": "excluded",
+      "reason": "generated_after_session_open"
     }
   ]
 }
