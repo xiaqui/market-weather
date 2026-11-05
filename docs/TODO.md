@@ -171,7 +171,7 @@ Market Weather の開発・検証タスク一覧。
 - [x] APK Artifact名を `market-weather-debug` に固定
 - [x] Pages deploy workflow と APK build workflowを分離
 - [x] 日次forecast更新workflowを分離
-- [x] workflow変更はCodex PAT権限に依存せず、必要なら倫側で反映できる運用を確認
+- [x] workflow変更を特定の開発環境のPAT権限に依存させない運用を確認
 - [x] READMEにAPK取得方法を明記
 - [ ] PythonテストをAPKビルド前に走らせる
 - [ ] Dependabot等は一次完成後に検討
@@ -217,3 +217,7 @@ Market Weather の開発・検証タスク一覧。
 8. [ ] 定期scheduleが数日安定して自動更新することを確認
 9. [x] 次営業日予報であること・元データ鮮度をUIに明示
 10. [ ] prospective forecastの答え合わせを継続できる運用を固める
+
+
+
+
