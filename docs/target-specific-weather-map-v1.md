@@ -103,3 +103,18 @@ python scripts/validate_target_specific.py
 
 外部データ取得に失敗した場合は script が失敗して report を更新しない。本番
 forecast generator からこの script を呼ばないことが、その障害分離である。
+
+## 未実施: 固定v1の短期OOS追試
+
+2026-09-29T02:06:06Z の評価時点で固定した v1 を変更せず、その時点より後に outcome が確定した paired rows だけで common と比較する追試を行う。これは既存研究の継続であり、本番 forecast の変更ではない。
+
+- NIKKEI: ^DJI / JPY=X / GC=F
+- DOW: ^VIX / ^IXIC / ^TNX
+- USDJPY: DX-Y.NYB / ^TNX / ^N225
+- GOLD: DX-Y.NYB / ^TNX / ^VIX
+- feature、Analog距離、Trendとの50:50重み、availability clockは固定する。
+- direction accuracy、Brier Score、Trend/Analog不一致時の勝敗、naive baseline、sample count、対象営業日を同一outcomeのpairで比較する。
+- 小標本なので統計的優位とは呼ばず、短期OOSの初期観測として扱う。結果を見て同期間へ再最適化しない。
+- 結果は `reports/target-specific-weather-map-v1-oos.json` に保存し、既存reportを上書きしない。
+- `shared/forecast.json`、本番モデル、日次workflow、weather閾値は変更しない。
+
