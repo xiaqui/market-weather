@@ -129,33 +129,7 @@ git config user.email "codex-cloud@users.noreply.github.com"
 
 ## 5. AGENTS.md + TASK.md 運用
 
-Cloudへ毎回長い指示文を貼らず、
-repo内の `TASK.md` を論君が読む方式へ変更した。
-
-`AGENTS.md` に、
-
-```text
-ユーザーが「たすけt」と入力したらTASK.mdを読む
-```
-
-という合言葉を定義。
-
-以後、
-
-```text
-たすけt 実データ反映
-たすけt baseline予測
-たすけt WebView化
-```
-
-のように、
-「合言葉 + 人間向け短いタイトル」だけでCloudタスクを起動する運用にした。
-
-知見:
-
-- `たすけt` だけだとCloud側タスク名が `help` や `typo` 等になり、一覧性が悪い
-- 後ろに短い案件名を付けるとタスク名も読みやすくなる
-- 実装指示はTASK.md、Cloud一覧名は短いタイトル、という役割分担が安定する
+恒久的な開発規約をAGENTS.md、単一の現行作業をTASK.mdに分離した。作業開始時はrepository、origin、最新main、open PR、TASKの有効性を確認する。完了済みTASKや個人的な短縮命令を実行条件にしない。
 
 ## 6. 実データ現在値の導入
 
@@ -354,31 +328,7 @@ Codex Cloud側の参照repo表示も `xiaqui/pygame` へ自動追従した。
 
 ## 11. 現在の運用
 
-現在の基本フロー:
-
-```text
-倫がTASK.mdを書く
-    ↓
-社長が論君へ「たすけt <短いタイトル>」
-    ↓
-Codex Cloudが実装 / test / branch / push / PR
-    ↓
-社長「みて」
-    ↓
-倫がPR / Actions / Reviewを確認
-    ↓
-実機確認
-    ↓
-社長「まじおk」
-    ↓
-倫が最新headとCIを再確認してmerge
-    ↓
-「でぷろいおk」
-    ↓
-Pages / Actionsのdeploy結果を確認
-```
-
-この流れを標準運用とする。
+現在の基本フローは、TASK作成、実装とtest、branch/PR、最新headのレビュー、必要な実機確認、許可されたmerge、deploy確認である。各段階の完了を分け、個人的な会話合図へ依存しない。
 
 ## 12. 現在の構成
 
@@ -416,3 +366,7 @@ Cloud環境はrepo指定が必須なので、
 
 実績のあるコードと手順をテンプレ側へ蓄積し、
 同じ罠を案件ごとに踏み直さないことを目的とする。
+
+
+
+

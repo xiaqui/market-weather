@@ -434,22 +434,9 @@ Pages更新でAndroid WebView側にも反映される。
 
 Androidの殻、権限、WebView設定、署名、versionCode等を変えた場合はAPK buildが必要。
 
-### Drive配布
+### APK配布
 
-Drive file ID:
-
-```text
-16l-OTKL2-RNjSyPy0wyXm4Mfeqd7Z12y
-```
-
-固定ファイル名:
-
-```text
-market-weather-debug.apk
-```
-
-APK生成後はartifact ZIPそのものではなく、
-中の実APKを取り出して同一Driveファイルへ上書きする。
+APKはrepository設定の固定配送ファイルへ内容更新し、利用者向けURLを維持する。配送先ID・URL・認証情報はリポジトリへ記録しない。artifact ZIPではなく中の実APKを検証し、現行TASKが配送を含む場合だけ更新・再取得確認する。
 
 ---
 
@@ -487,9 +474,9 @@ docs/task-md-workflow.md
 
 ### Git運用
 
-倫が作業前に判断してTASK.mdへ明記する。
+メンテナーが作業前に判断してTASK.mdへ明記する。
 
-実装担当（論君 / Codex）は再判定しない。
+実装担当（開発担当）は再判定しない。
 
 main直接push向き:
 
@@ -513,36 +500,16 @@ branch + PR向き:
 
 迷ったらbranch。
 
-### 合言葉
+### 実行方法
 
-```text
-たすけt
-```
-
-実装担当はTASK.mdを読み、
-指定Git運用に従って実装 / test / commit / pushし、
-branch指定ならPRを作る。
-
-```text
-まじおk
-```
-
-branch作業のmerge承認。
-実装担当自身ではmergeしない。
-倫側で最新head / CI等を再確認してmergeする。
+実装担当はAGENTS.mdと現在のTASK.mdを読み、指定Git運用に従って実装・test・commit・pushし、branch指定ならPRを作る。短縮命令や個人的な会話コンテキストをrepositoryの実行条件にしない。
 
 ### 現在のTASK.md
 
-現在のTASK.mdは、
-「天気アイコン最優先カードUI再設計」と
-実機確認後の追加修正
-「アイコン右寄せ / 中央縦線削除」を保持している。
-
-追加修正はcommit `234c1c3f...` で実装済み。
+mainのTASK.mdは実行中なしを示す。open PRの作業範囲は各PR branch側で管理し、完了済みタスクを再実行しない。
 
 次のCodex作業を始める前に、
 TASK.mdを次タスクへ更新すること。
-古い完了済みTASKをそのまま `たすけt` しない。
 
 ---
 
@@ -708,7 +675,6 @@ GOLD円/gなら概ね:
 3. `TASK.md` が完了済み内容なら次タスクへ更新
 4. `docs/TODO.md` は長期TODOとして参照
 5. コード変更前に「新規 / 追加 / 再実行」とGit運用を明示
-6. branch案件は `まじおk` 前にmergeしない
 
 2026-09-27時点の直近UI実装commit:
 
@@ -716,3 +682,6 @@ GOLD円/gなら概ね:
 234c1c3fddcf74d258e94ae5c6fbb72a5c73b117
 天気アイコンを右寄せして区切り線を削除
 ```
+
+
+
