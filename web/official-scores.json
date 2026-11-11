@@ -2468,6 +2468,14 @@
       "generated_at": "2026-11-10T15:27:23+00:00",
       "status": "excluded",
       "reason": "generated_after_session_open"
+    },
+    {
+      "market": "nikkei",
+      "target_session_date": "2026-11-10",
+      "forecast_file": "reports/live-forecast/2026-11-10T04-13-04Z.json",
+      "generated_at": "2026-11-10T04:13:04+00:00",
+      "status": "excluded",
+      "reason": "generated_after_session_open"
     }
   ]
 }
