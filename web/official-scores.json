@@ -3,30 +3,30 @@
   "selection_policy": "latest valid 00:00-06:00 JST forecast before session open; otherwise latest valid forecast before open",
   "interval_score_note": "N/A: forecast interval nominal coverage is not defined; coverage and relative width are reported separately.",
   "overall": {
-    "representative_samples": 59,
-    "comparison_population": 59,
+    "representative_samples": 61,
+    "comparison_population": 61,
     "small_sample": false,
     "forecasters": {
       "trend": {
-        "samples": 59,
-        "accuracy": 0.423728813559322,
-        "mean_brier": 0.34963159084745765
+        "samples": 61,
+        "accuracy": 0.4426229508196721,
+        "mean_brier": 0.3422822936065574
       },
       "analog": {
-        "samples": 59,
-        "accuracy": 0.5084745762711864,
-        "mean_brier": 0.2662669961016949
+        "samples": 61,
+        "accuracy": 0.5245901639344263,
+        "mean_brier": 0.2627474149180328
       },
       "ensemble": {
-        "samples": 59,
-        "accuracy": 0.3559322033898305,
-        "mean_brier": 0.2866101430508474
+        "samples": 61,
+        "accuracy": 0.3770491803278688,
+        "mean_brier": 0.28170565377049184
       }
     },
     "range": {
-      "samples": 59,
-      "inside_rate": 0.6779661016949152,
-      "mean_width_close_ratio": 0.031658062683607394,
+      "samples": 61,
+      "inside_rate": 0.6721311475409836,
+      "mean_width_close_ratio": 0.03136028026174832,
       "nominal_coverage": null,
       "mean_interval_score": null
     }
@@ -62,59 +62,59 @@
       }
     },
     "dow": {
-      "representative_samples": 19,
-      "comparison_population": 19,
+      "representative_samples": 20,
+      "comparison_population": 20,
       "small_sample": true,
       "forecasters": {
         "trend": {
-          "samples": 19,
-          "accuracy": 0.42105263157894735,
-          "mean_brier": 0.3309201952631579
+          "samples": 20,
+          "accuracy": 0.45,
+          "mean_brier": 0.324235426
         },
         "analog": {
-          "samples": 19,
-          "accuracy": 0.42105263157894735,
-          "mean_brier": 0.2816596752631579
+          "samples": 20,
+          "accuracy": 0.45,
+          "mean_brier": 0.274551804
         },
         "ensemble": {
-          "samples": 19,
-          "accuracy": 0.2631578947368421,
-          "mean_brier": 0.29116490947368423
+          "samples": 20,
+          "accuracy": 0.3,
+          "mean_brier": 0.284962536
         }
       },
       "range": {
-        "samples": 19,
-        "inside_rate": 0.6842105263157895,
-        "mean_width_close_ratio": 0.019629665582043446,
+        "samples": 20,
+        "inside_rate": 0.7,
+        "mean_width_close_ratio": 0.020243516062661553,
         "nominal_coverage": null,
         "mean_interval_score": null
       }
     },
     "usdjpy": {
-      "representative_samples": 12,
-      "comparison_population": 12,
+      "representative_samples": 13,
+      "comparison_population": 13,
       "small_sample": true,
       "forecasters": {
         "trend": {
-          "samples": 12,
-          "accuracy": 0.16666666666666666,
-          "mean_brier": 0.3729298458333334
+          "samples": 13,
+          "accuracy": 0.23076923076923078,
+          "mean_brier": 0.34837610692307697
         },
         "analog": {
-          "samples": 12,
-          "accuracy": 0.5833333333333334,
-          "mean_brier": 0.2645934816666667
+          "samples": 13,
+          "accuracy": 0.6153846153846154,
+          "mean_brier": 0.25795839
         },
         "ensemble": {
-          "samples": 12,
-          "accuracy": 0.25,
-          "mean_brier": 0.30953129583333333
+          "samples": 13,
+          "accuracy": 0.3076923076923077,
+          "mean_brier": 0.29394650384615384
         }
       },
       "range": {
-        "samples": 12,
-        "inside_rate": 0.6666666666666666,
-        "mean_width_close_ratio": 0.011948646782943462,
+        "samples": 13,
+        "inside_rate": 0.6153846153846154,
+        "mean_width_close_ratio": 0.012048344910363645,
         "nominal_coverage": null,
         "mean_interval_score": null
       }
@@ -586,6 +586,29 @@
       "actual_close": 52297.08984375,
       "actual_in_predicted_range": true,
       "scored_at": "2026-11-13T00:53:02+00:00"
+    },
+    {
+      "forecast_file": "reports/live-forecast/2026-11-13T02-44-06Z.json",
+      "forecast_source_generated_at": "2026-11-13T02:44:06+00:00",
+      "market": "dow",
+      "target_session_date": "2026-11-13",
+      "trend_probability": 0.5559,
+      "trend_direction": "up",
+      "analog_probability": 0.6265,
+      "analog_direction": "up",
+      "ensemble_probability": 0.5912,
+      "trend_brier_contribution": 0.19722481000000006,
+      "analog_brier_contribution": 0.13950225000000005,
+      "ensemble_brier_contribution": 0.16711744000000003,
+      "forecast_support": 0.7897,
+      "ensemble_direction": "up",
+      "actual_direction": "up",
+      "ensemble_correct": true,
+      "predicted_range_low": 51468.6393,
+      "predicted_range_high": 53138.8756,
+      "actual_close": 52347.55078125,
+      "actual_in_predicted_range": true,
+      "scored_at": "2026-11-14T02:33:24+00:00"
     },
     {
       "forecast_file": "reports/live-forecast/2026-10-14T22-57-42Z.json",
@@ -1506,6 +1529,29 @@
       "actual_close": 159.73399353027344,
       "actual_in_predicted_range": false,
       "scored_at": "2026-11-13T00:53:02+00:00"
+    },
+    {
+      "forecast_file": "reports/live-forecast/2026-11-12T01-46-42Z.json",
+      "forecast_source_generated_at": "2026-11-12T01:46:42+00:00",
+      "market": "usdjpy",
+      "target_session_date": "2026-11-13",
+      "trend_probability": 0.7682,
+      "trend_direction": "up",
+      "analog_probability": 0.5777,
+      "analog_direction": "up",
+      "ensemble_probability": 0.673,
+      "trend_brier_contribution": 0.05373124,
+      "analog_brier_contribution": 0.17833729,
+      "ensemble_brier_contribution": 0.10692899999999997,
+      "forecast_support": 0.8247,
+      "ensemble_direction": "up",
+      "actual_direction": "up",
+      "ensemble_correct": true,
+      "predicted_range_low": 157.6498,
+      "predicted_range_high": 159.7673,
+      "actual_close": 159.875,
+      "actual_in_predicted_range": false,
+      "scored_at": "2026-11-14T02:33:24+00:00"
     }
   ],
   "audit": [
@@ -2826,6 +2872,62 @@
       "target_session_date": "2026-11-12",
       "forecast_file": "reports/live-forecast/2026-11-12T15-50-27Z.json",
       "generated_at": "2026-11-12T15:50:27+00:00",
+      "status": "excluded",
+      "reason": "generated_after_session_open"
+    },
+    {
+      "market": "usdjpy",
+      "target_session_date": "2026-11-13",
+      "forecast_file": "reports/live-forecast/2026-11-12T01-46-42Z.json",
+      "generated_at": "2026-11-12T01:46:42+00:00",
+      "status": "selected",
+      "reason": "latest_before_open_fallback"
+    },
+    {
+      "market": "dow",
+      "target_session_date": "2026-11-13",
+      "forecast_file": "reports/live-forecast/2026-11-13T00-52-41Z.json",
+      "generated_at": "2026-11-13T00:52:41+00:00",
+      "status": "excluded",
+      "reason": "duplicate_not_representative"
+    },
+    {
+      "market": "nikkei",
+      "target_session_date": "2026-11-13",
+      "forecast_file": "reports/live-forecast/2026-11-13T02-44-06Z.json",
+      "generated_at": "2026-11-13T02:44:06+00:00",
+      "status": "excluded",
+      "reason": "generated_after_session_open"
+    },
+    {
+      "market": "dow",
+      "target_session_date": "2026-11-13",
+      "forecast_file": "reports/live-forecast/2026-11-13T02-44-06Z.json",
+      "generated_at": "2026-11-13T02:44:06+00:00",
+      "status": "selected",
+      "reason": "latest_before_open_fallback"
+    },
+    {
+      "market": "usdjpy",
+      "target_session_date": "2026-11-13",
+      "forecast_file": "reports/live-forecast/2026-11-13T02-44-06Z.json",
+      "generated_at": "2026-11-13T02:44:06+00:00",
+      "status": "excluded",
+      "reason": "generated_after_session_open"
+    },
+    {
+      "market": "dow",
+      "target_session_date": "2026-11-13",
+      "forecast_file": "reports/live-forecast/2026-11-13T15-11-22Z.json",
+      "generated_at": "2026-11-13T15:11:22+00:00",
+      "status": "excluded",
+      "reason": "generated_after_session_open"
+    },
+    {
+      "market": "usdjpy",
+      "target_session_date": "2026-11-13",
+      "forecast_file": "reports/live-forecast/2026-11-13T15-11-22Z.json",
+      "generated_at": "2026-11-13T15:11:22+00:00",
       "status": "excluded",
       "reason": "generated_after_session_open"
     }
