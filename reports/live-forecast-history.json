@@ -4237,5 +4237,28 @@
     "actual_close": 59444.2109375,
     "actual_in_predicted_range": true,
     "scored_at": "2026-11-20T03:36:45+00:00"
+  },
+  {
+    "forecast_file": "reports/live-forecast/2026-11-19T16-24-48Z.json",
+    "forecast_source_generated_at": "2026-11-19T16:24:48+00:00",
+    "market": "gold",
+    "target_session_date": "2026-11-19",
+    "trend_probability": 0.1889,
+    "trend_direction": "down",
+    "analog_probability": 0.5791,
+    "analog_direction": "up",
+    "ensemble_probability": 0.384,
+    "trend_brier_contribution": 0.03568321000000001,
+    "analog_brier_contribution": 0.33535680999999995,
+    "ensemble_brier_contribution": 0.147456,
+    "forecast_support": 0.7548,
+    "ensemble_direction": "down",
+    "actual_direction": "down",
+    "ensemble_correct": true,
+    "predicted_range_low": 3602.2003,
+    "predicted_range_high": 3759.6843,
+    "actual_close": 3685.5,
+    "actual_in_predicted_range": true,
+    "scored_at": "2026-11-20T15:57:58+00:00"
   }
 ]
