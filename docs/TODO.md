@@ -1,5 +1,15 @@
 # TODO
 
+## セキュリティ調査対応TODO（2026-11-23、未着手）
+
+社長が共有した横断セキュリティ調査の要対応事項。**本節の追加は実装・branch保護設定・Release/Pages公開の発注ではない**。現在の `TASK.md` は「有効な実装タスクなし」であるため、次に作業する際はAGENTS規約どおり新たなTASKの明示承認とPR経路を使う。調査結果の見出しだけで具体的な脆弱性を断定せず、現行実装・workflow・設定から再検証する。
+
+- [ ] **高優先：main・署名対象branch保護**。ipmsg・overlay・appdate・market-weatherの四repo共通。mainとAndroid署名jobの参照refs、Pages/日次予報自動更新の実際のpush先を確認。Review/checks・force-push禁止・削除禁止・workflow変更承認と、GitHub Pages/自動予報更新/手動ビルドを両立できるrulesetを設計・適用・検証。GitHub Settingsでの権限が必要な作業は別工程とし、完了を偽らない。
+- [ ] **高優先：署名実行範囲限定**。Android/APK関連workflowで固定署名用Secretsを使うイベント、refs、任意branch実行、再利用workflowや手動dispatchの制約を確認し、信頼済み保護ref・承認された配布jobのみ署名できるようにする。Python/Pages/PR検証から署名材を分離し、未信頼コードにSecretsを渡さない。現行の公開Web・予報生成を壊さず、Android 6対応と既存署名互換性を維持。
+- [ ] **高優先：HTML／WebView防御**。Pagesで表示するHTML/JavaScriptの動的値・URLパラメータ・API/JSONデータ・DOM操作を棚卸しして、XSS/HTML注入を防ぐエスケープ、`textContent` 等の安全な反映、CSP（必要な配信・外部データ・iframe等との互換性を確認）を検討。Android WebViewでは `JavaScriptInterface`・file/content access・mixed content・不明な遷移先・外部スキーム・intent処理・HTTPS限定等を実コードで確認し、最小権限のnavigation/URL制御へ変更する。設定値の機械的な一律変更をせず、Web版/Android 6〜の互換性・日次予報・現在値表示・Pages deploy・通常操作の回帰テストを行う。
+- [ ] **完了判定**：危険な入力によるscript実行/外部遷移が遮断されること、通常の金融天気図の数値・予報表示/ナビゲーションに回帰がないこと、GitHub Pages配信とAndroid APKが別々に検証済みであることを記録。端末の未検収は合格扱いしない。
+
+
 Market Weather の開発・検証タスク一覧。
 
 最終更新: 2026-09-24
