@@ -3,30 +3,30 @@
   "selection_policy": "latest valid 00:00-06:00 JST forecast before session open; otherwise latest valid forecast before open",
   "interval_score_note": "N/A: forecast interval nominal coverage is not defined; coverage and relative width are reported separately.",
   "overall": {
-    "representative_samples": 76,
-    "comparison_population": 76,
+    "representative_samples": 77,
+    "comparison_population": 77,
     "small_sample": false,
     "forecasters": {
       "trend": {
-        "samples": 76,
-        "accuracy": 0.4473684210526316,
-        "mean_brier": 0.336901215
+        "samples": 77,
+        "accuracy": 0.44155844155844154,
+        "mean_brier": 0.34300098636363635
       },
       "analog": {
-        "samples": 76,
-        "accuracy": 0.5,
-        "mean_brier": 0.2701342015789474
+        "samples": 77,
+        "accuracy": 0.4935064935064935,
+        "mean_brier": 0.2717315366233766
       },
       "ensemble": {
-        "samples": 76,
-        "accuracy": 0.39473684210526316,
-        "mean_brier": 0.2835953457894737
+        "samples": 77,
+        "accuracy": 0.38961038961038963,
+        "mean_brier": 0.2874630198701299
       }
     },
     "range": {
-      "samples": 76,
-      "inside_rate": 0.6447368421052632,
-      "mean_width_close_ratio": 0.033260468592585156,
+      "samples": 77,
+      "inside_rate": 0.6493506493506493,
+      "mean_width_close_ratio": 0.03369731206716815,
       "nominal_coverage": null,
       "mean_interval_score": null
     }
@@ -120,30 +120,30 @@
       }
     },
     "gold": {
-      "representative_samples": 19,
-      "comparison_population": 19,
+      "representative_samples": 20,
+      "comparison_population": 20,
       "small_sample": true,
       "forecasters": {
         "trend": {
-          "samples": 19,
-          "accuracy": 0.5263157894736842,
-          "mean_brier": 0.34909970631578946
+          "samples": 20,
+          "accuracy": 0.5,
+          "mean_brier": 0.3719739015
         },
         "analog": {
-          "samples": 19,
-          "accuracy": 0.5789473684210527,
-          "mean_brier": 0.23060847631578948
+          "samples": 20,
+          "accuracy": 0.55,
+          "mean_brier": 0.2387345025
         },
         "ensemble": {
-          "samples": 19,
-          "accuracy": 0.5263157894736842,
-          "mean_brier": 0.25327194
+          "samples": 20,
+          "accuracy": 0.5,
+          "mean_brier": 0.26967865550000003
         }
       },
       "range": {
-        "samples": 19,
-        "inside_rate": 0.5263157894736842,
-        "mean_width_close_ratio": 0.05647099505766604,
+        "samples": 20,
+        "inside_rate": 0.55,
+        "mean_width_close_ratio": 0.056992316111556515,
         "nominal_coverage": null,
         "mean_interval_score": null
       }
@@ -1161,6 +1161,29 @@
       "actual_close": 3651.39990234375,
       "actual_in_predicted_range": true,
       "scored_at": "2026-11-24T06:12:59+00:00"
+    },
+    {
+      "forecast_file": "reports/live-forecast/2026-11-23T00-35-05Z.json",
+      "forecast_source_generated_at": "2026-11-23T00:35:05+00:00",
+      "market": "gold",
+      "target_session_date": "2026-11-24",
+      "trend_probability": 0.1019,
+      "trend_direction": "down",
+      "analog_probability": 0.373,
+      "analog_direction": "down",
+      "ensemble_probability": 0.2375,
+      "trend_brier_contribution": 0.80658361,
+      "analog_brier_contribution": 0.393129,
+      "ensemble_brier_contribution": 0.5814062499999999,
+      "forecast_support": 0.8143,
+      "ensemble_direction": "down",
+      "actual_direction": "up",
+      "ensemble_correct": false,
+      "predicted_range_low": 3398.2773,
+      "predicted_range_high": 3636.5592,
+      "actual_close": 3561.89990234375,
+      "actual_in_predicted_range": true,
+      "scored_at": "2026-11-25T17:51:58+00:00"
     },
     {
       "forecast_file": "reports/live-forecast/2026-10-12T16-34-48Z.json",
@@ -3606,6 +3629,30 @@
     },
     {
       "market": "usdjpy",
+      "target_session_date": "2026-11-24",
+      "forecast_file": "reports/live-forecast/2026-11-24T18-43-26Z.json",
+      "generated_at": "2026-11-24T18:43:26+00:00",
+      "status": "excluded",
+      "reason": "generated_after_session_open"
+    },
+    {
+      "market": "gold",
+      "target_session_date": "2026-11-24",
+      "forecast_file": "reports/live-forecast/2026-11-23T00-35-05Z.json",
+      "generated_at": "2026-11-23T00:35:05+00:00",
+      "status": "selected",
+      "reason": "latest_before_open_fallback"
+    },
+    {
+      "market": "gold",
+      "target_session_date": "2026-11-24",
+      "forecast_file": "reports/live-forecast/2026-11-24T06-12-21Z.json",
+      "generated_at": "2026-11-24T06:12:21+00:00",
+      "status": "excluded",
+      "reason": "generated_after_session_open"
+    },
+    {
+      "market": "gold",
       "target_session_date": "2026-11-24",
       "forecast_file": "reports/live-forecast/2026-11-24T18-43-26Z.json",
       "generated_at": "2026-11-24T18:43:26+00:00",
